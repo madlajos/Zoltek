@@ -35,15 +35,13 @@ def connect_to_printer():
     identification_command = "M115"
     expected_response = "FIRMWARE_NAME:Marlin"
     
-    return connect_to_device("Printer", identification_command, expected_response)
+    return connect_to_device("printer", identification_command, expected_response)
 
 def write(device, data):
     if isinstance(data, tuple):
         command = "{},{}".format(*data)
-    elif device == "psu":
-        command = data + "\n"
     else:
-        command = data
+        command = data + "\n"
 
     if isinstance(device, serial.Serial):
         device.write(command.encode())
