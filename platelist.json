@@ -1,0 +1,20 @@
+[
+    {
+      "Name": "TabletPlate1",
+      "TabletDiameter": 14,
+      "TabletHeight": 3.2,
+	    "ColCount": 5,
+	    "RowCount": 8,
+      "ColumnDistance": 27.75,
+      "RowDistance": 25.143
+    },
+    {
+      "Name": "TabletPlate2",
+      "TabletDiameter": 8,
+      "TabletHeight": 3.2,
+      "ColCount": 9,
+      "RowCount": 15,
+      "ColumnDistance": 13.875,
+      "RowDistance": 12.571
+    }
+]
