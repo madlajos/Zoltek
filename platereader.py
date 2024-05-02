@@ -1,8 +1,8 @@
 import json
 
 file_path = 'platelist.json'
-x0 = 62.2
-y0 = 210
+x0 = 67
+y0 = 216
 
 class TabletPlate:
     def __init__(self, name, diameter, height, col_count, row_count, column_distance, row_distance):
@@ -36,6 +36,75 @@ def read_tablet_plates():
         print(f"Error: Failed to decode JSON data from file '{file_path}'.")
         return None
 
+def add_tablet_plate(new_plate):
+    try:
+        # Read existing tablet plates from the JSON file
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+
+        # Check if a plate with the same name already exists
+        for plate_data in data:
+            if plate_data['Name'] == new_plate.name:
+                print(f"Error: A tablet plate with the name '{new_plate.name}' already exists.")
+                return
+
+        # Append new plate data to the existing data
+        data.append({
+            'Name': new_plate.name,
+            'TabletDiameter': new_plate.diameter,
+            'TabletHeight': new_plate.height,
+            'ColCount': new_plate.col_count,
+            'RowCount': new_plate.row_count,
+            'ColumnDistance': new_plate.column_distance,
+            'RowDistance': new_plate.row_distance
+        })
+
+        # Write the updated data back to the JSON file
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+        print("New tablet plate added successfully.")
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+    except json.JSONDecodeError:
+        print(f"Error: Failed to decode JSON data from file '{file_path}'.")
+
+
+# Function to update existing plates. If the name is also modified, the function calls
+# the add_tablet_plate function with the plate
+def update_plate_data(updated_plate):
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        
+        # Find the index of the plate to update
+        plate_index = None
+        for i, plate_data in enumerate(data):
+            if plate_data['Name'] == updated_plate.name:
+                plate_index = i
+                break
+        
+        # Update the plate data if found, otherwise add a new plate
+        if plate_index is not None:
+            data[plate_index] = {
+                'Name': updated_plate.name,
+                'TabletDiameter': updated_plate.diameter,
+                'TabletHeight': updated_plate.height,
+                'ColCount': updated_plate.col_count,
+                'RowCount': updated_plate.row_count,
+                'ColumnDistance': updated_plate.column_distance,
+                'RowDistance': updated_plate.row_distance
+            }
+            print(f"Plate '{updated_plate.name}' data updated successfully.")
+        else:
+            print(f"Plate '{updated_plate.name}' not found. Adding new plate...")
+            add_tablet_plate(updated_plate)
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+    except json.JSONDecodeError:
+        print(f"Error: Failed to decode JSON data from file '{file_path}'.")
+
+# Calculates the path array for the printer
 def calc_camera_path(plate):
     # Initialize the list to store coordinates
     coordinates = [] 

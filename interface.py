@@ -1,13 +1,13 @@
 import customtkinter as ctk
 import porthandler
 import math
+import lampcontrols
+
+# Demo project for multi spectral UV lamp.
+# Currently does not work, needs refactoring, as turn_on_channel was moved to lampcontrols.
 
 # Set appearance mode to Dark
 ctk.set_appearance_mode("Dark")
-
-# Constant tuples for voltages and currents
-VOLTAGES = (30, 39, 24, 24, 41, 39)  # Example voltages in volts
-CURRENTS = (0.06, 0.50, 0.80, 0.80, 0.50, 0.35)  # Example currents in amps
 
 class App(ctk.CTk):
     def __init__(self):
@@ -44,7 +44,7 @@ class App(ctk.CTk):
     def create_channel_buttons(self, frame):
         """Create buttons for channel numbers."""
         for i in range(1, 7):
-            channel_button = ctk.CTkButton(frame, text=str(i), command=lambda ch=i: self.turn_on_channel(ch, VOLTAGES[ch-1], CURRENTS[ch-1]))
+            channel_button = ctk.CTkButton(frame, text=str(i), command=lambda ch=i: lampcontrols.turn_on_channel(ch, lampcontrols.VOLTAGES[ch-1], lampcontrols.CURRENTS[ch-1]))
             channel_button.pack(side="left", padx=2)
             channel_button.configure(width=2, height=1)  # Set width and height to make buttons smaller
 
@@ -64,6 +64,7 @@ class App(ctk.CTk):
         canvas.delete("status_indicator")
         color = "green" if connected else "red"
         canvas.create_oval(5, 5, 15, 15, fill=color, tags="status_indicator")
+
 
     #####################################################
     #                                                   #
@@ -111,49 +112,6 @@ class App(ctk.CTk):
             porthandler.write(porthandler.lampcontroller, command)
         else:
             print("Lampcontroller is not connected.")
-
-    #####################################################
-    #                                                   #
-    #       TODO: REMOVE FROM INTERFACE CLASS!!         #
-    #   This method handles channel control via PSU     #
-    #  and lampcontroller commands. Correct usage of    #
-    #  this method is crucial. It should have its own   #
-    #  class.                                           #
-    #  For safety reasons, it turns all channels off,   #
-    #  then sets new PSU values, makes sure they are    #
-    #  set correctly, and then turns on the relays.     #
-    #                                                   #
-    #####################################################
-
-    def turn_on_channel(self, channel, voltage, current):
-        """Send command to the PSU."""
-        if porthandler.psu is not None:
-            # Turn off all channels on the lamp controller
-            porthandler.write(porthandler.lampcontroller, "1,0")
-            # Send command to set voltage and current
-            voltage_command = f"VOLTage {voltage}\n"
-            current_command = f"CURRent {current}\n"
-            porthandler.write(porthandler.psu, voltage_command)
-            porthandler.write(porthandler.psu, current_command)
-            # Request set voltage and current from PSU
-            porthandler.write(porthandler.psu, "VOLTage?\n")
-            set_voltage_response = porthandler.psu.readline().decode().strip()
-            porthandler.write(porthandler.psu, "CURRent?\n")
-            set_current_response = porthandler.psu.readline().decode().strip()
-            # Convert set voltage and current responses to integers
-            set_voltage = int(float(set_voltage_response))
-            set_current = int(float(set_current_response))
-            # Convert predefined voltage and current values to integers
-            voltage = int(VOLTAGES[channel - 1])
-            current = int(CURRENTS[channel - 1])
-            # Check if the responses match the predefined values
-            if set_voltage == voltage and set_current == current:
-                # If the values match, send command to Lampcontroller
-                self.send_command_lampcontroller(channel)
-            else:
-                print("Error: PSU set values do not match")
-        else:
-            print("Error: PSU is not connected")
 
     def create_z_axis_buttons(self, frame):
         """Create buttons for Z-axis control."""
