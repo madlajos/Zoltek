@@ -1,5 +1,3 @@
-# First Example
-
 import cv2
 import sys
 from typing import Optional
@@ -8,39 +6,45 @@ from vmbpy import *
 
 opencv_display_format = PixelFormat.Bgr8
 
-def print_preamble():
-    print('///////////////////////////////////////////////////')
-    print('/// VmbPy Asynchronous Grab with OpenCV Example ///')
-    print('///////////////////////////////////////////////////\n')
+# Library to handle Camera parameters
+# Gamma is stored with a 100 multiplication
+camera_params = {
+    'ImageWidth': 800, 
+    'ImageHeight': 400, 
+    'FrameRate': 60, 
+    'ExposureTime': 200, 
+    'Gain': 10, 
+    'Gamma': 100,
+    'CenterROI_x': True,
+    'CenterROI_y': True,
+    'OffsetX': 320,
+    'OffsetY': 900 
+}
 
-def print_usage():
-    print('Usage:')
-    print('    python asynchronous_grab_opencv.py [camera_id]')
-    print('    python asynchronous_grab_opencv.py [/h] [-h]')
-    print()
-    print('Parameters:')
-    print('    camera_id   ID of the camera to use (using first camera if not specified)')
-    print()
+# Function to calculate nearest accepted image size to user specified value
+def nearestAcceptedImgSize(user_size, dimension, camera: Camera):
+    if dimension == "width":
+        min_size = camera.Width.GetMin()
+        max_size = camera.Width.GetMax()
+        min_increment = camera.Width.GetInc()
 
-def abort(reason: str, return_code: int = 1, usage: bool = False):
-    print(reason + '\n')
-    if usage:
-        print_usage()
-    sys.exit(return_code)
+    elif dimension == "height": 
+        min_size = camera.Height.GetMin()
+        max_size = camera.Height.GetMax()
+        min_increment = camera.Height.GetInc()
+    
+    else:
+        raise ValueError(f"Invalid dimension: {dimension}")
 
-def parse_args() -> Optional[str]:
-    args = sys.argv[1:]
-    argc = len(args)
-
-    for arg in args:
-        if arg in ('/h', '-h'):
-            print_usage()
-            sys.exit(0)
-
-    if argc > 1:
-        abort(reason="Invalid number of arguments. Abort.", return_code=2, usage=True)
-
-    return None if argc == 0 else args[0]
+    if(user_size < min_size):
+        nearest_accepted_size = min_size
+    elif(user_size > max_size):
+        nearest_accepted_size = max_size
+    else:
+        diff = user_size - min_size
+        nearest_accepted_size = min_size + diff // min_increment * min_increment
+    
+    return nearest_accepted_size
 
 def get_camera(camera_id: Optional[str]) -> Camera:
     with VmbSystem.get_instance() as vmb:
@@ -48,25 +52,27 @@ def get_camera(camera_id: Optional[str]) -> Camera:
             try:
                 return vmb.get_camera_by_id(camera_id)
             except VmbCameraError:
-                abort('Failed to access Camera \'{}\'. Abort.'.format(camera_id))
+                raise ValueError(f"Failed to access Camera '{camera_id}'.")
         else:
             cams = vmb.get_all_cameras()
             if not cams:
-                abort('No Cameras accessible. Abort.')
+                raise ValueError('No Cameras accessible.')
             return cams[0]
 
-def setup_camera(cam: Camera):
-    with cam:
+def setup_camera(camera: Camera):
+    with camera:
         try:
-            cam.ExposureTimeAbs.set(10000000)  # Set exposure time in microseconds
+            camera.AcquisitionFrameRateEnable.set(True)
+            camera.AcquisitionFrameRate.set(camera_params['FrameRate'])
+            camera.ExposureTime.set(camera_params['ExposureTime'])
+            camera.Gain.set(camera_params['Gain'])
+            camera.Gamma.set(camera_params['Gamma'] / 100)
+            camera.BalanceWhiteAuto.set('Off')
         except (AttributeError, VmbFeatureError):
-            print("Camera does not support setting exposure time. This is displayed for some reason.")
+            print("Error setting camera parameters")
+
         try:
-            cam.BalanceWhiteAuto.set('Off')
-        except (AttributeError, VmbFeatureError):
-            pass
-        try:
-            stream = cam.get_streams()[0]
+            stream = camera.get_streams()[0]
             stream.GVSPAdjustPacketSize.run()
             while not stream.GVSPAdjustPacketSize.is_done():
                 pass
@@ -88,7 +94,7 @@ def setup_pixel_format(cam: Camera):
     elif convertible_mono_formats:
         cam.set_pixel_format(convertible_mono_formats[0])
     else:
-        abort('Camera does not support an OpenCV compatible format. Abort.')
+        raise ValueError('Camera does not support an OpenCV compatible format.')
 
 class Handler:
     def __init__(self):
@@ -107,38 +113,20 @@ class Handler:
             self.display_queue.put(display.as_opencv_image(), True)
         cam.queue_frame(frame)
 
-def process_or_display_frame(cam: Camera, frame: Frame):
-    if frame.get_status() == FrameStatus.Complete:
-        print('{} acquired {}'.format(cam, frame), flush=True)
-        if frame.get_pixel_format() == opencv_display_format:
-            display = frame
-        else:
-            display = frame.convert_pixel_format(opencv_display_format)
-        cv2.imshow('Stream from \'{}\'. Press <Enter> to stop stream.'.format(cam.get_name()), display.as_opencv_image())
-
-def main():
-    print_preamble()
-    cam_id = parse_args()
-
-    with VmbSystem.get_instance():
-        with get_camera(cam_id) as cam:
-            setup_camera(cam)
-            setup_pixel_format(cam)
-            handler = Handler()
-            try:
-                cam.start_streaming(handler=handler, buffer_count=1)
-                msg = 'Stream from \'{}\'. Press <Enter> to stop stream.'
-                import cv2
-                ENTER_KEY_CODE = 13
-                while True:
-                    key = cv2.waitKey(1)
-                    if key == ENTER_KEY_CODE:
-                        cv2.destroyWindow(msg.format(cam.get_name()))
-                        break
-                    display = handler.get_image()
-                    cv2.imshow(msg.format(cam.get_name()), display)
-            finally:
-                cam.stop_streaming()
-
-if __name__ == '__main__':
-    main()
+def start_streaming(camera: Camera):
+    setup_camera(camera)
+    setup_pixel_format(camera)
+    handler = Handler()
+    try:
+        camera.start_streaming(handler=handler, buffer_count=1)
+        msg = 'Stream from \'{}\'. Press <Enter> to stop stream.'
+        ENTER_KEY_CODE = 13
+        while True:
+            key = cv2.waitKey(1)
+            if key == ENTER_KEY_CODE:
+                cv2.destroyWindow(msg.format(camera.get_name()))
+                break
+            display = handler.get_image()
+            cv2.imshow(msg.format(camera.get_name()), display)
+    finally:
+        camera.stop_streaming()
