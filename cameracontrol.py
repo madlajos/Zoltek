@@ -20,6 +20,27 @@ camera_params = {
     'OffsetX': 320,
     'OffsetY': 900 
 }
+def abort(reason: str, return_code: int = 1, usage: bool = False):
+    print(reason + '\n')
+    if usage:
+        print_usage()
+    sys.exit(return_code)
+
+def parse_args() -> Optional[str]:
+    args = sys.argv[1:]
+    argc = len(args)
+
+    for arg in args:
+        if arg in ('/h', '-h'):
+            print_usage()
+            sys.exit(0)
+
+    if argc > 1:
+        abort(reason="Invalid number of arguments. Abort.", return_code=2, usage=True)
+
+    return None if argc == 0 else args[0]
+
+
 
 # Function to calculate nearest accepted image size to user specified value
 def nearestAcceptedImgSize(user_size, dimension, camera: Camera):
@@ -97,11 +118,23 @@ def setup_pixel_format(cam: Camera):
         raise ValueError('Camera does not support an OpenCV compatible format.')
 
 class Handler:
-    def __init__(self):
+    def __init__(self, folder_selected):
         self.display_queue = Queue(10)
+        self.save_next_frame = False  # Flag to save the next frame
+        self.folder_selected = folder_selected
 
     def get_image(self):
         return self.display_queue.get(True)
+
+    def set_save_next_frame(self):
+        self.save_next_frame = True
+
+    def save_frame(self, frame):
+        frame_np = frame.as_opencv_image()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = os.path.join(self.folder_selected, f"image_from_stream_{timestamp}.jpg")
+        cv2.imwrite(filename, frame_np)
+        print("Image saved as:", filename)
 
     def __call__(self, cam: Camera, stream: Stream, frame: Frame):
         if frame.get_status() == FrameStatus.Complete:
@@ -111,7 +144,13 @@ class Handler:
             else:
                 display = frame.convert_pixel_format(opencv_display_format)
             self.display_queue.put(display.as_opencv_image(), True)
-        cam.queue_frame(frame)
+
+            if self.save_next_frame:
+                self.save_frame(frame)
+                self.save_next_frame = False
+
+            cam.queue_frame(frame)
+            return frame
 
 def start_streaming(camera: Camera):
     setup_camera(camera)
