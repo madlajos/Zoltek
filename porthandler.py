@@ -22,20 +22,44 @@ def connect_to_device(device_name, identification_command, expected_response):
 def connect_to_psu():
     identification_command = "*IDN?"
     expected_response = "OWON,"
-    
-    return connect_to_device("PSU", identification_command, expected_response)
+    psu = connect_to_device("PSU", identification_command, expected_response)
+    return psu
 
 def connect_to_lampcontroller():
     identification_command = "IDN?"
     expected_response = "RPZERO"
-    
-    return connect_to_device("Lampcontroller", identification_command, expected_response)
+    lampcontroller = connect_to_device("Lampcontroller", identification_command, expected_response)
+    return lampcontroller
 
 def connect_to_printer():
     identification_command = "M115"
     expected_response = "FIRMWARE_NAME:Marlin"
-    
-    return connect_to_device("printer", identification_command, expected_response)
+    printer = connect_to_device("printer", identification_command, expected_response)
+    return printer
+
+def get_psu():
+    global psu
+    if psu is None:
+        psu = connect_to_psu()
+        if not psu:
+            raise Exception("PSU not found")
+    return printer
+
+def get_lampcontroller():
+    global lampcontroller
+    if lampcontroller is None:
+        psu = connect_to_lampcontroller()
+        if not printer:
+            raise Exception("Lampcontroller not found")
+    return printer
+
+def get_printer():
+    global printer
+    if printer is None:
+        printer = connect_to_printer()
+        if not printer:
+            raise Exception("Printer not found")
+    return printer
 
 def write(device, data):
     if isinstance(data, tuple):

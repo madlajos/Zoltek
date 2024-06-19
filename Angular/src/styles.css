@@ -2,3 +2,145 @@
 html { background-color: #212529 ; }
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
+.button {
+    background-color: transparent;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    padding-left: 40px; /* Adjust to ensure the icon is visible */
+  }
+  
+  /* Hover effect */
+  .button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  /* SVG icon backgrounds */
+  .button_x01 {
+    background-image: url('/assets/images/0.1.svg');
+  }
+  .button_x01:hover {
+    background-image: url('/assets/images/0.1_Active.svg');
+  }
+
+  .button_x1 {
+    background-image: url('/assets/images/1.svg');
+  }
+  .button_x1:hover {
+    background-image: url('/assets/images/1_Active.svg');
+  }
+  
+  .button_x10 {
+    background-image: url('/assets/images/10.svg');
+  }
+  .button_x10:hover {
+    background-image: url('/assets/images/10_Active.svg');
+  }
+
+  .button_y01 {
+    background-image: url('/assets/images/0.1.svg');
+  }
+  .button_y01:hover {
+    background-image: url('/assets/images/0.1_Active.svg');
+  }
+
+  .button_y1 {
+    background-image: url('/assets/images/1.svg');
+  }
+  .button_y1:hover {
+    background-image: url('/assets/images/1_Active.svg');
+  }
+  
+  .button_y10 {
+    background-image: url('/assets/images/10.svg');
+  }
+  .button_y10:hover {
+    background-image: url('/assets/images/10_Active.svg');
+  }
+
+  .button_z01 {
+    background-image: url('/assets/images/z0.1.svg');
+  }
+  .button_z01:hover {
+    background-image: url('/assets/images/z0.1_Active.svg');
+  }
+
+  .button_z1 {
+    background-image: url('/assets/images/z1.svg');
+  }
+  .button_z1:hover {
+    background-image: url('/assets/images/z1_Active.svg');
+  }
+
+  .button_z10 {
+    background-image: url('/assets/images/z10.svg');
+  }
+  .button_z10:hover {
+    background-image: url('/assets/images/z10_Active.svg');
+  }
+
+  .button_x-01 {
+    background-image: url('/assets/images/0.1.svg');
+  }
+  .button_x-01:hover {
+    background-image: url('/assets/images/01_Active.svg');
+  }
+
+  .button_x-1 {
+    background-image: url('/assets/images/1.svg');
+  }
+  .button_x-1:hover {
+    background-image: url('/assets/images/1_Active.svg');
+  }
+  
+  .button_x-10 {
+    background-image: url('/assets/images/10.svg');
+  }
+  .button_x-10:hover {
+    background-image: url('/assets/images/10_Active.svg');
+  }
+
+  .button_y-01 {
+    background-image: url('/assets/images/01.svg');
+  }
+  .button_y-01:hover {
+    background-image: url('/assets/images/01_Active.svg');
+  }
+
+  .button_y-1 {
+    background-image: url('/assets/images/1.svg');
+  }
+  .button_y-1:hover {
+    background-image: url('/assets/images/1_Active.svg');
+  }
+  
+  .button_y-10 {
+    background-image: url('/assets/images/10.svg');
+  }
+  .button_y-10:hover {
+    background-image: url('/assets/images/10_Active.svg');
+  }
+
+  .button_z-01 {
+    background-image: url('/assets/images/z-0.1.svg');
+  }
+  .button_z-01:hover {
+    background-image: url('/assets/images/z-0.1_Active.svg');
+  }
+
+  .button_z-1 {
+    background-image: url('/assets/images/z-1.svg');
+  }
+  .button_z-1:hover {
+    background-image: url('/assets/images/z-1_Active.svg');
+  }
+
+  .button_z-10 {
+    background-image: url('/assets/images/z-10.svg');
+  }
+  .button_z-10:hover {
+    background-image: url('/assets/images/z-10_Active.svg');
+  }

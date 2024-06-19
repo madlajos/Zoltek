@@ -17,7 +17,6 @@ import json
 import datetime
 import shutil
 import cv2
-import vim_test
 
 # Enable camera emulation
 import os
@@ -187,276 +186,37 @@ def connect_print():
 @app.route('/printer_home', methods=['POST'])
 def printer_home():
     global printer, handler, lamp, psu, folder_selected
-
-
-
-
     print(str(printer))  # Print the serial object
     time.sleep(1)
     if printer is not None:
-        printercontrols.home_axes(printer,'Z')
+        printercontrols.home_axes(printer)
         return jsonify('Printer axes homed successfully!')
     else:
         return jsonify('Error')
 
+@app.route('/move_printer', methods=['POST'])
+def move_printer():
+    data = request.get_json()
+    axis = data.get('axis')
+    value = data.get('value')
+    
+    if axis not in ['x', 'y', 'z']:
+        return jsonify({'status': 'error', 'message': 'Invalid axis'}), 400
 
+    try:
+        # Assuming you have a function to get the printer object
+        printer = porthandler.get_printer()
 
-
-
-
-@app.route('/printer_move1', methods=['POST'])
-def printer_movez_1():
-    global printer, handler, lamp, psu, folder_selected
-    with VmbSystem.get_instance() as vimba:
-        camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-
-            handler = handler   # Use the current handler if available
-            cam.start_streaming(handler=handler, buffer_count=10)
-            while True:
-                    # Retrieve the current frame from the handler
-                display = handler.get_image()
-                resized_frame = cv2.resize(display, (640, 480))
-                _, frame = cv2.imencode('.jpg', resized_frame)
-                yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
-
-
+        # Dynamically call move_relative with the axis and value
         if printer is not None:
+            move_args = {axis: value}
+            printercontrols.move_relative(printer, **move_args)
+            return jsonify({'status': 'success'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Printer not found'}), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-            printercontrols.move_relative(printer, y=0.1)
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-@app.route('/printer_move2', methods=['POST'])
-def printer_movez_2():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, y=1)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move3', methods=['POST'])
-def printer_movez_3():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, y=10)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move4', methods=['POST'])
-def printer_movez_4():
-    global printer, handler, lamp, psu, folder_selected
-    with VmbSystem.get_instance() as vimba:
-        camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-
-            handler = handler  # Use the current handler if available
-            cam.start_streaming(handler=handler, buffer_count=10)
-            while True:
-                # Retrieve the current frame from the handler
-                display = handler.get_image()
-                resized_frame = cv2.resize(display, (640, 640))
-                _, frame = cv2.imencode('.jpg', resized_frame)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
-        if printer is not None:
-            printercontrols.move_relative(printer, x=0.1)
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/printer_move5', methods=['POST'])
-def printer_movez_5():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, x=1)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move6', methods=['POST'])
-def printer_movez_6():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, x=10)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move7', methods=['POST'])
-def printer_movez_7():
-    global printer, handler, lamp, psu, folder_selected
-    with VmbSystem.get_instance() as vimba:
-        camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-
-            handler = handler  # Use the current handler if available
-            cam.start_streaming(handler=handler, buffer_count=10)
-            while True:
-                # Retrieve the current frame from the handler
-                display = handler.get_image()
-                resized_frame = cv2.resize(display, (640, 640))
-                _, frame = cv2.imencode('.jpg', resized_frame)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
-        if printer is not None:
-            printercontrols.move_relative(printer, y=-0.1)
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/printer_move8', methods=['POST'])
-def printer_movez_8():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, y=-1)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move9', methods=['POST'])
-def printer_movez_9():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, y=-10)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-
-@app.route('/printer_move10', methods=['POST'])
-def printer_movez_10():
-    global printer, handler, lamp, psu, folder_selected
-    with VmbSystem.get_instance() as vimba:
-        camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-
-            handler = handler  # Use the current handler if available
-            cam.start_streaming(handler=handler, buffer_count=10)
-            while True:
-                # Retrieve the current frame from the handler
-                display = handler.get_image()
-                resized_frame = cv2.resize(display, (640, 640))
-                _, frame = cv2.imencode('.jpg', resized_frame)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
-        if printer is not None:
-            printercontrols.move_relative(printer, x=-0.1)
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/printer_move11', methods=['POST'])
-def printer_movez_11():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, x=-1)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move12', methods=['POST'])
-def printer_movez_12():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, x=-10)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-
-@app.route('/printer_move13', methods=['POST'])
-def printer_movez_13():
-    global printer, handler, lamp, psu, folder_selected
-    with VmbSystem.get_instance() as vimba:
-        camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-
-            handler = handler  # Use the current handler if available
-            cam.start_streaming(handler=handler, buffer_count=10)
-            while True:
-                # Retrieve the current frame from the handler
-                display = handler.get_image()
-                resized_frame = cv2.resize(display, (640, 640))
-                _, frame = cv2.imencode('.jpg', resized_frame)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
-        if printer is not None:
-            printercontrols.move_relative(printer, z=-0.1)
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/printer_move14', methods=['POST'])
-def printer_movez_14():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, z=-1)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-
-
-@app.route('/printer_move15', methods=['POST'])
-def printer_movez_15():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, z=-10)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-
-@app.route('/printer_move16', methods=['POST'])
-def printer_movez_16():
-    global printer, handler, lamp, psu, folder_selected
-    with VmbSystem.get_instance() as vimba:
-        camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-
-            handler = handler  # Use the current handler if available
-            cam.start_streaming(handler=handler, buffer_count=10)
-            while True:
-                # Retrieve the current frame from the handler
-                display = handler.get_image()
-                resized_frame = cv2.resize(display, (640, 640))
-                _, frame = cv2.imencode('.jpg', resized_frame)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
-        if printer is not None:
-            printercontrols.move_relative(printer, z=0.1)
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
-@app.route('/printer_move17', methods=['POST'])
-def printer_movez_17():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, z=1)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/printer_move18', methods=['POST'])
-def printer_movez_18():
-    global printer, handler, lamp, psu, folder_selected
-    if printer is not None:
-
-        printercontrols.move_relative(printer, z=10)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
 
 @app.route('/turn-on-lamp', methods=['POST'])
 def illu_on():

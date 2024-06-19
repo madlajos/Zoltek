@@ -1228,15 +1228,6 @@ document.addEventListener('DOMContentLoaded', function() {
   </script>
 
 
-
-
-
-
-
-
-
-
-
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const startVideoButton = document.querySelector('#startVideoButton');
@@ -1303,79 +1294,80 @@ document.addEventListener('DOMContentLoaded', function() {
     <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top:0.6%; margin-left: 21.5%; z-index: 1; font-weight: 100" id="fetchImagesButton" (click)="captureImage(); fetchImages() ">Acquire</button>
   </div>
 
-  <div class="rounded_button3">
-    <button (click)="printerMove3()" style="position: absolute;margin-top: 2.7%; margin-left: 27.2%; width:70px; height: 70px"></button>
+  <div class="btn_printer_move_y10">
+    <button class="button button_y10" (click)="movePrinter('y', 10)" style="position: absolute;margin-top: 2.7%; margin-left: 27.2%; width:70px; height: 70px"></button>
   </div>
 
-  <div class="rounded_button2">
-    <button (click)="printerMove2()" style="position: absolute; margin-top: 5.5%; margin-left: 27.88%;"></button>
+  <div class="btn_printer_move_y1">
+    <button class="button button_y1" (click)="movePrinter('y', 1)" style="position: absolute; margin-top: 5.5%; margin-left: 27.88%;"></button>
   </div>
 
-  <div class="rounded_button1">
-    <button (click)="printerMove1()"style="position: absolute; margin-top: 6.5%; margin-left: 27.9%;"></button>
-  </div>
-  <div class="rounded_button6">
-    <button (click)="printerMove6()"style="position: absolute; margin-top: 7%; margin-left: 32.6%; width:70px; height: 70px"></button>
+  <div class="btn_printer_move_y0.1">
+    <button class="button button_y0.1" (click)="movePrinter('y', 0.1)"style="position: absolute; margin-top: 6.5%; margin-left: 27.9%;"></button>
   </div>
 
-  <div class="rounded_button5">
-    <button (click)="printerMove5()"style="position: absolute; margin-top: 8.25%; margin-left: 32%;"></button>
+  <div class="btn_printer_move_x10">
+    <button class="button button_x10" (click)="movePrinter('x', 10)"style="position: absolute; margin-top: 7%; margin-left: 32.6%; width:70px; height: 70px"></button>
   </div>
 
-  <div class="rounded_button4">
-    <button (click)="printerMove4()"style="position: absolute; margin-top: 8.3%; margin-left: 30.7%;"></button>
+  <div class="btn_printer_move_x1">
+    <button class="button button_x1" (click)="movePrinter('x', 1)"style="position: absolute; margin-top: 8.25%; margin-left: 32%;"></button>
   </div>
-  <div class="rounded_button7">
-    <button (click)="printerMove7()"style="position: absolute; margin-top: 10.1%; margin-left: 27.8%"></button>
+
+  <div class="btn_printer_move_x0.1">
+    <button class="button button_x0.1" (click)="movePrinter('x', 0.1)"style="position: absolute; margin-top: 8.3%; margin-left: 30.7%;"></button>
+  </div>
+
+  <div class="btn_printer_move_y-0.1">
+    <button class="button button_y-0.1" (click)="movePrinter('y', -0.1)"style="position: absolute; margin-top: 10.1%; margin-left: 27.8%"></button>
   </div>
   
-  <div class="rounded_button8">
-    <button (click)="printerMove8()"style="position: absolute; margin-top: 11.5%; margin-left: 27.8%"></button>
+  <div class="btn_printer_move_y-1">
+    <button class="button button_y-1" (click)="movePrinter('y', -1)"style="position: absolute; margin-top: 11.5%; margin-left: 27.8%"></button>
   </div>
 
-  <div class="rounded_button9">
-    <button (click)="printerMove9()"style="position: absolute; margin-top: 11.6%; margin-left: 27.2%; width:70px; height: 70px"></button>
+  <div class="btn_printer_move_y-10">
+    <button class="button button_y-10" (click)="movePrinter('y', -10)"style="position: absolute; margin-top: 11.6%; margin-left: 27.2%; width:70px; height: 70px"></button>
   </div>
 
-  <div class="rounded_button10">
-    <button (click)="printerMove10()"style="position: absolute; margin-top: 8.3%; margin-left: 25.2%"></button>
+  <div class="btn_printer_move_x-0.1">
+    <button class="button button_x-01" (click)="movePrinter('x', -0.1)"style="position: absolute; margin-top: 8.3%; margin-left: 25.2%"></button>
   </div>
 
-
-  <div class="rounded_button11">
-    <button (click)="printerMove11()"style="position: absolute; margin-top: 8.3%; margin-left: 23.9%"></button>
+  <div class="btn_printer_move_x-1">
+    <button class="button button_x-1" (click)="movePrinter('x', -1)"style="position: absolute; margin-top: 8.3%; margin-left: 23.9%"></button>
   </div>
 
-  <div class="rounded_button12">
-    <button (click)="printerMove12()"style="position: absolute; margin-top: 7.1%; margin-left: 22%; width:70px; height: 70px"></button>
+  <div class="btn_printer_move_x-10">
+    <button class="button button_x-10" (click)="movePrinter('x', -10)"style="position: absolute; margin-top: 7.1%; margin-left: 22%; width:70px; height: 70px"></button>
   </div>
 
-  <div class="rounded_button13">
-    <button (click)="printerMove13()"style="position: absolute; margin-top: 5.8%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-  <div class="rounded_button14">
-    <button (click)="printerMove14()"style="position: absolute; margin-top: 7.8%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-  <div class="rounded_button15">
-    <button (click)="printerMove15()"style="position: absolute; margin-top: 13.8%; margin-left: 38%; width:32px; height: 32px"></button>
+  <div class="btn_printer_move_z-0.1">
+    <button class="button button_z-01" (click)="movePrinter('z', -0.1)"style="position: absolute; margin-top: 5.8%; margin-left: 38%; width:32px; height: 32px"></button>
   </div>
 
-
-  <div class="rounded_button16">
-    <button (click)="printerMove16()"style="position: absolute; margin-top: 11.9%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-  <div class="rounded_button17">
-    <button (click)="printerMove17()"style="position: absolute; margin-top: 10%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-  <div class="rounded_button18">
-    <button (click)="printerMove18()"style="position: absolute; margin-top: 3.5%; margin-left: 38%; width:32px; height: 32px"></button>
+  <div class="btn_printer_move_z-1">
+    <button class="button button_z-1" (click)="movePrinter('z', -1)"style="position: absolute; margin-top: 7.8%; margin-left: 38%; width:32px; height: 32px"></button>
   </div>
 
+  <div class="btn_printer_move_z-10">
+    <button class="button button_z-10" (click)="movePrinter('z', -10)"style="position: absolute; margin-top: 13.8%; margin-left: 38%; width:32px; height: 32px"></button>
+  </div>
 
+  <div class="btn_printer_move_z0.1">
+    <button class="button button_z01" (click)="movePrinter('z', 0.1)"style="position: absolute; margin-top: 11.9%; margin-left: 38%; width:32px; height: 32px"></button>
+  </div>
+
+  <div class="btn_printer_move_z1">
+    <button class="button button_z1" (click)="movePrinter('z', 1)"style="position: absolute; margin-top: 10%; margin-left: 38%; width:32px; height: 32px"></button>
+  </div>
+
+  <div class="btn_printer_move_z10">
+    <button class="button button_z10" (click)="movePrinter('z', 10)"style="position: absolute; margin-top: 3.5%; margin-left: 38%; width:32px; height: 32px"></button>
+  </div>
 
   <button mat-icon-button aria-label="Example icon button with a custom icon">
     <img src="/assets/images/Home.svg" alt="Custom icon" class="custom-icon" (click)="printerHome()">
-   
   </button>
 
   <div class="button3">

@@ -1,5 +1,9 @@
 import porthandler
 
+class Printer:
+    def __init__(self, port):
+        self.port = port
+
 def home_axes(printer, *axes):
     # If no axes are specified, home all axes
     if not axes:
