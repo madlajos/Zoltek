@@ -86,7 +86,7 @@ html { background-color: #212529 ; }
     background-image: url('/assets/images/0.1.svg');
   }
   .button_x-01:hover {
-    background-image: url('/assets/images/01_Active.svg');
+    background-image: url('/assets/images/0.1_Active.svg');
   }
 
   .button_x-1 {
@@ -104,10 +104,10 @@ html { background-color: #212529 ; }
   }
 
   .button_y-01 {
-    background-image: url('/assets/images/01.svg');
+    background-image: url('/assets/images/0.1.svg');
   }
   .button_y-01:hover {
-    background-image: url('/assets/images/01_Active.svg');
+    background-image: url('/assets/images/0.1_Active.svg');
   }
 
   .button_y-1 {
