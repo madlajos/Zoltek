@@ -1,0 +1,35 @@
+/* src/app/app.component.css */
+
+/* Ensure the sidebar fills the height of the viewport */
+.sidenav-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: row-reverse; /* Place sidebar on the right */
+  }
+  
+  /* Main content area */
+  .main-content {
+    flex: 1;
+    padding: 20px;
+  }
+  
+  /* Sidebar styling */
+  .sidenav {
+    width: 400px; /* Adjust width as needed */
+    background-color: #000; /* Black background color */
+    color: #fff; /* White text color */
+    font-size: 16px; /* Adjust text size as needed */
+  }
+  
+  /* Style the expansion panel headers */
+  .mat-expansion-panel-header {
+    background-color: #333; /* Darker background for expansion panel headers */
+    color: #fff; /* White text color for expansion panel headers */
+    height: 48px; /* Set a fixed height for the header */
+    line-height: 48px; /* Center align text vertically */
+  }
+  
+  /* Adjust the panel content padding */
+  .mat-expansion-panel-content {
+    padding: 0 24px 24px 24px; /* Adjust padding as needed */
+  }

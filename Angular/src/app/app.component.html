@@ -1,3 +1,48 @@
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav mode="side" opened class="sidenav">
+    <mat-accordion multi="true">
+      <mat-expansion-panel expanded="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            Lamp Controller
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <app-light-control></app-light-control>
+      </mat-expansion-panel>
+
+
+      <mat-expansion-panel expanded="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            Camera Settings
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <app-camera-control></app-camera-control>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel expanded="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            COM Settings
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <app-comport-control></app-comport-control>
+      </mat-expansion-panel>
+
+      
+      <mat-expansion-panel expanded="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            Printer Control
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <app-printer-control></app-printer-control>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </mat-sidenav>
+</mat-sidenav-container>
+
+
 
 <style>
   :host {
@@ -24,7 +69,7 @@
 
   p {
     margin: 0;
-  }
+  }a
 
   .spacer {
     flex: 1;
@@ -386,571 +431,8 @@
   z-index: 9999; /* Ensure the line appears above other content */
 }
 
-.rounded_button1 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button1 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button1 button {
-  background-image: url('/assets/images/0.1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-  z-index:1
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button1 button:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
-  z-index:1
-
-}
-
-
-.rounded_button2 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button2 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button2 button {
-  background-image: url('/assets/images/1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-  z-index:1
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button2 button:hover {
-  background-image: url('/assets/images/1_Active.svg');
-  z-index:1
-
-}
-
-.rounded_button3 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button3 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button3 button {
-  background-image: url('/assets/images/10.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-  z-index:1
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button3 button:hover {
-  background-image: url('/assets/images/10_Active.svg');
-  z-index:1
-
-}
-
-
-.rounded_button4 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button4 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button4 button {
-  background-image: url('/assets/images/0.1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(90deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-
-
-
-
-.rounded_button5 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button5 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button5 button {
-  background-image: url('/assets/images/1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(90deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button5 button .icon {
-  transform: rotate(90deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button5 button:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
-
-.rounded_button6 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button6 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button6 button {
-  background-image: url('/assets/images/10.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(90deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button6 button .icon {
-  transform: rotate(90deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button6 button:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-
-.rounded_button7 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button7 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button7 button {
-  background-image: url('/assets/images/0.1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(180deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button7 button .icon {
-  transform: rotate(180deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button7 button:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
-}
-
-.rounded_button8 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button8 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button8 button {
-  background-image: url('/assets/images/1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(180deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button8 button .icon {
-  transform: rotate(180deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button8 button:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
-
-
-
-
-.rounded_button9 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button9 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button9 button {
-  background-image: url('/assets/images/10.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(180deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button9 button .icon {
-  transform: rotate(180deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button9 button:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-
-
-.rounded_button10 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button10 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button10 button {
-  background-image: url('/assets/images/0.1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(-90deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button10 button .icon {
-  transform: rotate(-90deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button10 button:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
-}
-
-.rounded_button11 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button11 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button11 button {
-  background-image: url('/assets/images/1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(-90deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button11 button .icon {
-  transform: rotate(-90deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button11 button:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
-
-.rounded_button12 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button12 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button12 button {
-  background-image: url('/assets/images/10.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(-90deg);
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-/* Rotate the SVG icon by 90 degrees */
-.rounded_button12 button .icon {
-  transform: rotate(-90deg);
-}
-
-/* Define hover effect for the SVG icon */
-.rounded_button12 button:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-
-
-.rounded_button13 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button13 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button13 button {
-  background-image: url('/assets/images/z-0.1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
- 
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-
-
-/* Define hover effect for the SVG icon */
-.rounded_button13 button:hover {
-  background-image: url('/assets/images/z-0.1__Active.svg');
-}
-
-
-
-.rounded_button14 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button14 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button14 button {
-  background-image: url('/assets/images/z-1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
- 
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-
-
-.rounded_button15 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button15 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button15 button {
-  background-image: url('/assets/images/z-10.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
- 
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-/* Define hover effect for the SVG icon */
-.rounded_button15 button:hover {
-  background-image: url('/assets/images/z-10_Active.svg');
-}
-
-
-
-.rounded_button16 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button16 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button16 button {
-  background-image: url('/assets/images/z0.1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
- 
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-/* Define hover effect for the SVG icon */
-.rounded_button16 button:hover {
-  background-image: url('/assets/images/z0.1_Active.svg');
-}
-
-
-
-.rounded_button17 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button17 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button17 button {
-  background-image: url('/assets/images/z1.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
- 
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-/* Define hover effect for the SVG icon */
-.rounded_button17 button:hover {
-  background-image: url('/assets/images/z1_Active.svg');
-}
-
-
-
-.rounded_button18 button {
-  /* Set button styles */
-  background-color: transparent;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.rounded_button18 button:hover {
-  /* Define hover effect */
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Set SVG icon as background image for the button */
-.rounded_button18 button {
-  background-image: url('/assets/images/z10.svg');
-  background-size: contain; /* Adjust to fit the icon size */
-  background-repeat: no-repeat;
-  background-position: center;
- 
-  padding-left: 40px; /* Adjust to ensure the icon is visible */
-}
-/* Define hover effect for the SVG icon */
-.rounded_button18 button:hover {
-  background-image: url('/assets/images/z10_Active.svg');
-}
-
-
-
-
 .rectangle12 {
+  /* lamp control box */
   position: absolute;
   width:29%; /* Adjust width as needed */
   height: 20%; /* Adjust height as needed */
@@ -967,10 +449,11 @@
 }
 
 .rectangle22 {
+  /* printer control box */
   position: absolute;
   width: 30%; /* Adjust width as needed */
   height: 27%; /* Adjust height as needed */
-  background-color: #212529; /* Choose your desired background color */
+  background-color: #034f9b; /* Choose your desired background color */
   border: 1.5px solid rgb(42,98,140); /* Choose border color and thickness */
   padding: 5px; /* Add padding inside the rectangle */
   margin: 0px; /* Add margin around the rectangle */
@@ -1089,7 +572,7 @@
   position: absolute;
   width: 30%; /* Adjust width as needed */
   height: 22%; /* Adjust height as needed */
-  background-color: #212529; /* Choose your desired background color */
+  background-color: #5f1e34; /* Choose your desired background color */
   border: 1.5px solid rgb(42,98,140); /* Choose border color and thickness */
   padding: 5px; /* Add padding inside the rectangle */
   margin: 0px; /* Add margin around the rectangle */
@@ -1276,9 +759,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <div class="content" role="main">
 
-
-
-
   
   
   <div class="vstream-text">
@@ -1287,101 +767,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   </div>
 
-
   <div class="button-container">
     <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top:0.5%; margin-left: 4%; z-index: 1; font-weight: 100" (click)="startVideo()">Start stream</button>
-
     <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top:0.6%; margin-left: 21.5%; z-index: 1; font-weight: 100" id="fetchImagesButton" (click)="captureImage(); fetchImages() ">Acquire</button>
   </div>
 
-  <div class="btn_printer_move_y10">
-    <button class="button button_y10" (click)="movePrinter('y', 10)" style="position: absolute;margin-top: 3%; margin-left: 27.2%; width:70px; height: 70px"></button>
-  </div>
-
-  <div class="btn_printer_move_y1">
-    <button class="button button_y1" (click)="movePrinter('y', 1)" style="position: absolute; margin-top: 5.5%; margin-left: 27.88%;"></button>
-  </div>
-
-  <div class="btn_printer_move_y01">
-    <button class="button button_y01" (click)="movePrinter('y', 0.1)"style="position: absolute; margin-top: 6.5%; margin-left: 27.9%;"></button>
-  </div>
-
-  <div class="btn_printer_move_x10">
-    <button class="button button_x10" (click)="movePrinter('x', 10)"style="position: absolute; margin-top: 7%; margin-left: 32.6%; width:70px; height: 70px"></button>
-  </div>
-
-  <div class="btn_printer_move_x1">
-    <button class="button button_x1" (click)="movePrinter('x', 1)"style="position: absolute; margin-top: 8.25%; margin-left: 32%;"></button>
-  </div>
-
-  <div class="btn_printer_move_x01">
-    <button class="button button_x01" (click)="movePrinter('x', 0.1)"style="position: absolute; margin-top: 8.3%; margin-left: 30.7%;"></button>
-  </div>
-
-  <div class="btn_printer_move_y-01">
-    <button class="button button_y-01" (click)="movePrinter('y', -0.1)"style="position: absolute; margin-top: 10.1%; margin-left: 27.8%"></button>
-  </div>
   
-  <div class="btn_printer_move_y-1">
-    <button class="button button_y-1" (click)="movePrinter('y', -1)"style="position: absolute; margin-top: 11.5%; margin-left: 27.8%"></button>
-  </div>
-
-  <div class="btn_printer_move_y-10">
-    <button class="button button_y-10" (click)="movePrinter('y', -10)"style="position: absolute; margin-top: 11.6%; margin-left: 27.2%; width:70px; height: 70px"></button>
-  </div>
-
-  <div class="btn_printer_move_x-01">
-    <button class="button button_x-01" (click)="movePrinter('x', -0.1)"style="position: absolute; margin-top: 8.3%; margin-left: 25.2%"></button>
-  </div>
-
-  <div class="btn_printer_move_x-1">
-    <button class="button button_x-1" (click)="movePrinter('x', -1)"style="position: absolute; margin-top: 8.3%; margin-left: 23.9%"></button>
-  </div>
-
-  <div class="btn_printer_move_x-10">
-    <button class="button button_x-10" (click)="movePrinter('x', -10)"style="position: absolute; margin-top: 7.1%; margin-left: 22%; width:70px; height: 70px"></button>
-  </div>
-
-  <div class="btn_printer_move_z-01">
-    <button class="button button_z-01" (click)="movePrinter('z', -0.1)"style="position: absolute; margin-top: 5.8%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-
-  <div class="btn_printer_move_z-1">
-    <button class="button button_z-1" (click)="movePrinter('z', -1)"style="position: absolute; margin-top: 7.8%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-
-  <div class="btn_printer_move_z-10">
-    <button class="button button_z-10" (click)="movePrinter('z', -10)"style="position: absolute; margin-top: 13.8%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-
-  <div class="btn_printer_move_z01">
-    <button class="button button_z01" (click)="movePrinter('z', 0.1)"style="position: absolute; margin-top: 11.9%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-
-  <div class="btn_printer_move_z1">
-    <button class="button button_z1" (click)="movePrinter('z', 1)"style="position: absolute; margin-top: 10%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-
-  <div class="btn_printer_move_z10">
-    <button class="button button_z10" (click)="movePrinter('z', 10)"style="position: absolute; margin-top: 3.5%; margin-left: 38%; width:32px; height: 32px"></button>
-  </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   <button mat-icon-button aria-label="Example icon button with a custom icon">
     <img src="/assets/images/Home.svg" alt="Custom icon" class="custom-icon" (click)="printerHome()">
   </button>

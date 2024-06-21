@@ -1,3 +1,4 @@
+
 /* You can add global styles to this file, and also import other style files */
 html { background-color: #212529 ; }
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
@@ -144,3 +145,4 @@ html { background-color: #212529 ; }
   .button_z-10:hover {
     background-image: url('/assets/images/z-10_Active.svg');
   }
+

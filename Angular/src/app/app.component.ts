@@ -170,8 +170,6 @@ export class AppComponent implements OnInit {
       );
   }
 
-
-
   onClickSendVISToBackend(channel: number) {
     this.http.post('http://localhost:5000/turn-on-lamp', { channel: 1 })
       .subscribe(response => {
@@ -185,8 +183,6 @@ export class AppComponent implements OnInit {
         console.log('Response from backend:', response);
       });
   }
-
-  
 
   onClickSendUV2ToBackend(channel: number) {
     this.http.post('http://localhost:5000/turn-on-lampUV2', { channel: 1 })
@@ -222,18 +218,7 @@ export class AppComponent implements OnInit {
     }}
 
 
-  movePrinter(axis: string, value: number){
-      const payload = { axis, value };
-      this.http.post('http://localhost:5000//move_printer', {}).subscribe(
-        (response) => {
-          console.log('Printer moved successfully!', response);
-          // You can handle the response here if needed
-        },
-        (error) => {
-          console.error('Failed to move printer!', error);
-        }
-      );
-  }
+  
 
   captureImage(): void {
     this.http.post('http://127.0.0.1:5000/capture-image', {}).subscribe(
@@ -309,9 +294,6 @@ export class AppComponent implements OnInit {
   videoContainer.innerHTML = '';
 }
 
-
-
-
 startVideo_cont(): void {
   const videoContainer = document.querySelector('.video-container') as HTMLElement;
   // Set the background image of the container to the video stream URL
@@ -328,7 +310,6 @@ startVideo_cont(): void {
   ;
 
 }
-
 
   startVideoStream(): void {
     const videoUrl = 'http://localhost:5000/video-stream';

@@ -1,0 +1,82 @@
+<!-- src/app/features/printer-control/printer-control.component.html -->
+<div class="feature-content">
+    <h2>Printer Control</h2>
+    <!-- Printer control buttons go here -->
+</div>
+
+<div class="button-container">
+    <!-- Positive Y direction buttons -->
+    <div class="btn_printer_move_y10">
+        <button class="button button_y10" (click)="movePrinter('y', 10)"></button>
+        <img src="assets/images/10.svg" alt="Move Y +10">
+    </div>
+    
+    <div class="btn_printer_move_y1">
+        <button class="button button_y1" (click)="movePrinter('y', 1)"></button>
+    </div>
+    
+    <div class="btn_printer_move_y01">
+        <button class="button button_y01" (click)="movePrinter('y', 0.1)"></button>
+    </div>
+
+    <!-- Negative Y direction buttons -->
+    <div class="btn_printer_move_y-01">
+        <button class="button button_y-01" (click)="movePrinter('y', -0.1)"></button>
+    </div>
+    
+    <div class="btn_printer_move_y-1">
+        <button class="button button_y-1" (click)="movePrinter('y', -1)"></button>
+    </div>
+    
+    <div class="btn_printer_move_y-10">
+        <button class="button button_y-10" (click)="movePrinter('y', -10)"></button>
+    </div>
+
+    <!-- Positive X direction buttons -->
+    <div class="btn_printer_move_x10">
+        <button class="button button_x10" (click)="movePrinter('x', 10)"></button>
+    </div>
+    
+    <div class="btn_printer_move_x1">
+        <button class="button button_x1" (click)="movePrinter('x', 1)"></button>
+    </div>
+    
+    <div class="btn_printer_move_x01">
+        <button class="button button_x01" (click)="movePrinter('x', 0.1)"></button>
+    </div>
+
+    <!-- Negative X direction buttons -->
+    <div class="btn_printer_move_x-01">
+        <button class="button button_x-01" (click)="movePrinter('x', -0.1)"></button>
+    </div>
+    
+    <div class="btn_printer_move_x-1">
+        <button class="button button_x-1" (click)="movePrinter('x', -1)"></button>
+    </div>
+    
+    <div class="btn_printer_move_x-10">
+        <button class="button button_x-10" (click)="movePrinter('x', -10)"></button>
+    </div>
+</div>
+
+<div class="button-container">
+    <div class="btn_printer_move_z-1">
+        <button class="button button_z-1" (click)="movePrinter('z', -1)" style="margin-top: 140px; margin-left: 140px; width: 32px; height: 32px;"></button>
+    </div>
+
+    <div class="btn_printer_move_z-10">
+        <button class="button button_z-10" (click)="movePrinter('z', -10)" style="margin-top: 150px; margin-left: 150px; width: 32px; height: 32px;"></button>
+    </div>
+
+    <div class="btn_printer_move_z01">
+        <button class="button button_z01" (click)="movePrinter('z', 0.1)" style="margin-top: 160px; margin-left: 160px; width: 32px; height: 32px;"></button>
+    </div>
+
+    <div class="btn_printer_move_z1">
+        <button class="button button_z1" (click)="movePrinter('z', 1)" style="margin-top: 170px; margin-left: 170px; width: 32px; height: 32px;"></button>
+    </div>
+
+    <div class="btn_printer_move_z10">
+        <button class="button button_z10" (click)="movePrinter('z', 10)" style="margin-top: 180px; margin-left: 180px; width: 32px; height: 32px;"></button>
+    </div>
+</div>

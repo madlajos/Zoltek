@@ -1,2 +1,6 @@
 ﻿__pycache__
 resources
+node_modules
+package-lock.json
+package.json
+Angular/package.json
