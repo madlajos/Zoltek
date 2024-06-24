@@ -15,12 +15,25 @@ export class PrinterControlComponent {
         this.http.post('http://localhost:5000//move_printer', {}).subscribe(
           (response: any) => {
             console.log('Printer moved successfully!', response);
-            // You can handle the response here if needed
+
           },
           (error: any) => {
             console.error('Failed to move printer!', error);
           }
         );
     }
+
+    homePrinter(): void {
+      this.http.post('http://localhost:5000//home_printer', {}).subscribe(
+        (response) => {
+          console.log('Printer homed successfully!', response);
+
+        },
+        (error) => {
+          console.error('Failed to home printer!', error);
+        }
+      );
+    }
+  
 }
 

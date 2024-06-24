@@ -1,183 +1,89 @@
+/* src/app/features/printer-control/printer-control.component.css */
 .button-container {
-    position: relative;
-    width: 300px; /* Adjust container width */
-    height: 300px; /* Adjust container height */
-    margin: auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  position: relative;
+  width: 300px; /* Adjust container width */
+  height: 300px; /* Adjust container height */
+  margin: auto;
+  display: flex;
+  flex-direction: column; /* Stack Z buttons vertically */
 }
 
 .button {
-    width: 100px; /* Adjust button size */
-    height: 100px; /* Adjust button size */
-    background-color: #fff;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: transparent; /* Ensure background is transparent */
-    border: none; /* Remove default border */
-    padding: 0; /* Remove padding */
+  background-color: transparent;
+  position: absolute;
+  padding: 0;
+  overflow: hidden; /* Ensure the hitbox matches the circular shape */
+  transform-origin: center center; /* Set transform origin to the center */
 }
 
-.button_y10 { margin-top: -125px;}
-.button_y1 { margin-top: -105px;}
-.button_y01 { margin-top: -70px;}
-.button_y-01 { margin-top: 0px; transform: rotate(180deg)}
-.button_y-1 { margin-top: 120px; transform: rotate(180deg)}
-.button_y-10 { margin-top: 150px; }
-
-.button_x10 { margin-left: 110px; }
-.button_x1 { margin-left: 70px; }
-.button_x01 { margin-left: 30px; }
-.button_x-01 { margin-left: -30px; }
-.button_x-1 { margin-left: -70px; }
-.button_x-10 { margin-left: -110px; }
-
-/* SVG icon backgrounds */
-.button_x01 {
-  background-image: url('/assets/images/0.1.png');
+.button img {
+  width: 100%;
+  height: 100%;
 }
 
-.button_x01:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
+/* X and Y Buttons */
+/* These and the Home button icons are given in the html, because it only works that way */
+
+.button_y10 { top: 18.1%; left: 40%; transform: translate(-50%, -50%) scale(0.97); }
+.button_y1 { top: 28.1%; left: 40%; transform: translate(-50%, -50%) scale(0.69);}
+.button_y01 { top: 40%; left: 40%; transform: translate(-50%, -50%) scale(0.40);}
+.button_y-10 { top: 80.9%; left: 40%; transform: translate(-50%, -50%) rotate(180deg) scale(0.968); }
+.button_y-1 { top: 70.9%; left: 40%; transform: translate(-50%, -50%) rotate(180deg) scale(0.69); }
+.button_y-01 { top: 59%; left: 40%; transform: translate(-50%, -50%) rotate(180deg) scale(0.4); }
+.button_x10 { top: 49.5%; left: 70.9%; transform: translate(-50%, -50%) rotate(90deg) scale(1.97); }
+.button_x1 { top: 49.5%; left: 61.1%; transform: translate(-50%, -50%) rotate(90deg) scale(1.052); }
+.button_x01 { top: 49.5%; left: 49.5%; transform: translate(-50%, -50%) rotate(90deg) scale(0.47); }
+.button_x-10 { top: 49.5%; left: 8.4%; transform: translate(-50%, -50%) rotate(-90deg) scale(0.635); }
+.button_x-1 { top: 49.5%; left: 18.5%; transform: translate(-50%, -50%) rotate(-90deg) scale(0.51); }
+.button_x-01 { top: 49.5%; left: 30.3%; transform: translate(-50%, -50%) rotate(-90deg) scale(0.35); }
+
+.button_y10:hover { background-image: url('/assets/images/10_Active.svg'); }
+.button_y1:hover { background-image: url('/assets/images/1_Active.svg'); }
+.button_y01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
+.button_y-10:hover { background-image: url('/assets/images/10_Active.svg'); }
+.button_y-1:hover { background-image: url('/assets/images/1_Active.svg'); }
+.button_y-01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
+.button_x10:hover { background-image: url('/assets/images/10_Active.svg'); }
+.button_x1:hover { background-image: url('/assets/images/1_Active.svg'); }
+.button_x01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
+.button_x-10:hover { background-image: url('/assets/images/10_Active.svg'); }
+.button_x-1:hover { background-image: url('/assets/images/1_Active.svg'); }
+.button_x-01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
+
+/* Home Printer Button */ 
+.homePrinterButton { top: 0%; left: -9.5%; transform: scale(0.18);}
+.homePrinterButton:hover { background-image: url('/assets/images/Home_Active.svg'); }
+
+/* Z Buttons */ 
+.button_z10,
+.button_z1,
+.button_z01,
+.button_z-01,
+.button_z-1,
+.button_z-10
+ {
+  width: 40px;
+  height: 40px;
+  margin: auto;
 }
 
-.button_x1 {
-  background-image: url('/assets/images/1.svg');
-}
+.button_z10 { margin-top: -270px; left: 90%; }
+.button_z1 { margin-top: -230px; left: 90%; }
+.button_z01 { margin-top: -190px; left: 90%; }
+.button_z-01 { margin-top: -150px; left: 90%; }
+.button_z-1 { margin-top: -110px; left: 90%; }
+.button_z-10 { margin-top: -70px; left: 90%; }
 
-.button_x1:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
+.button_z01 { background-image: url('/assets/images/z0.1.svg'); }
+.button_z1 { background-image: url('/assets/images/z1.svg'); }
+.button_z10 { background-image: url('/assets/images/z10.svg'); }
+.button_z-01 { background-image: url('/assets/images/z-0.1.svg'); }
+.button_z-1 { background-image: url('/assets/images/z-1.svg'); }
+.button_z-10 { background-image: url('/assets/images/z-10.svg'); }
 
-.button_x10 {
-  background-image: url('/assets/images/10.svg');
-}
-
-.button_x10:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-.button_y01 {
-  background-image: url('/assets/images/0.1.png');
-}
-
-.button_y01:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
-}
-
-.button_y1 {
-  background-image: url('/assets/images/1.png');
-}
-
-.button_y1:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
-
-.button_y10 {
-  background-image: url('/assets/images/10.svg');
-}
-
-.button_y10:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-.button_x-01 {
-  background-image: url('/assets/images/0.1.svg');
-}
-
-.button_x-01:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
-}
-
-.button_x-1 {
-  background-image: url('/assets/images/1.svg');
-}
-
-.button_x-1:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
-
-.button_x-10 {
-  background-image: url('/assets/images/10.svg');
-}
-
-.button_x-10:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-.button_y-01 {
-  background-image: url('/assets/images/0.1.svg');
-}
-
-.button_y-01:hover {
-  background-image: url('/assets/images/0.1_Active.svg');
-}
-
-.button_y-1 {
-  background-image: url('/assets/images/1.svg');
-}
-
-.button_y-1:hover {
-  background-image: url('/assets/images/1_Active.svg');
-}
-
-.button_y-10 {
-  background-image: url('/assets/images/10.svg');
-}
-
-.button_y-10:hover {
-  background-image: url('/assets/images/10_Active.svg');
-}
-
-
-
-.button_z01 {
-  background-image: url('/assets/images/z0.1.svg');
-}
-
-.button_z01:hover {
-  background-image: url('/assets/images/z0.1_Active.svg');
-}
-
-.button_z1 {
-  background-image: url('/assets/images/z1.svg');
-}
-
-.button_z1:hover {
-  background-image: url('/assets/images/z1_Active.svg');
-}
-
-.button_z10 {
-  background-image: url('/assets/images/z10.svg');
-}
-
-.button_z10:hover {
-  background-image: url('/assets/images/z10_Active.svg');
-}
-
-.button_z-01 {
-  background-image: url('/assets/images/z-0.1.svg');
-}
-
-.button_z-01:hover {
-  background-image: url('/assets/images/z-0.1_Active.svg');
-}
-
-.button_z-1 {
-  background-image: url('/assets/images/z-1.svg');
-}
-
-.button_z-1:hover {
-  background-image: url('/assets/images/z-1_Active.svg');
-}
-
-.button_z-10 {
-  background-image: url('/assets/images/z-10.svg');
-}
-
-.button_z-10:hover {
-  background-image: url('/assets/images/z-10_Active.svg');
-}
+.button_z-1:hover { background-image: url('/assets/images/z-1_Active.svg'); }
+.button_z-10:hover { background-image: url('/assets/images/z-10_Active.svg'); }
+.button_z-01:hover { background-image: url('/assets/images/z-0.1_Active.svg'); }
+.button_z01:hover { background-image: url('/assets/images/z0.1_Active.svg'); }
+.button_z1:hover { background-image: url('/assets/images/z1_Active.svg'); }
+.button_z10:hover { background-image: url('/assets/images/z10_Active.svg'); }
