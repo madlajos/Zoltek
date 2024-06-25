@@ -1,56 +1,67 @@
 <div class="feature-content">
-    <!-- X&Y-axis buttons -->
-    <div class="button-container">
-        <button class="button button_y10" (click)="movePrinter('y', 10)">
-            <img src="/assets/images/10.svg" alt="Move Y +10">
-        </button>
-        <button class="button button_y1" (click)="movePrinter('y', 1)">
-            <img src="/assets/images/1.svg" alt="Move Y +1">
-        </button>
-        <button class="button button_y01" (click)="movePrinter('y', 0.1)">
-            <img src="/assets/images/0.1.svg" alt="Move Y +0.1">
-        </button>
-        <button class="button button_y-10" (click)="movePrinter('y', -10)">
-            <img src="/assets/images/10.svg" alt="Move Y -10">
-        </button>
-        <button class="button button_y-1" (click)="movePrinter('y', -1)">
-            <img src="/assets/images/1.svg" alt="Move Y -1">
-        </button>
-        <button class="button button_y-01" (click)="movePrinter('y', -0.1)">
-            <img src="/assets/images/0.1.svg" alt="Move Y -0.1">
-        </button>
-        <button class="button button_x10" (click)="movePrinter('x', 10)">
-            <img src="/assets/images/10.svg" alt="Move X +10">
-        </button>
-        <button class="button button_x1" (click)="movePrinter('x', 1)">
-            <img src="/assets/images/1.svg" alt="Move X +1">
-        </button>
-        <button class="button button_x01" (click)="movePrinter('x', 0.1)">
-            <img src="/assets/images/0.1.svg" alt="Move X +0.1">
-        </button>
-        <button class="button button_x-10" (click)="movePrinter('x', -10)">
-            <img src="/assets/images/10.svg" alt="Move X -10">
-        </button>
-        <button class="button button_x-1" (click)="movePrinter('x', -1)">
-            <img src="/assets/images/1.svg" alt="Move X -1">
-        </button>
-        <button class="button button_x-01" (click)="movePrinter('x', -0.1)">
-            <img src="/assets/images/0.1.svg" alt="Move X -0.1">
-        </button>
+  <!-- X&Y-axis buttons -->
+  <div class="button-container">
+      <button class="button button_y10" (click)="movePrinter('y', 10)">
+          <img src="/assets/svg/printer/y10.svg" alt="Move Y +10">
+      </button>
+      <button class="button button_y1" (click)="movePrinter('y', 1)">
+          <img src="/assets/svg/printer/y1.svg" alt="Move Y +1">
+      </button>
+      <button class="button button_y01" (click)="movePrinter('y', 0.1)">
+          <img src="/assets/svg/printer/y01.svg" alt="Move Y +0.1">
+      </button>
+      <button class="button button_y-10" (click)="movePrinter('y', -10)">
+          <img src="/assets/svg/printer/y-10.svg" alt="Move Y -10">
+      </button>
+      <button class="button button_y-1" (click)="movePrinter('y', -1)">
+          <img src="/assets/svg/printer/y-1.svg" alt="Move Y -1">
+      </button>
+      <button class="button button_y-01" (click)="movePrinter('y', -0.1)">
+          <img src="/assets/svg/printer/y-01.svg" alt="Move Y -0.1">
+      </button>
+      <button class="button button_x10" (click)="movePrinter('x', 10)">
+          <img src="/assets/svg/printer/x10.svg" alt="Move X +10">
+      </button>
+      <button class="button button_x1" (click)="movePrinter('x', 1)">
+          <img src="/assets/svg/printer/x1.svg" alt="Move X +1">
+      </button>
+      <button class="button button_x01" (click)="movePrinter('x', 0.1)">
+          <img src="/assets/svg/printer/x01.svg" alt="Move X +0.1">
+      </button>
+      <button class="button button_x-10" (click)="movePrinter('x', -10)">
+          <img src="/assets/svg/printer/x-10.svg" alt="Move X -10">
+      </button>
+      <button class="button button_x-1" (click)="movePrinter('x', -1)">
+          <img src="/assets/svg/printer/x-1.svg" alt="Move X -1">
+      </button>
+      <button class="button button_x-01" (click)="movePrinter('x', -0.1)">
+          <img src="/assets/svg/printer/x-01.svg" alt="Move X -0.1">
+      </button>
 
-        <button class="button homePrinterButton" (click)="homePrinter()">
-            <img src="/assets/images/Home.svg" alt="Home Printer">
-        </button>
+      <button class="button homePrinterButton" (click)="homePrinter()">
+          <img src="/assets/svg/printer/home.svg" alt="Home Printer">
+      </button>
+  </div>
 
-    </div>
-    
-    <!-- Z-axis buttons -->
-    <div class="button-container">
-        <button class="button button_z10" (click)="movePrinter('z', 10)"></button>
-        <button class="button button_z1" (click)="movePrinter('z', 1)"></button>
-        <button class="button button_z01" (click)="movePrinter('z', 0.1)"></button>
-        <button class="button button_z-01" (click)="movePrinter('z', -0.1)"></button>
-        <button class="button button_z-1" (click)="movePrinter('z', -1)"></button>
-        <button class="button button_z-10" (click)="movePrinter('z', -10)"></button>
-    </div>
+  <!-- Z-axis buttons -->
+  <div class="button-container">
+      <button class="button button_z10" (click)="movePrinter('z', 10)">
+          <img src="/assets/svg/printer/z10.svg" alt="Move Z +10">
+      </button>
+      <button class="button button_z1" (click)="movePrinter('z', 1)">
+          <img src="/assets/svg/printer/z1.svg" alt="Move Z +1">
+      </button>
+      <button class="button button_z01" (click)="movePrinter('z', 0.1)">
+          <img src="/assets/svg/printer/z01.svg" alt="Move Z +0.1">
+      </button>
+      <button class="button button_z-01" (click)="movePrinter('z', -0.1)">
+          <img src="/assets/svg/printer/z-01.svg" alt="Move Z -0.1">
+      </button>
+      <button class="button button_z-1" (click)="movePrinter('z', -1)">
+          <img src="/assets/svg/printer/z-1.svg" alt="Move Z -1">
+      </button>
+      <button class="button button_z-10" (click)="movePrinter('z', -10)">
+          <img src="/assets/svg/printer/z-10.svg" alt="Move Z -10">
+      </button>
+  </div>
 </div>

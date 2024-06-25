@@ -19,49 +19,47 @@
 .button img {
   width: 100%;
   height: 100%;
+  transition: background-image 0.3s; /* Smooth transition for background image */
 }
 
 /* X and Y Buttons */
-/* These and the Home button icons are given in the html, because it only works that way */
-
 .button_y10 { top: 18.1%; left: 40%; transform: translate(-50%, -50%) scale(0.97); }
-.button_y1 { top: 28.1%; left: 40%; transform: translate(-50%, -50%) scale(0.69);}
-.button_y01 { top: 40%; left: 40%; transform: translate(-50%, -50%) scale(0.40);}
-.button_y-10 { top: 80.9%; left: 40%; transform: translate(-50%, -50%) rotate(180deg) scale(0.968); }
-.button_y-1 { top: 70.9%; left: 40%; transform: translate(-50%, -50%) rotate(180deg) scale(0.69); }
-.button_y-01 { top: 59%; left: 40%; transform: translate(-50%, -50%) rotate(180deg) scale(0.4); }
-.button_x10 { top: 49.5%; left: 70.9%; transform: translate(-50%, -50%) rotate(90deg) scale(1.97); }
-.button_x1 { top: 49.5%; left: 61.1%; transform: translate(-50%, -50%) rotate(90deg) scale(1.052); }
-.button_x01 { top: 49.5%; left: 49.5%; transform: translate(-50%, -50%) rotate(90deg) scale(0.47); }
-.button_x-10 { top: 49.5%; left: 8.4%; transform: translate(-50%, -50%) rotate(-90deg) scale(0.635); }
-.button_x-1 { top: 49.5%; left: 18.5%; transform: translate(-50%, -50%) rotate(-90deg) scale(0.51); }
-.button_x-01 { top: 49.5%; left: 30.3%; transform: translate(-50%, -50%) rotate(-90deg) scale(0.35); }
+.button_y1 { top: 28.25%; left: 40%; transform: translate(-50%, -50%) scale(0.68); }
+.button_y01 { top: 37.9%; left: 40%; transform: translate(-50%, -50%) scale(0.40); }
+.button_y-10 { top: 81.5%; left: 40%; transform: translate(-50%, -50%) scale(0.97); }
+.button_y-1 { top: 70.9%; left: 40%; transform: translate(-50%, -50%) scale(0.69); }
+.button_y-01 { top: 61%; left: 40%; transform: translate(-50%, -50%) scale(0.4); }
+.button_x10 { top: 49.5%; left: 71.8%; transform: translate(-50%, -50%) scale(0.7); }
+.button_x1 { top: 49.5%; left: 61.7%; transform: translate(-50%, -50%) scale(0.42); }
+.button_x01 { top: 49.3%; left: 52%; transform: translate(-50%, -50%) scale(0.24); }
+.button_x-10 { top: 49.5%; left: 8.7%; transform: translate(-50%, -50%) scale(0.215); }
+.button_x-1 { top: 49.5%; left: 19%; transform: translate(-50%, -50%) scale(0.2); }
+.button_x-01 { top: 49.5%; left: 28.5%; transform: translate(-50%, -50%) scale(0.16); }
 
-.button_y10:hover { background-image: url('/assets/images/10_Active.svg'); }
-.button_y1:hover { background-image: url('/assets/images/1_Active.svg'); }
-.button_y01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
-.button_y-10:hover { background-image: url('/assets/images/10_Active.svg'); }
-.button_y-1:hover { background-image: url('/assets/images/1_Active.svg'); }
-.button_y-01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
-.button_x10:hover { background-image: url('/assets/images/10_Active.svg'); }
-.button_x1:hover { background-image: url('/assets/images/1_Active.svg'); }
-.button_x01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
-.button_x-10:hover { background-image: url('/assets/images/10_Active.svg'); }
-.button_x-1:hover { background-image: url('/assets/images/1_Active.svg'); }
-.button_x-01:hover { background-image: url('/assets/images/0.1_Active.svg'); }
+.button_y10:hover img { content: url('/assets/svg/printer/y10_Active.svg'); }
+.button_y1:hover img { content: url('/assets/svg/printer/y1_Active.svg'); }
+.button_y01:hover img { content: url('/assets/svg/printer/y01_Active.svg'); }
+.button_y-10:hover img { content: url('/assets/svg/printer/y-10_Active.svg'); }
+.button_y-1:hover img { content: url('/assets/svg/printer/y-1_Active.svg'); }
+.button_y-01:hover img { content: url('/assets/svg/printer/y-01_Active.svg'); }
+.button_x10:hover img { content: url('/assets/svg/printer/x10_Active.svg'); }
+.button_x1:hover img { content: url('/assets/svg/printer/x1_Active.svg'); }
+.button_x01:hover img { content: url('/assets/svg/printer/x01_Active.svg'); }
+.button_x-10:hover img { content: url('/assets/svg/printer/x-10_Active.svg'); }
+.button_x-1:hover img { content: url('/assets/svg/printer/x-1_Active.svg'); }
+.button_x-01:hover img { content: url('/assets/svg/printer/x-01_Active.svg'); }
 
-/* Home Printer Button */ 
-.homePrinterButton { top: 0%; left: -9.5%; transform: scale(0.18);}
-.homePrinterButton:hover { background-image: url('/assets/images/Home_Active.svg'); }
+/* Home Printer Button */
+.homePrinterButton { top: 49.4%; left: 40.2%; transform: translate(-50%, -50%) scale(0.25); }
+.homePrinterButton:hover img { content: url('/assets/svg/printer/home_Active.svg'); }
 
-/* Z Buttons */ 
+/* Z Buttons */
 .button_z10,
 .button_z1,
 .button_z01,
 .button_z-01,
 .button_z-1,
-.button_z-10
- {
+.button_z-10 {
   width: 40px;
   height: 40px;
   margin: auto;
@@ -74,16 +72,16 @@
 .button_z-1 { margin-top: -110px; left: 90%; }
 .button_z-10 { margin-top: -70px; left: 90%; }
 
-.button_z01 { background-image: url('/assets/images/z0.1.svg'); }
-.button_z1 { background-image: url('/assets/images/z1.svg'); }
-.button_z10 { background-image: url('/assets/images/z10.svg'); }
-.button_z-01 { background-image: url('/assets/images/z-0.1.svg'); }
-.button_z-1 { background-image: url('/assets/images/z-1.svg'); }
-.button_z-10 { background-image: url('/assets/images/z-10.svg'); }
+.button_z10 img { content: url('/assets/svg/printer/z10.svg'); }
+.button_z1 img { content: url('/assets/svg/printer/z1.svg'); }
+.button_z01 img { content: url('/assets/svg/printer/z01.svg'); }
+.button_z-01 img { content: url('/assets/svg/printer/z-01.svg'); }
+.button_z-1 img { content: url('/assets/svg/printer/z-1.svg'); }
+.button_z-10 img { content: url('/assets/svg/printer/z-10.svg'); }
 
-.button_z-1:hover { background-image: url('/assets/images/z-1_Active.svg'); }
-.button_z-10:hover { background-image: url('/assets/images/z-10_Active.svg'); }
-.button_z-01:hover { background-image: url('/assets/images/z-0.1_Active.svg'); }
-.button_z01:hover { background-image: url('/assets/images/z0.1_Active.svg'); }
-.button_z1:hover { background-image: url('/assets/images/z1_Active.svg'); }
-.button_z10:hover { background-image: url('/assets/images/z10_Active.svg'); }
+.button_z10:hover img { content: url('/assets/svg/printer/z10_Active.svg'); }
+.button_z1:hover img { content: url('/assets/svg/printer/z1_Active.svg'); }
+.button_z01:hover img { content: url('/assets/svg/printer/z01_Active.svg'); }
+.button_z-01:hover img { content: url('/assets/svg/printer/z-01_Active.svg'); }
+.button_z-1:hover img { content: url('/assets/svg/printer/z-1_Active.svg'); }
+.button_z-10:hover img { content: url('/assets/svg/printer/z-10_Active.svg'); }

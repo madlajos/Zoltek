@@ -163,10 +163,6 @@ def connect_lamp2():
     else:
         return jsonify({'error': 'Failed to connect to printer'}), 500  # Return error response if printer is not connected
 
-
-
-
-
 # Define the route for capturing an image
 @app.route('/connect-to-printer', methods=['POST'])
 def connect_print():
@@ -183,8 +179,8 @@ def connect_print():
         return jsonify({'error': 'Failed to connect to printer'}), 500  # Return error response if printer is not connected
 
 
-@app.route('/printer_home', methods=['POST'])
-def printer_home():
+@app.route('/home_printer', methods=['POST'])
+def home_printer():
     global printer, handler, lamp, psu, folder_selected
     print(str(printer))  # Print the serial object
     time.sleep(1)
