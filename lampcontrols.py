@@ -1,50 +1,104 @@
 import porthandler
+import json
 
-# Constant tuples for voltages and currents
-VOLTAGES = (30, 39, 24, 24, 41, 39)  # Example voltages in volts
-CURRENTS = (0.06, 0.50, 0.80, 0.80, 0.50, 0.35)  # Example currents in amps
-# Channel 1: 27V/60mA       VIS (Will be replaced)
-# Channel 2: 36V/450mA      UV 365-375 nm
-# Channel 3: 21.6V/700mA    UV 380-390 nm
-# Channel 4: 21.6V/700mA    UV 360-360 nm
-# Channel 5: 37.8V/200mA    UV 270-280 nm
-# Channel 6: 36V/350mA      UV 265-275 nm (TBA)
+# Load settings from the JSON file
+def load_settings():
+    with open('D:/source/TabletScanner/Angular/src/assets/settings.json') as f:
+        settings = json.load(f)
+    return settings
 
-# This method handles channel control via PSU and lampcontroller commands.
-# For safety reasons, it turns all channels off, then sets new PSU values, 
-# makes sure they are set correctly, and then turns on the relays.
-# It requires psu and lampcontroller objects of porthandler class to be initialised.
+SETTINGS = load_settings()
+
+def get_lamp_state():
+    if porthandler.lampcontroller is not None:
+        porthandler.write(porthandler.lampcontroller, "GETLAMPSTATE")
+        state = porthandler.lampcontroller.readline().decode().strip()
+        return int(state)  # Returns -1 if no channel is active, otherwise returns the active channel number
+    else:
+        print("Error: Lampcontroller is not connected")
+        return -1
+
 def turn_on_channel(channel, on_time_ms):
     """Send command to the PSU."""
     if porthandler.psu is not None:
-        # Turn off all channels on the lamp controller
-        porthandler.write(porthandler.lampcontroller, "1,0")
+        current_state = get_lamp_state()
+        if current_state == -1:  # No channels are currently on
+            # Set the PSU voltage and current
+            voltage = SETTINGS['channels'][channel - 1]['voltage']
+            current = SETTINGS['channels'][channel - 1]['current']
+            
+            voltage_command = f"VOLTage {voltage}\n"
+            current_command = f"CURRent {current}\n"
+            porthandler.write(porthandler.psu, voltage_command)
+            porthandler.write(porthandler.psu, current_command)
 
-        # Send command to set voltage and current
-        voltage_command = f"VOLTage {VOLTAGES[channel - 1]}\n"
-        current_command = f"CURRent {CURRENTS[channel - 1]}\n"
-        porthandler.write(porthandler.psu, voltage_command)
-        porthandler.write(porthandler.psu, current_command)
+            # Request set voltage and current from PSU
+            porthandler.write(porthandler.psu, "VOLTage?\n")
+            set_voltage_response = porthandler.psu.readline().decode().strip()
+            porthandler.write(porthandler.psu, "CURRent?\n")
+            set_current_response = porthandler.psu.readline().decode().strip()
 
-        # Request set voltage and current from PSU
-        porthandler.write(porthandler.psu, "VOLTage?\n")
-        set_voltage_response = porthandler.psu.readline().decode().strip()
-        porthandler.write(porthandler.psu, "CURRent?\n")
-        set_current_response = porthandler.psu.readline().decode().strip()
+            # Convert set voltage and current responses to floats
+            set_voltage = float(set_voltage_response)
+            set_current = float(set_current_response)
 
-        # Convert set voltage and current responses to integers
-        set_voltage = int(float(set_voltage_response))
-        set_current = int(float(set_current_response))
+            # Convert predefined voltage and current values to floats
+            voltage = float(voltage)
+            current = float(current)
 
-        # Convert predefined voltage and current values to integers
-        voltage = int(VOLTAGES[channel - 1])
-        current = int(CURRENTS[channel - 1])
+            print(f"Set voltage: {set_voltage}, Expected voltage: {voltage}")
+            print(f"Set current: {set_current}, Expected current: {current}")
 
-        # Check if the responses match the predefined values
-        if set_voltage == voltage and set_current == current:
-            # If the values match, send command to Lampcontroller
-            porthandler.write(porthandler.lampcontroller, (channel, on_time_ms))
-        else:
-            print("Error: PSU set values do not match")
+            # Check if the responses match the predefined values
+            if abs(set_voltage - voltage) < 0.01 and abs(set_current - current) < 0.01:  # Allowing a small tolerance
+                # Turn on the PSU output
+                porthandler.write(porthandler.psu, "OUTPut ON")
+                
+                # If the values match, send command to Lampcontroller
+                porthandler.write(porthandler.lampcontroller, (channel, on_time_ms))
+            else:
+                print("Error: PSU set values do not match")
+        elif current_state == channel:  # The same channel is on
+            # Turn off the channel
+            porthandler.write(porthandler.lampcontroller, "1,0")
+        else:  # A different channel is on
+            # Turn off all channels
+            porthandler.write(porthandler.lampcontroller, "1,0")
+
+            # Set the PSU voltage and current
+            voltage = SETTINGS['channels'][channel - 1]['voltage']
+            current = SETTINGS['channels'][channel - 1]['current']
+            
+            voltage_command = f"VOLTage {voltage}\n"
+            current_command = f"CURRent {current}\n"
+            porthandler.write(porthandler.psu, voltage_command)
+            porthandler.write(porthandler.psu, current_command)
+
+            # Request set voltage and current from PSU
+            porthandler.write(porthandler.psu, "VOLTage?\n")
+            set_voltage_response = porthandler.psu.readline().decode().strip()
+            porthandler.write(porthandler.psu, "CURRent?\n")
+            set_current_response = porthandler.psu.readline().decode().strip()
+
+            # Convert set voltage and current responses to floats
+            set_voltage = float(set_voltage_response)
+            set_current = float(set_current_response)
+
+            # Convert predefined voltage and current values to floats
+            voltage = float(voltage)
+            current = float(current)
+
+            print(f"Set voltage: {set_voltage}, Expected voltage: {voltage}")
+            print(f"Set current: {set_current}, Expected current: {current}")
+
+            # Check if the responses match the predefined values
+            if abs(set_voltage - voltage) < 0.01 and abs(set_current - current) < 0.01:  # Allowing a small tolerance
+                # Turn on the PSU output
+                porthandler.write(porthandler.psu, "OUTPut ON")
+                
+                # If the values match, send command to Lampcontroller
+                porthandler.write(porthandler.lampcontroller, (channel, on_time_ms))
+            else:
+                print("Error: PSU set values do not match")
     else:
         print("Error: PSU is not connected")

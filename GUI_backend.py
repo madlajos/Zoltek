@@ -192,6 +192,38 @@ def move_printer():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+### Lamp Functions ###
+# Function to turn on channels of the lamp
+@app.route('/api/toggle-lamp', methods=['POST'])
+def toggle_lamp():
+    try:
+        data = request.get_json()
+        channel = data.get('channel')
+        on_time_ms = data.get('on_time_ms')
+
+        if channel is None:
+            return jsonify({'error': 'Channel is required'}), 400
+
+        if not (1 <= channel <= 6):
+            return jsonify({'error': 'Invalid channel number'}), 400
+
+        lampcontrols.turn_on_channel(channel, on_time_ms)
+        return jsonify({'status': 'success'}), 200
+
+    except Exception as e:
+        logging.exception(f"Exception occurred while turning on lamp channel {channel}")
+        return jsonify({'error': str(e)}), 500
+
+    
+@app.route('/api/get-lamp-state', methods=['GET'])
+def get_lamp_state():
+    if porthandler.lampcontroller is not None:
+        porthandler.write(porthandler.lampcontroller, "GETLAMPSTATE")
+        state = porthandler.lampcontroller.readline().decode().strip()
+        return jsonify(int(state))  # Returns -1 if no channel is active, otherwise returns the active channel number
+    else:
+        print("Error: Lampcontroller is not connected")
+        return jsonify(-1)
 
 
 
@@ -264,82 +296,6 @@ def capture_and_send():
 
             return jsonify({'success': True})
 
-
-
-@app.route('/turn-on-lamp', methods=['POST'])
-def illu_on():
-    global printer, handler, lamp, psu, folder_selected
-
-    channel = request.json.get('channel')  # Get the channel number from the request
-
-    if psu and lamp is not None:
-        lampcontrols.turn_on_channel(psu,lamp, 1, 10000)
-        time.sleep(3)
-        return 'Printer axes homed successfully!'
-    else:
-        return 'Failed to connect to printer'
-
-
-@app.route('/turn-on-lampUV1', methods=['POST'])
-def illu_on1():
-    global printer, handler, lamp, psu, folder_selected
-    channel = request.json.get('channel')  # Get the channel number from the request
-    if psu and lamp is not None:
-        lampcontrols.turn_on_channel(psu,lamp, 2, 5000)
-        time.sleep(3)
-        return 'Lamp turned on successfully!'
-
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/turn-on-lampUV2', methods=['POST'])
-def illu_on2():
-    global printer, handler, lamp, psu, folder_selected
-    channel = request.json.get('channel')  # Get the channel number from the request
-    if psu and lamp is not None:
-        lampcontrols.turn_on_channel(psu,lamp, 3, 1000)
-        time.sleep(3)
-        return 'Lamp turned on successfully!'
-
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/turn-on-lampUV3', methods=['POST'])
-def illu_on3():
-    global printer, handler, lamp, psu, folder_selected
-    channel = request.json.get('channel')  # Get the channel number from the request
-    if psu and lamp is not None:
-        lampcontrols.turn_on_channel(psu,lamp, 4, 1000)
-        time.sleep(3)
-        return 'Lamp turned on successfully!'
-
-    else:
-        return 'Failed to connect to printer'
-
-
-@app.route('/turn-on-lampUV4', methods=['POST'])
-def illu_on4():
-    global printer, handler, lamp, psu, folder_selected
-    channel = request.json.get('channel')  # Get the channel number from the request
-    if psu and lamp is not None:
-        lampcontrols.turn_on_channel(psu,lamp, 5, 1000)
-        time.sleep(3)
-        return 'Lamp turned on successfully!'
-
-    else:
-        return 'Failed to connect to printer'
-
-@app.route('/turn-on-lampUV5', methods=['POST'])
-def illu_on5():
-    global printer, handler, lamp, psu, folder_selected
-    channel = request.json.get('channel')  # Get the channel number from the request
-    if psu and lamp is not None:
-        lampcontrols.turn_on_channel(psu,lamp, 6, 1000)
-        time.sleep(3)
-        return 'Lamp turned on successfully!'
-
-    else:
-        return 'Failed to connect to printer'
 
 @app.route('/get-images')
 def get_images():

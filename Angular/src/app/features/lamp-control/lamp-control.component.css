@@ -1,0 +1,19 @@
+.lamp-control {
+    display: flex;
+    align-items: center;
+  }
+  
+  .lamp-status img {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .lamp-buttons {
+    margin-left: 20px;
+  }
+  
+  .lamp-buttons button {
+    display: block;
+    margin-bottom: 10px;
+  }
+  

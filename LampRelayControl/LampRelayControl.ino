@@ -44,14 +44,13 @@ void loop() {
   }
 
   // Check if any relay needs to be turned off (time-controlled)
+  unsigned long currentMillis = millis();  // Get the current time
   for (int i = 0; i < 6; ++i) {
-    if (channelState[i]) {
-      unsigned long currentMillis = millis();  // Get the current time
-      if (relayActivationTime[i] != 0 && currentMillis >= relayActivationTime[i]) {
-        digitalWrite(relayPins[i], LOW);  // Turn off the relay
-        relayActivationTime[i] = 0;       // Reset the activation time
-        channelState[i] = false;          // Update the channel state
-      }
+    if (channelState[i] && relayActivationTime[i] != 0 && currentMillis >= relayActivationTime[i]) {
+      digitalWrite(relayPins[i], LOW);  // Turn off the relay
+      relayActivationTime[i] = 0;       // Reset the activation time
+      channelState[i] = false;          // Update the channel state
+      lastActivatedChannel = -1;        // Reset the last activated channel
     }
   }
 
@@ -69,6 +68,16 @@ void loop() {
           channelState[i] = false;          // Update the channel state
         }
       }
+      lastActivatedChannel = -1;            // Reset the last activated channel
+    } else if (command.equals("GETLAMPSTATE")) {
+      int activeChannel = -1;
+      for (int i = 0; i < 6; ++i) {
+        if (channelState[i]) {
+          activeChannel = i + 1;  // Channel numbers are 1-based
+          break;
+        }
+      }
+      Serial.println(activeChannel);
     } else {
       int commaIndex = command.indexOf(',');
       if (commaIndex != -1) {
@@ -76,25 +85,28 @@ void loop() {
         int relayNumber = command.substring(0, commaIndex).toInt();
         int timeOnInMs = command.substring(commaIndex + 1).toInt();
 
-        // If the last activated channel matches the current one, deactivate it
-        if (lastActivatedChannel == relayNumber) {
-          digitalWrite(relayPins[relayNumber - 1], LOW); // Turn off the relay
-          relayActivationTime[relayNumber - 1] = 0;      // Reset the activation time
-          channelState[relayNumber - 1] = false;         // Update the channel state
-          lastActivatedChannel = -1;                      // Reset the last activated channel
-          continue;                                      // Skip processing the command
-        }
-
-        // If the channel is already active, skip processing the command
-        if (channelState[relayNumber - 1]) {
-          continue;
+        // If a channel is already on
+        if (lastActivatedChannel != -1) {
+          // Turn off all channels
+          for (int i = 0; i < 6; ++i) {
+            if (channelState[i]) {
+              digitalWrite(relayPins[i], LOW);  // Turn off the relay
+              relayActivationTime[i] = 0;       // Reset the activation time
+              channelState[i] = false;          // Update the channel state
+            }
+          }
+          // Reset lastActivatedChannel if the new request is the same as the one which is already on
+          if (lastActivatedChannel == relayNumber) {
+            lastActivatedChannel = -1;
+            continue;  // Do nothing and skip processing the command
+          }
         }
 
         // Activate the new channel and record the activation time
         digitalWrite(relayPins[relayNumber - 1], HIGH);
         relayActivationTime[relayNumber - 1] = millis() + timeOnInMs;
-        channelState[relayNumber - 1] = true;         // Update the channel state
-        lastActivatedChannel = relayNumber;           // Update the last activated channel
+        channelState[relayNumber - 1] = true;  // Update the channel state
+        lastActivatedChannel = relayNumber;    // Update the last activated channel
       }
     }
   }

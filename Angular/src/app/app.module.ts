@@ -17,7 +17,7 @@ import { FormsModule } from '@angular/forms'; //
 import { MatCommonModule } from '@angular/material/core';
 
 import { PrinterControlComponent } from './features/printer-control/printer-control.component';
-import { LightControlComponent } from './features/light-control/light-control.component';
+import { LampControlComponent } from './features/lamp-control/lampcontrol.component';
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 
@@ -26,7 +26,7 @@ import { CameraControlComponent } from './features/camera-control/camera-control
     AppComponent,
     MessageDisplayComponent,
     PrinterControlComponent,
-    LightControlComponent,
+    LampControlComponent,
     ComportControlComponent,
     CameraControlComponent
   ],
