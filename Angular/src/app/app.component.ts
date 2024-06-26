@@ -41,63 +41,10 @@ export class AppComponent implements OnInit {
  
 
   ngOnInit(): void {
-    this.connectToLamp();
-    setTimeout(() => {
-      this.startVideo_cont();
-    }, 100); // Add a delay of 10 seconds (10000 milliseconds)
+
   }
   
-  connectToLamp(): void {
-    this.http.post('http://localhost:5000//connect-to-lamp', {}).subscribe(
-      (response) => {
-        console.log('Lamp connected successfully!', response);
-        this.lampConnected = true; // Set lampConnected to true when the connection succeeds
-        // Proceed to connect to the printer after a delay
-        setTimeout(() => {
-          this.connectToPrinter();
-        }, 1000); // Add a delay of 10 seconds (10000 milliseconds)
-      },
-      (error) => {
-        console.error('Failed to connect to lamp!', error);
-      }
-    );
-  }
 
- 
-  connectToPrinter(): void {
-    this.http.post('http://localhost:5000//connect-to-printer', {}).subscribe(
-      (response) => {
-        console.log('Printer homed successfully!', response);
-        this.printerConnected = true; // Set lampConnected to true when the connection succeeds
-        // Proceed to connect to the printer after a delay
-        setTimeout(() => {
-          this.connectToPSU();
-        }, 1000); // Add a delay of 10 seconds (10000 milliseconds)
-        // You can handle the response here if needed
-      },
-      (error) => {
-        console.error('Failed to home printer!', error);
-      }
-    );
-  }
-
-
-  connectToPSU(): void {
-    this.http.post('http://localhost:5000//connect-to-psu', {}).subscribe(
-      (response) => {
-        console.log('Printer homed successfully!', response);
-        this.psuConnected = true; // Set lampConnected to true when the connection succeeds
-        // Proceed to connect to the printer after a delay
-        setTimeout(() => {
-          
-        }, 1000); // Add a delay of 10 seconds (10000 milliseconds)
-        // You can handle the response here if needed
-      },
-      (error) => {
-        console.error('Failed to home printer!', error);
-      }
-    );
-  }
 
 
   showImage(imageDataUrl: string): void {
@@ -109,23 +56,6 @@ export class AppComponent implements OnInit {
     this.showModal = null;
   }
 
-
-
-
-  printerHome(): void {
-    this.http.post('http://localhost:5000//printer_home', {}).subscribe(
-      (response) => {
-        console.log('Printer homed successfully!', response);
-        // You can handle the response here if needed
-      },
-      (error) => {
-        console.error('Failed to home printer!', error);
-      }
-    );
-  }
-
-
-
   captureAndSendExpo(): void {
     this.http.post('http://127.0.0.1:5000/capture-and-send-expo', { number: this.inputNumber }).subscribe(
       (response: any) => {
@@ -133,20 +63,6 @@ export class AppComponent implements OnInit {
       },
       (error) => {
         console.error(error);
-      }
-    );
-  }
-
-  Lampwrite(): void {
-    this.http.post<any>('http://localhost:5000/connect-to-lamp2', {}).subscribe(
-      (response) => {
-        console.log(response);
-        // Add a delay of 5 seconds (5000 milliseconds) before calling connectToPrinter
-        
-        },
-      (error) => {
-        console.error(error);
-        // Handle error response
       }
     );
   }

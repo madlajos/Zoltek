@@ -13,7 +13,8 @@ import { MessageDisplayComponent } from './message-display/message-display.compo
 import { MessageService } from './message.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { FormsModule } from '@angular/forms'; // Import FormsModule
+import { FormsModule } from '@angular/forms'; // 
+import { MatCommonModule } from '@angular/material/core';
 
 import { PrinterControlComponent } from './features/printer-control/printer-control.component';
 import { LightControlComponent } from './features/light-control/light-control.component';
@@ -30,6 +31,7 @@ import { CameraControlComponent } from './features/camera-control/camera-control
     CameraControlComponent
   ],
   imports: [
+    MatCommonModule,
     BrowserModule,
     BrowserAnimationsModule,
     HttpClientModule,

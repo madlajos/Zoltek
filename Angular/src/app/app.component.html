@@ -763,25 +763,8 @@ document.addEventListener('DOMContentLoaded', function() {
   
   <div class="vstream-text">
     <h1 style="position: absolute; margin-left: -18%">Video stream</h1>
-    
-
   </div>
 
-  <div class="button-container">
-    <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top:0.5%; margin-left: 4%; z-index: 1; font-weight: 100" (click)="startVideo()">Start stream</button>
-    <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top:0.6%; margin-left: 21.5%; z-index: 1; font-weight: 100" id="fetchImagesButton" (click)="captureImage(); fetchImages() ">Acquire</button>
-  </div>
-
-  
-  <button mat-icon-button aria-label="Example icon button with a custom icon">
-    <img src="/assets/images/Home.svg" alt="Custom icon" class="custom-icon" (click)="printerHome()">
-  </button>
-
-  <div class="button3">
-    <button mat-flat-button style="background-color: rgba(42, 98, 140, 0); position: absolute; margin-top: -3%; margin-left: -48%; z-index: 2;" (click)="onSelectFolder()">Select Folder</button>
-
-  </div>
- 
 
   <div *ngIf="psuConnected; else psuError" [class.psu-connected]="psuConnected">
     PSU Connected
@@ -808,18 +791,10 @@ document.addEventListener('DOMContentLoaded', function() {
   </ng-template>
 
 
-
-
-
   <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top: 19%; margin-left: 64%; z-index: 1;" (click)="onClickSendVISToBackend(1); startVideo(); changeImage1()">VIS</button>
-
- 
   <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top: 21%; margin-left: 64%; z-index: 1;" (click)="onClickSendUV1ToBackend(2); startVideo();changeImage2()">UV1</button>
-  
   <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top: 23%; margin-left: 64%; z-index: 1;" (click)="onClickSendUV2ToBackend(2); startVideo(); changeImage3()">UV2</button>
-
   <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top: 25%; margin-left: 64%; z-index: 1;" (click)="onClickSendUV3ToBackend(2); startVideo(); changeImage4()">UV3</button>
-
   <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top: 27%; margin-left: 64%; z-index: 1;" (click)="onClickSendUV4ToBackend(2)">UV4</button>
   <button mat-raised-button style="background-color: rgb(42, 98, 140); position: absolute; margin-top: 30%; margin-left: 64%; z-index: 1;" (click)="onClickSendUV5ToBackend(2)">UV5</button>
 
@@ -837,21 +812,11 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="rectangle12">
    
   </div>
-  <div class="printc-text">
-  <h2>Printer control</h2>
-  </div>
-  
-
-  <div class="rectangle22">
-   
-  </div>
   
   <div>
     <h2 style="position:absolute; margin-top: 28.5%; margin-left:13%; "> Camera control</h2>
   </div>
   
-
-
 
   <div class="rectangle23">
     <input type="text" style="background-color:#212529; border: 0px; color: rgb(250,250,250)" [(ngModel)]="inputNumber" placeholder="Enter exposition time">

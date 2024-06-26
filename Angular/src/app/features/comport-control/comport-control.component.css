@@ -1,0 +1,20 @@
+/* src/app/features/comport-control/comport-control.component.css */
+.comport-control {
+    margin: 20px;
+  }
+  
+  .device {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .device span {
+    margin-right: 10px;
+  }
+  
+  .device button {
+    padding: 5px 10px;
+  }
+  

@@ -17,6 +17,10 @@ import json
 import datetime
 import shutil
 import cv2
+import logging
+from logging.handlers import RotatingFileHandler
+from flask_debugtoolbar import DebugToolbarExtension
+
 
 # Enable camera emulation
 import os
@@ -35,13 +39,20 @@ import time
 import printercontrols
 import lampcontrols
 
-opencv_display_format = PixelFormat.Bgr8
+
 app = Flask(__name__)
+app.secret_key = 'TabletScanner'
+logging.basicConfig(level=logging.DEBUG)
+CORS(app)
+app.debug = True
+toolbar = DebugToolbarExtension(app)
+
+opencv_display_format = PixelFormat.Bgr8
 file_path = ''
 common_filenames=[]
 image=[]
 display=[]
-app.secret_key = 'TabletScanner'
+
 CORS(app)
 # Global variable to store the current frame being displayed
 display = None
@@ -50,6 +61,139 @@ handler = Handler(folder_selected)
 printer=[]
 lamp=[]
 psu=[]
+
+
+# Configure logging
+if not app.debug:
+    # Set up logging to file
+    file_handler = RotatingFileHandler('flask.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+
+    # Set up logging to console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+    console_handler.setLevel(logging.DEBUG)
+    app.logger.addHandler(console_handler)
+
+app.logger.setLevel(logging.DEBUG)
+
+
+
+### Serial Device Functions ###
+# Define the route for checking device status
+@app.route('/api/status/<device_name>', methods=['GET'])
+def get_status(device_name):
+    logging.debug(f"Received status request for device: {device_name}")
+    device = None
+    if device_name == 'psu':
+        device = porthandler.psu
+    elif device_name == 'lampcontroller':
+        device = porthandler.lampcontroller
+    elif device_name == 'printer':
+        device = porthandler.printer
+    else:
+        logging.error("Invalid device name")
+        return jsonify({'error': 'Invalid device name'}), 400
+
+    if device is not None:
+        logging.debug(f"{device_name} is connected on port {device.port}")
+        return jsonify({'connected': True, 'port': device.port})
+    else:
+        logging.debug(f"{device_name} is not connected")
+        return jsonify({'connected': False})
+
+@app.route('/api/connect-to-<device_name>', methods=['POST'])
+def connect_device(device_name):
+    try:
+        app.logger.info(f"Attempting to connect to {device_name}")
+        device = None
+        if device_name == 'psu':
+            device = porthandler.connect_to_psu()
+            app.logger.debug(f"PSU connection attempt result: {device}")
+        elif device_name == 'lampcontroller':
+            device = porthandler.connect_to_lampcontroller()
+            app.logger.debug(f"Lampcontroller connection attempt result: {device}")
+        elif device_name == 'printer':
+            device = porthandler.connect_to_printer()
+            app.logger.debug(f"Printer connection attempt result: {device}")
+        else:
+            app.logger.error(f"Invalid device name: {device_name}")
+            return jsonify({'error': 'Invalid device name'}), 400
+
+        if device is not None:
+            # Update global state
+            if device_name == 'psu':
+                porthandler.psu = device
+            elif device_name == 'lampcontroller':
+                porthandler.lampcontroller = device
+            elif device_name == 'printer':
+                porthandler.printer = device
+
+            app.logger.info(f"Successfully connected to {device_name}")
+            return jsonify('ok')
+        else:
+            app.logger.error(f"Failed to connect to {device_name}: No COM ports or matching device not found")
+            return jsonify({'error': f'Failed to connect to {device_name}. No COM ports available or matching device not found'}), 404
+    except Exception as e:
+        app.logger.exception(f"Exception occurred while connecting to {device_name}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/disconnect-to-<device_name>', methods=['POST'])
+def disconnect_device(device_name):
+    try:
+        logging.info(f"Attempting to disconnect from {device_name}")
+        porthandler.disconnect_device(device_name)
+        logging.info(f"Successfully disconnected from {device_name}")
+        return jsonify('ok')
+    except Exception as e:
+        logging.exception(f"Exception occurred while disconnecting from {device_name}")
+        return jsonify({'error': str(e)}), 500
+
+
+### Printer Functions ###
+# Function to home all axis of the printer
+@app.route('/home_printer', methods=['POST'])
+def home_printer():
+    global printer, handler, lamp, psu, folder_selected
+    print(str(printer))  # Print the serial object
+    time.sleep(1)
+    if printer is not None:
+        printercontrols.home_axes(printer)
+        return jsonify('Printer axes homed successfully!')
+    else:
+        return jsonify('Error')
+
+# Function to move the printer by a given amount (relative movement)
+@app.route('/move_printer', methods=['POST'])
+def move_printer():
+    data = request.get_json()
+    axis = data.get('axis')
+    value = data.get('value')
+    
+    if axis not in ['x', 'y', 'z']:
+        return jsonify({'status': 'error', 'message': 'Invalid axis'}), 400
+
+    try:
+        # Check if the printer is connected without reconnecting
+        printer = porthandler.get_printer()
+
+        if printer is not None:
+            # Dynamically call move_relative with the axis and value
+            move_args = {axis: value}
+            printercontrols.move_relative(printer, **move_args)
+            return jsonify({'status': 'success'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+
+
 
 # Define the route for starting the video stream
 @app.route('/select-folder', methods=['GET'])
@@ -120,98 +264,6 @@ def capture_and_send():
 
             return jsonify({'success': True})
 
-
-# Define the route for capturing an image
-@app.route('/connect-to-psu', methods=['POST'])
-def connect_psu():
-    global printer, handler, lamp, psu, folder_selected
-    psu = porthandler.connect_to_psu()
-    if psu is not None:
-        # Store the original printer object
-        psu_data = str(psu)
-        print(psu_data)  # Print for debugging purposes
-        return jsonify('ok')  # Return JSON response
-    else:
-        return jsonify({'error': 'Failed to connect to printer'}), 500  # Return error response if printer is not connected
-
-
-@app.route('/connect-to-lamp', methods=['POST'])
-def connect_lamp():
-    global printer, handler, lamp, psu, folder_selected
-    lamp = porthandler.connect_to_lampcontroller()
-    time.sleep(1)
-    if lamp is not None:
-        # Store the original printer object
-        lamp_data = str(lamp)
-        print(lamp_data)  # Print for debugging purposes
-
-        return jsonify('ok')  # Return JSON response
-    else:
-        return jsonify({'error': 'Failed to connect to printer'}), 500  # Return error response if printer is not connected
-
-
-@app.route('/connect-to-lamp2', methods=['POST'])
-def connect_lamp2():
-    global printer, handler, lamp, psu, folder_selected
-
-    if lamp is not None:
-        # Store the original printer object
-        lamp_data = str(lamp)
-        print(lamp_data)  # Print for debugging purposes
-        porthandler.write(lamp, (1,5000))
-        return jsonify('ok')  # Return JSON response
-    else:
-        return jsonify({'error': 'Failed to connect to printer'}), 500  # Return error response if printer is not connected
-
-# Define the route for capturing an image
-@app.route('/connect-to-printer', methods=['POST'])
-def connect_print():
-    global printer, handler, lamp, psu, folder_selected
-    time.sleep(1)
-    global printer, handler, lamp
-    printer = porthandler.connect_to_printer()
-    if printer is not None:
-        # Store the original printer object
-        printer_data = str(printer)
-        print(printer_data)  # Print for debugging purposes
-        return jsonify('ok')  # Return JSON response
-    else:
-        return jsonify({'error': 'Failed to connect to printer'}), 500  # Return error response if printer is not connected
-
-
-@app.route('/home_printer', methods=['POST'])
-def home_printer():
-    global printer, handler, lamp, psu, folder_selected
-    print(str(printer))  # Print the serial object
-    time.sleep(1)
-    if printer is not None:
-        printercontrols.home_axes(printer)
-        return jsonify('Printer axes homed successfully!')
-    else:
-        return jsonify('Error')
-
-@app.route('/move_printer', methods=['POST'])
-def move_printer():
-    data = request.get_json()
-    axis = data.get('axis')
-    value = data.get('value')
-    
-    if axis not in ['x', 'y', 'z']:
-        return jsonify({'status': 'error', 'message': 'Invalid axis'}), 400
-
-    try:
-        # Assuming you have a function to get the printer object
-        printer = porthandler.get_printer()
-
-        # Dynamically call move_relative with the axis and value
-        if printer is not None:
-            move_args = {axis: value}
-            printercontrols.move_relative(printer, **move_args)
-            return jsonify({'status': 'success'}), 200
-        else:
-            return jsonify({'status': 'error', 'message': 'Printer not found'}), 404
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @app.route('/turn-on-lamp', methods=['POST'])

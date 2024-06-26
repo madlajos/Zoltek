@@ -1,5 +1,8 @@
 
-<div class="feature-content">
-    <h2>Comport Control</h2>
-    <!-- Comport control buttons go here -->
+<div class="comport-control">
+  <div class="device" *ngFor="let device of devices">
+    <span>{{ device.name }}: </span>
+    <span>{{ device.status }}</span>
+    <button (click)="toggleConnection(device)">{{ device.action }}</button>
   </div>
+</div>
