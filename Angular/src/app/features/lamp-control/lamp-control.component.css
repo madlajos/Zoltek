@@ -1,19 +1,44 @@
 .lamp-control {
-    display: flex;
-    align-items: center;
-  }
-  
-  .lamp-status img {
-    width: 100px;
-    height: 100px;
-  }
-  
-  .lamp-buttons {
-    margin-left: 20px;
-  }
-  
-  .lamp-buttons button {
-    display: block;
-    margin-bottom: 10px;
-  }
-  
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.lamp-status {
+  margin-right: 20px; /* Space between lamp icon and buttons */
+}
+
+.lamp-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px; /* Adjust this value to control spacing between buttons */
+}
+
+.lamp-buttons button {
+  width: 74px;
+  height: 40px;
+  border: none;
+  background-size: contain;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  background-color: transparent;
+  border-radius: 12px; /* Make buttons have rounded corners */
+  transition: box-shadow 0.2s;
+  padding: 0; /* Ensure no padding inside buttons */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.lamp-buttons button:hover {
+  outline: 3px solid rgb(42, 98, 140); /* Add an outline effect for hover */
+  outline-offset: -3px; /* Adjust to make the outline fit the button size */
+}
+
+.lamp-buttons button.on-1 {
+  box-shadow: 0 0 10px 5px white; /* White outer glow for button 1 */
+}
+
+.lamp-buttons button.on-other {
+  box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.3), 0 0 10px 3px rgba(251, 0, 247, 0.6); /* White and blue glow */
+}

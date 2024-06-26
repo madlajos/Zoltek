@@ -12,6 +12,7 @@ export class LampControlComponent implements OnInit {
   currentLampStateImage: string = 'assets/images/lamp_off.png';
   lampStatePolling: Subscription | undefined;
   settings: any;
+  currentLampState: number = -1; // Track the current lamp state
 
   constructor(private http: HttpClient) { }
 
@@ -73,11 +74,13 @@ export class LampControlComponent implements OnInit {
   updateLampState(): void {
     this.http.get<number>(`${this.BASE_URL}/get-lamp-state`).subscribe(
       (state) => {
+        this.currentLampState = state;
         this.setLampStateImage(state);
       },
       (error) => {
         console.error('Failed to get lamp state', error);
-        this.setLampStateImage(-1);  // Default to lamp off image in case of error
+        this.currentLampState = -1; // Default to lamp off in case of error
+        this.setLampStateImage(-1);
       }
     );
   }
@@ -106,5 +109,18 @@ export class LampControlComponent implements OnInit {
         this.currentLampStateImage = 'assets/images/lamp_off.png';
         break;
     }
+  }
+
+  getButtonImage(channel: number): string {
+    const basePath = 'assets/svg/lamp/';
+    if (this.currentLampState === channel) {
+      return `${basePath}ch${channel}_on.svg`;
+    } else {
+      return `${basePath}ch${channel}.svg`;
+    }
+  }
+
+  isChannelOn(channel: number): boolean {
+    return this.currentLampState === channel;
   }
 }
