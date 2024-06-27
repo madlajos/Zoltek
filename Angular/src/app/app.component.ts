@@ -38,14 +38,10 @@ export class AppComponent implements OnInit {
 
   constructor(private http: HttpClient, private lightbox: Lightbox, private cdRef: ChangeDetectorRef, private messageService: MessageService ) { }
 
- 
 
   ngOnInit(): void {
 
   }
-  
-
-
 
   showImage(imageDataUrl: string): void {
     this.showModal = 'data:image/jpg;base64,'+ imageDataUrl;
@@ -67,7 +63,6 @@ export class AppComponent implements OnInit {
     );
   }
 
- 
   fetchImages(): void {
     this.http.get('http://localhost:5000/get-images', { responseType: 'blob' })
       .subscribe(
@@ -86,55 +81,11 @@ export class AppComponent implements OnInit {
       );
   }
 
-  onClickSendVISToBackend(channel: number) {
-    this.http.post('http://localhost:5000/turn-on-lamp', { channel: 1 })
-      .subscribe(response => {
-        console.log('Response from backend:', response);
-      });
-  }
-
-  onClickSendUV1ToBackend(channel: number) {
-    this.http.post('http://localhost:5000/turn-on-lampUV1', { channel: 1 })
-      .subscribe(response => {
-        console.log('Response from backend:', response);
-      });
-  }
-
-  onClickSendUV2ToBackend(channel: number) {
-    this.http.post('http://localhost:5000/turn-on-lampUV2', { channel: 1 })
-      .subscribe(response => {
-        console.log('Response from backend:', response);
-      });
-  }
-
-  onClickSendUV3ToBackend(channel: number) {
-    this.http.post('http://localhost:5000/turn-on-lampUV3', { channel: 1 })
-      .subscribe(response => {
-        console.log('Response from backend:', response);
-      });
-  }
-
-  onClickSendUV4ToBackend(channel: number) {
-    this.http.post('http://localhost:5000/turn-on-lampUV4', { channel: 1 })
-      .subscribe(response => {
-        console.log('Response from backend:', response);
-      });
-  }
-  onClickSendUV5ToBackend(channel: number) {
-    this.http.post('http://localhost:5000/turn-on-lampUV5', { channel: 1 })
-      .subscribe(response => {
-        console.log('Response from backend:', response);
-      });
-  }
-  
   openURL(videoUrl: string): void {
     const container: HTMLDivElement | null = this.videoContainer?.nativeElement;
     if (container) {
       container.innerHTML = `<iframe src="${videoUrl}" frameborder="0" style="width: 819px; height: 600px;"></iframe>`;
     }}
-
-
-  
 
   captureImage(): void {
     this.http.post('http://127.0.0.1:5000/capture-image', {}).subscribe(
@@ -168,7 +119,6 @@ export class AppComponent implements OnInit {
       }
     );
   }
-  
   
   loadImageFromFile(imagePath: string | undefined): void {
     if (imagePath) {
@@ -259,8 +209,6 @@ startVideo_cont(): void {
     this.imageUrl = 'assets/images/UV_1.png'; // Change 'new_image.jpg' to your new image file
   }
    
-
-  
   sendFloat(): void {
     const floatValue = 3.14; // Replace with your float value
 
