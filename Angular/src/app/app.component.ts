@@ -40,7 +40,7 @@ export class AppComponent implements OnInit {
 
 
   ngOnInit(): void {
-
+    
   }
 
   showImage(imageDataUrl: string): void {
@@ -189,26 +189,7 @@ startVideo_cont(): void {
   }
 
 
-  changeImage1() {
-    // Change the image URL to a new image
-    this.imageUrl = 'assets/images/VIS.png'; // Change 'new_image.jpg' to your new image file
-  }
-
-  changeImage2() {
-    // Change the image URL to a new image
-    this.imageUrl = 'assets/images/UV_1.png'; // Change 'new_image.jpg' to your new image file
-  }
-
-  changeImage3() {
-    // Change the image URL to a new image
-    this.imageUrl = 'assets/images/UV_2.png'; // Change 'new_image.jpg' to your new image file
-  }
   
-  changeImage4() {
-    // Change the image URL to a new image
-    this.imageUrl = 'assets/images/UV_1.png'; // Change 'new_image.jpg' to your new image file
-  }
-   
   sendFloat(): void {
     const floatValue = 3.14; // Replace with your float value
 

@@ -1,10 +1,13 @@
 .lamp-control {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Align items to the top */
   margin-top: 10px;
 }
 
 .lamp-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-right: 20px; /* Space between lamp icon and buttons */
 }
 
@@ -12,11 +15,13 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px; /* Adjust this value to control spacing between buttons */
+  margin-left: 0px;
+  margin-top: 0px;
 }
 
 .lamp-buttons button {
-  width: 74px;
-  height: 40px;
+  width: 90px;
+  height: 49px;
   border: none;
   background-size: contain;
   background-repeat: no-repeat;
@@ -41,4 +46,48 @@
 
 .lamp-buttons button.on-other {
   box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.3), 0 0 10px 3px rgba(251, 0, 247, 0.6); /* White and blue glow */
+}
+
+.psu-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 6px; /* Space between lamp icon and PSU button */
+  margin-left: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.psu-button img {
+  width: 90px;
+  height: auto;
+  border-radius: 12px; /* Make button have rounded corners */
+}
+
+.psu-button:hover {
+  outline: 3px solid rgb(42, 98, 140); /* Add an outline effect for hover */
+  outline-offset: -3px; /* Adjust to make the outline fit the button size */
+  border-radius: 12px; /* Ensure rounded corners on hover */
+}
+
+.psu-button.on {
+  box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.3), 0 0 10px 3px rgba(251, 0, 247, 0.6); /* White and blue glow */
+}
+
+.lamp-icon {
+  width: auto; /* Adjust as needed */
+  height: 110px; /* Adjust as needed */
+  margin-left: 10px;
+}
+
+.lamp-info {
+  margin-top: 180px; /* Space between buttons and info */
+  margin-left: -320px; /* Space between buttons and info */
+  display: flex;
+  flex-direction: row;
+  gap: 10px; /* Adjust the gap between the information text */
+  width: 100%; /* Take full width available */
+  justify-content: space-between; /* Distribute space between items */
 }

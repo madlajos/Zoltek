@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { of } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError, concatMap, delay, tap } from 'rxjs/operators';
 
 interface Device {
   name: string;
@@ -26,7 +26,50 @@ export class ComportControlComponent implements OnInit {
   constructor(private http: HttpClient) { }
 
   ngOnInit(): void {
-    this.checkStatus();
+    this.checkStatusAndConnectDevices();
+  }
+
+  checkStatusAndConnectDevices(): void {
+    this.devices.reduce((previous, device) => {
+      return previous.pipe(
+        delay(1000),
+        concatMap(() => this.http.get<{ connected: boolean; port: string }>(`${this.BASE_URL}/status/${device.name.toLowerCase()}`).pipe(
+          tap((status: any) => {
+            if (status.connected) {
+              device.status = `Connected (${status.port})`;
+              device.action = 'Disconnect';
+            } else {
+              device.status = 'Disconnected';
+              device.action = 'Connect';
+              this.toggleConnection(device);
+            }
+          }),
+          catchError(error => {
+            console.error(`Error fetching status for ${device.name}:`, error);
+            device.status = 'Error';
+            device.action = 'Connect';
+            return of(null);
+          })
+        ))
+      );
+    }, of(null)).subscribe();
+  }
+
+  toggleConnection(device: Device): void {
+    const action = device.action.toLowerCase();
+    console.log(`${action.charAt(0).toUpperCase() + action.slice(1)}ing ${device.name}...`);
+    this.http.post(`${this.BASE_URL}/${action}-to-${device.name.toLowerCase()}`, {})
+      .pipe(
+        tap(() => {
+          console.log(`${device.name} ${action}ed successfully.`);
+          this.checkStatus();  // Update status after the connection action completes
+        }),
+        catchError(error => {
+          console.error(`Error ${action}ing ${device.name}:`, error);
+          device.status = 'Error';
+          return of(null); // Return a null observable to handle the error
+        })
+      ).subscribe();
   }
 
   checkStatus(): void {
@@ -46,22 +89,5 @@ export class ComportControlComponent implements OnInit {
         })
       ).subscribe();
     });
-  }
-
-  toggleConnection(device: Device): void {
-    const action = device.action.toLowerCase();
-    console.log(`${action.charAt(0).toUpperCase() + action.slice(1)}ing ${device.name}...`);
-    this.http.post(`${this.BASE_URL}/${action}-to-${device.name.toLowerCase()}`, {})
-      .pipe(
-        tap(() => {
-          console.log(`${device.name} ${action}ed successfully.`);
-          this.checkStatus();  // Update status after the connection action completes
-        }),
-        catchError(error => {
-          console.error(`Error ${action}ing ${device.name}:`, error);
-          device.status = 'Error';
-          return of(null); // Return a null observable to handle the error
-        })
-      ).subscribe();
   }
 }

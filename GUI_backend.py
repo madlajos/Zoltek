@@ -153,6 +153,14 @@ def disconnect_device(device_name):
         logging.exception(f"Exception occurred while disconnecting from {device_name}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/check-connections', methods=['GET'])
+def check_connections():
+    lamp_controller_connected = porthandler.lampcontroller is not None
+    psu_connected = porthandler.psu is not None
+    return jsonify({
+        'lampControllerConnected': lamp_controller_connected,
+        'psuConnected': psu_connected
+    })
 
 ### Printer Functions ###
 # Function to home all axis of the printer
@@ -194,6 +202,43 @@ def move_printer():
 
 ### Lamp Functions ###
 # Function to turn on channels of the lamp
+@app.route('/api/toggle-psu', methods=['POST'])
+def api_toggle_psu():
+    try:
+        data = request.get_json()
+        state = data.get('state')
+        if state is None:
+            return jsonify({'error': 'State is required'}), 400
+        lampcontrols.toggle_psu(state)
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/get-psu-state', methods=['GET'])
+def api_get_psu_state():
+    try:
+        state = lampcontrols.get_psu_state()
+        return jsonify({'state': state}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+@app.route('/api/get-psu-readings', methods=['GET'])
+def get_psu_readings():
+    if porthandler.psu is not None:
+        try:
+            porthandler.write(porthandler.psu, "VOLTage?")
+            voltage = porthandler.psu.readline().decode().strip()
+            porthandler.write(porthandler.psu, "CURRent?")
+            current = porthandler.psu.readline().decode().strip()
+            return jsonify({'voltage': voltage, 'current': current})
+        except Exception as e:
+            logging.exception("Failed to get PSU readings")
+            return jsonify({'voltage': '-', 'current': '-'}), 500
+    else:
+        return jsonify({'voltage': '-', 'current': '-'}), 200
+
+
 @app.route('/api/toggle-lamp', methods=['POST'])
 def toggle_lamp():
     try:
@@ -201,8 +246,8 @@ def toggle_lamp():
         channel = data.get('channel')
         on_time_ms = data.get('on_time_ms')
 
-        if channel is None:
-            return jsonify({'error': 'Channel is required'}), 400
+        if channel is None or on_time_ms is None:
+            return jsonify({'error': 'Channel and on_time_ms are required'}), 400
 
         if not (1 <= channel <= 6):
             return jsonify({'error': 'Invalid channel number'}), 400
@@ -214,18 +259,18 @@ def toggle_lamp():
         logging.exception(f"Exception occurred while turning on lamp channel {channel}")
         return jsonify({'error': str(e)}), 500
 
-    
 @app.route('/api/get-lamp-state', methods=['GET'])
 def get_lamp_state():
     if porthandler.lampcontroller is not None:
-        porthandler.write(porthandler.lampcontroller, "GETLAMPSTATE")
-        state = porthandler.lampcontroller.readline().decode().strip()
-        return jsonify(int(state))  # Returns -1 if no channel is active, otherwise returns the active channel number
+        try:
+            porthandler.write(porthandler.lampcontroller, "LS?")
+            state = porthandler.lampcontroller.readline().decode().strip()
+            return jsonify(int(state))  # Returns -1 if no channel is active, otherwise returns the active channel number
+        except Exception as e:
+            logging.exception("Failed to get lamp state")
+            return jsonify(-1), 500
     else:
-        print("Error: Lampcontroller is not connected")
-        return jsonify(-1)
-
-
+        return jsonify(-1), 200
 
 # Define the route for starting the video stream
 @app.route('/select-folder', methods=['GET'])

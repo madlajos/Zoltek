@@ -69,7 +69,7 @@ void loop() {
         }
       }
       lastActivatedChannel = -1;            // Reset the last activated channel
-    } else if (command.equals("GETLAMPSTATE")) {
+    } else if (command.equals("LS?")) {
       int activeChannel = -1;
       for (int i = 0; i < 6; ++i) {
         if (channelState[i]) {
