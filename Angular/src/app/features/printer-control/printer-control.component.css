@@ -2,7 +2,7 @@
 .button-container {
   position: relative;
   width: 300px; /* Adjust container width */
-  height: 300px; /* Adjust container height */
+  height: 150px; /* Adjust container height */
   margin: auto;
   display: flex;
   flex-direction: column; /* Stack Z buttons vertically */
@@ -22,19 +22,24 @@
   transition: background-image 0.3s; /* Smooth transition for background image */
 }
 
+:root {
+  --scale10-1: 0.70625;
+  --scale1-01: 0.57785; 
+}
+
 /* X and Y Buttons */
-.button_y10 { top: 18.1%; left: 40%; transform: translate(-50%, -50%) scale(0.97); }
-.button_y1 { top: 28.25%; left: 40%; transform: translate(-50%, -50%) scale(0.68); }
-.button_y01 { top: 37.9%; left: 40%; transform: translate(-50%, -50%) scale(0.40); }
-.button_y-10 { top: 81.5%; left: 40%; transform: translate(-50%, -50%) scale(0.97); }
-.button_y-1 { top: 70.9%; left: 40%; transform: translate(-50%, -50%) scale(0.69); }
-.button_y-01 { top: 61%; left: 40%; transform: translate(-50%, -50%) scale(0.4); }
-.button_x10 { top: 49.5%; left: 71.8%; transform: translate(-50%, -50%) scale(0.7); }
-.button_x1 { top: 49.5%; left: 61.7%; transform: translate(-50%, -50%) scale(0.42); }
-.button_x01 { top: 49.3%; left: 52%; transform: translate(-50%, -50%) scale(0.24); }
-.button_x-10 { top: 49.5%; left: 8.7%; transform: translate(-50%, -50%) scale(0.215); }
-.button_x-1 { top: 49.5%; left: 19%; transform: translate(-50%, -50%) scale(0.2); }
-.button_x-01 { top: 49.5%; left: 28.5%; transform: translate(-50%, -50%) scale(0.16); }
+.button_y10 { top:calc(90% - 100px) ; left: 30%; transform: translate(-50%, -50%) scale(0.8); }
+.button_y1 { top:calc(90% - 70.5px); left: 30%; transform: translate(-50%, -50%) scale(0.565) }
+.button_y01 {top:calc(90% - 43px); left: 30%; transform: translate(-50%, -50%) scale(0.326); }
+.button_y-10 { top:calc(90% + 82.5px); left: 30%; transform: translate(-50%, -50%) scale(0.8); }
+.button_y-1 { top:calc(90% + 52.4px); left: 30%; transform: translate(-50%, -50%) scale(0.565); }
+.button_y-01 { top:calc(90% + 24px); left: 30%; transform: translate(-50%, -50%) scale(0.326); }
+.button_x10 { top:calc(90% - 10px); left: calc(30% + 91px); transform: translate(-50%, -50%) scale(0.48735); }
+.button_x1 { top:calc(90% - 10px); left: calc(30% + 61px); transform: translate(-50%, -50%) scale(0.320); }
+.button_x01 { top:calc(90% - 10px); left: calc(30% + 33px); transform: translate(-50%, -50%) scale(0.192); }
+.button_x-10 { top:calc(90% - 10px); left: calc(30% - 90px); transform: translate(-50%, -50%) scale(0.193); }
+.button_x-1 { top:calc(90% - 10px); left: calc(30% - 60.5px); transform: translate(-50%, -50%) scale(0.1764); }
+.button_x-01 { top:calc(90% - 10px); left: calc(30% - 33px); transform: translate(-50%, -50%) scale(0.1399); }
 
 .button_y10:hover img { content: url('/assets/svg/printer/y10_Active.svg'); }
 .button_y1:hover img { content: url('/assets/svg/printer/y1_Active.svg'); }
@@ -50,7 +55,7 @@
 .button_x-01:hover img { content: url('/assets/svg/printer/x-01_Active.svg'); }
 
 /* Home Printer Button */
-.homePrinterButton { top: 49.4%; left: 40.2%; transform: translate(-50%, -50%) scale(0.25); }
+.homePrinterButton { top:calc(90% - 10px); left: 30%; transform: translate(-50%, -50%) scale(0.20); }
 .homePrinterButton:hover img { content: url('/assets/svg/printer/home_Active.svg'); }
 
 /* Z Buttons */
@@ -65,12 +70,12 @@
   margin: auto;
 }
 
-.button_z10 { margin-top: -270px; left: 90%; }
-.button_z1 { margin-top: -230px; left: 90%; }
-.button_z01 { margin-top: -190px; left: 90%; }
-.button_z-01 { margin-top: -150px; left: 90%; }
-.button_z-1 { margin-top: -110px; left: 90%; }
-.button_z-10 { margin-top: -70px; left: 90%; }
+.button_z10 { margin-top: -140px; left: 80%; }
+.button_z1 { margin-top: -100px; left: 80%; }
+.button_z01 { margin-top: -60px; left: 80%; }
+.button_z-01 { margin-top: -10px; left: 80%; }
+.button_z-1 { margin-top: +30px; left: 80%; }
+.button_z-10 { margin-top: +70px; left: 80%; }
 
 .button_z10 img { content: url('/assets/svg/printer/z10.svg'); }
 .button_z1 img { content: url('/assets/svg/printer/z1.svg'); }
