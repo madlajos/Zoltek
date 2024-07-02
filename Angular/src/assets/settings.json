@@ -1,41 +1,54 @@
 {
-    "channels": [
-      {
-        "channel": 1,
-        "on_time_ms": 10000,
-        "voltage": 30,
-        "current": 0.06
-      },
-      {
-        "channel": 2,
-        "on_time_ms": 10000,
-        "voltage": 39,
-        "current": 0.50
-      },
-      {
-        "channel": 3,
-        "on_time_ms": 3000,
-        "voltage": 24,
-        "current": 0.80
-      },
-      {
-        "channel": 4,
-        "on_time_ms": 3000,
-        "voltage": 24,
-        "current": 0.80
-      },
-      {
-        "channel": 5,
-        "on_time_ms": 3000,
-        "voltage": 41,
-        "current": 0.50
-      },
-      {
-        "channel": 6,
-        "on_time_ms": 3000,
-        "voltage": 39,
-        "current": 0.35
-      }
-    ]
+  "channels": [
+    {
+      "channel": 1,
+      "on_time_ms": 10000,
+      "voltage": 30,
+      "current": 0.06
+    },
+    {
+      "channel": 2,
+      "on_time_ms": 10000,
+      "voltage": 39,
+      "current": 0.50
+    },
+    {
+      "channel": 3,
+      "on_time_ms": 3000,
+      "voltage": 24,
+      "current": 0.80
+    },
+    {
+      "channel": 4,
+      "on_time_ms": 3000,
+      "voltage": 24,
+      "current": 0.80
+    },
+    {
+      "channel": 5,
+      "on_time_ms": 3000,
+      "voltage": 41,
+      "current": 0.50
+    },
+    {
+      "channel": 6,
+      "on_time_ms": 3000,
+      "voltage": 39,
+      "current": 0.35
+    }
+  ],
+  "firstTabletPosition": {
+    "x": 67,
+    "y": 216
+  },
+   "boundaries": {
+    "x": {
+      "min": 0,
+      "max": 200
+    },
+    "y": {
+      "min": 0,
+      "max": 200
+    }
   }
-  
+}

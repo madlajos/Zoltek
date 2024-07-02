@@ -1,92 +1,203 @@
-/* src/app/features/printer-control/printer-control.component.css */
-.button-container {
-  position: relative;
-  width: 300px; /* Adjust container width */
-  height: 150px; /* Adjust container height */
-  margin: auto;
+.control-panel {
+  color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.position-display {
   display: flex;
-  flex-direction: column; /* Stack Z buttons vertically */
+  justify-content: space-around;
+  margin-bottom: 20px;
 }
 
-.button {
-  background-color: transparent;
+.position {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.position-label {
+  margin-right: 5px;
+  color: #fff;
+}
+
+.position-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid #777;
+  border-radius: 8px;
+  padding: 5px;
+  background-color: #333;
+}
+
+.corner-text {
   position: absolute;
-  padding: 0;
-  overflow: hidden; /* Ensure the hitbox matches the circular shape */
-  transform-origin: center center; /* Set transform origin to the center */
+  top: -10px;
+  right: -10px;
+  font-size: 12px;
+  color: #bbb;
 }
 
-.button img {
-  width: 100%;
-  height: 100%;
-  transition: background-image 0.3s; /* Smooth transition for background image */
+.custom-movement {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-:root {
-  --scale10-1: 0.70625;
-  --scale1-01: 0.57785; 
+.custom-movement input {
+  width: 60px;
+  margin-right: 10px;
+  text-align: center;
 }
 
-/* X and Y Buttons */
-.button_y10 { top:calc(90% - 100px) ; left: 30%; transform: translate(-50%, -50%) scale(0.8); }
-.button_y1 { top:calc(90% - 70.5px); left: 30%; transform: translate(-50%, -50%) scale(0.565) }
-.button_y01 {top:calc(90% - 43px); left: 30%; transform: translate(-50%, -50%) scale(0.326); }
-.button_y-10 { top:calc(90% + 82.5px); left: 30%; transform: translate(-50%, -50%) scale(0.8); }
-.button_y-1 { top:calc(90% + 52.4px); left: 30%; transform: translate(-50%, -50%) scale(0.565); }
-.button_y-01 { top:calc(90% + 24px); left: 30%; transform: translate(-50%, -50%) scale(0.326); }
-.button_x10 { top:calc(90% - 10px); left: calc(30% + 91px); transform: translate(-50%, -50%) scale(0.48735); }
-.button_x1 { top:calc(90% - 10px); left: calc(30% + 61px); transform: translate(-50%, -50%) scale(0.320); }
-.button_x01 { top:calc(90% - 10px); left: calc(30% + 33px); transform: translate(-50%, -50%) scale(0.192); }
-.button_x-10 { top:calc(90% - 10px); left: calc(30% - 90px); transform: translate(-50%, -50%) scale(0.193); }
-.button_x-1 { top:calc(90% - 10px); left: calc(30% - 60.5px); transform: translate(-50%, -50%) scale(0.1764); }
-.button_x-01 { top:calc(90% - 10px); left: calc(30% - 33px); transform: translate(-50%, -50%) scale(0.1399); }
-
-.button_y10:hover img { content: url('/assets/svg/printer/y10_Active.svg'); }
-.button_y1:hover img { content: url('/assets/svg/printer/y1_Active.svg'); }
-.button_y01:hover img { content: url('/assets/svg/printer/y01_Active.svg'); }
-.button_y-10:hover img { content: url('/assets/svg/printer/y-10_Active.svg'); }
-.button_y-1:hover img { content: url('/assets/svg/printer/y-1_Active.svg'); }
-.button_y-01:hover img { content: url('/assets/svg/printer/y-01_Active.svg'); }
-.button_x10:hover img { content: url('/assets/svg/printer/x10_Active.svg'); }
-.button_x1:hover img { content: url('/assets/svg/printer/x1_Active.svg'); }
-.button_x01:hover img { content: url('/assets/svg/printer/x01_Active.svg'); }
-.button_x-10:hover img { content: url('/assets/svg/printer/x-10_Active.svg'); }
-.button_x-1:hover img { content: url('/assets/svg/printer/x-1_Active.svg'); }
-.button_x-01:hover img { content: url('/assets/svg/printer/x-01_Active.svg'); }
-
-/* Home Printer Button */
-.homePrinterButton { top:calc(90% - 10px); left: 30%; transform: translate(-50%, -50%) scale(0.20); }
-.homePrinterButton:hover img { content: url('/assets/svg/printer/home_Active.svg'); }
-
-/* Z Buttons */
-.button_z10,
-.button_z1,
-.button_z01,
-.button_z-01,
-.button_z-1,
-.button_z-10 {
-  width: 40px;
-  height: 40px;
-  margin: auto;
+.custom-movement button {
+  padding: 5px 10px;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background-color: #555;
+  color: #fff;
+  cursor: pointer;
 }
 
-.button_z10 { margin-top: -140px; left: 80%; }
-.button_z1 { margin-top: -100px; left: 80%; }
-.button_z01 { margin-top: -60px; left: 80%; }
-.button_z-01 { margin-top: -10px; left: 80%; }
-.button_z-1 { margin-top: +30px; left: 80%; }
-.button_z-10 { margin-top: +70px; left: 80%; }
+.custom-movement button:hover {
+  background-color: #777;
+}
 
-.button_z10 img { content: url('/assets/svg/printer/z10.svg'); }
-.button_z1 img { content: url('/assets/svg/printer/z1.svg'); }
-.button_z01 img { content: url('/assets/svg/printer/z01.svg'); }
-.button_z-01 img { content: url('/assets/svg/printer/z-01.svg'); }
-.button_z-1 img { content: url('/assets/svg/printer/z-1.svg'); }
-.button_z-10 img { content: url('/assets/svg/printer/z-10.svg'); }
+.position-container input {
+  width: 60px;
+  text-align: center;
+  border: none;
+  background: none;
+  color: #fff;
+  outline: none;
+  font-size: 14px;
+}
 
-.button_z10:hover img { content: url('/assets/svg/printer/z10_Active.svg'); }
-.button_z1:hover img { content: url('/assets/svg/printer/z1_Active.svg'); }
-.button_z01:hover img { content: url('/assets/svg/printer/z01_Active.svg'); }
-.button_z-01:hover img { content: url('/assets/svg/printer/z-01_Active.svg'); }
-.button_z-1:hover img { content: url('/assets/svg/printer/z-1_Active.svg'); }
-.button_z-10:hover img { content: url('/assets/svg/printer/z-10_Active.svg'); }
+.position input {
+  width: 60px;
+  text-align: center;
+}
+
+.controls-container {
+  display: flex;
+  justify-content: center;
+  align-items: center; /* Center the buttons vertically */
+  margin-bottom: 20px;
+}
+
+.movement-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 20px; /* Space between movement and home buttons */
+}
+
+.direction-button {
+  margin: 0 5px;
+  padding: 5px;
+  width: 30px; /* Smaller width for direction buttons */
+  height: 30px; /* Smaller height for direction buttons */
+  border: 1px solid #777;
+  border-radius: 4px;
+  background-color: #555;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.movement-buttons .movement-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gap {
+  height: 10px; /* Adjust the gap height as needed */
+}
+
+.direction-button:hover {
+  background-color: #777;
+}
+
+.home-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px; /* Space between buttons */
+}
+
+.home-button,
+.home-axis-button {
+  padding: 2px;
+  width: 60px; /* Fixed width for home buttons */
+  height: 20px; /* Fixed height for home buttons */
+  border: 1px solid #777;
+  border-radius: 4px;
+  background-color: #555;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-button:hover,
+.home-axis-button:hover {
+  background-color: #777;
+}
+
+.home-button.active {
+  background-color: rgb(42, 98, 140);
+}
+
+.movement-amount-buttons {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.movement-amount-buttons button {
+  margin: 0;
+  padding: 4px 20px;
+  border: 1px solid #777;
+  background-color: #555;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.movement-amount-buttons button:hover {
+  background-color: #777;
+}
+
+.movement-amount-buttons button.active {
+  background-color: rgb(42, 98, 140);
+}
+
+.movement-amount-buttons button {
+  border-radius: 0;
+}
+
+.movement-amount-buttons button:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.movement-amount-buttons button:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.rotate-up {
+  transform: rotate(-90deg);
+}
+
+.rotate-down {
+  transform: rotate(90deg);
+}

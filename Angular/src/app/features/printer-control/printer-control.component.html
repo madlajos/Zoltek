@@ -1,67 +1,60 @@
-<div class="feature-content">
-  <!-- X&Y-axis buttons -->
-  <div class="button-container">
-      <button class="button button_y10" (click)="movePrinter('y', 10)">
-          <img src="/assets/svg/printer/y10.svg" alt="Move Y +10">
-      </button>
-      <button class="button button_y1" (click)="movePrinter('y', 1)">
-          <img src="/assets/svg/printer/y1.svg" alt="Move Y +1">
-      </button>
-      <button class="button button_y01" (click)="movePrinter('y', 0.1)">
-          <img src="/assets/svg/printer/y01.svg" alt="Move Y +0.1">
-      </button>
-      <button class="button button_y-10" (click)="movePrinter('y', -10)">
-          <img src="/assets/svg/printer/y-10.svg" alt="Move Y -10">
-      </button>
-      <button class="button button_y-1" (click)="movePrinter('y', -1)">
-          <img src="/assets/svg/printer/y-1.svg" alt="Move Y -1">
-      </button>
-      <button class="button button_y-01" (click)="movePrinter('y', -0.1)">
-          <img src="/assets/svg/printer/y-01.svg" alt="Move Y -0.1">
-      </button>
-      <button class="button button_x10" (click)="movePrinter('x', 10)">
-          <img src="/assets/svg/printer/x10.svg" alt="Move X +10">
-      </button>
-      <button class="button button_x1" (click)="movePrinter('x', 1)">
-          <img src="/assets/svg/printer/x1.svg" alt="Move X +1">
-      </button>
-      <button class="button button_x01" (click)="movePrinter('x', 0.1)">
-          <img src="/assets/svg/printer/x01.svg" alt="Move X +0.1">
-      </button>
-      <button class="button button_x-10" (click)="movePrinter('x', -10)">
-          <img src="/assets/svg/printer/x-10.svg" alt="Move X -10">
-      </button>
-      <button class="button button_x-1" (click)="movePrinter('x', -1)">
-          <img src="/assets/svg/printer/x-1.svg" alt="Move X -1">
-      </button>
-      <button class="button button_x-01" (click)="movePrinter('x', -0.1)">
-          <img src="/assets/svg/printer/x-01.svg" alt="Move X -0.1">
-      </button>
-
-      <button class="button homePrinterButton" (click)="homePrinter()">
-          <img src="/assets/svg/printer/home.svg" alt="Home Printer">
-      </button>
+<div class="control-panel">
+  <div class="position-display">
+    <div class="position">
+      <div class="position-container">
+        <span class="position-label">X</span>
+        <input id="x-position" type="text" [(ngModel)]="xPosition" [disabled]="motorOffState" (focus)="onFocus('x')" (blur)="onBlur('x')" (keyup.enter)="movePrinterAbsolute(xPosition, yPosition, zPosition)">
+        <span class="corner-text">[{{xPosition}}]</span>
+      </div>
+    </div>
+    <div class="position">
+      <div class="position-container">
+        <span class="position-label">Y</span>
+        <input id="y-position" type="text" [(ngModel)]="yPosition" [disabled]="motorOffState" (focus)="onFocus('y')" (blur)="onBlur('y')" (keyup.enter)="movePrinterAbsolute(xPosition, yPosition, zPosition)">
+        <span class="corner-text">[{{yPosition}}]</span>
+      </div>
+    </div>
+    <div class="position">
+      <div class="position-container">
+        <span class="position-label">Z</span>
+        <input id="z-position" type="text" [(ngModel)]="zPosition" [disabled]="motorOffState" (focus)="onFocus('z')" (blur)="onBlur('z')" (keyup.enter)="movePrinterAbsolute(xPosition, yPosition, zPosition)">
+        <span class="corner-text">[{{zPosition}}]</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Z-axis buttons -->
-  <div class="button-container">
-      <button class="button button_z10" (click)="movePrinter('z', 10)">
-          <img src="/assets/svg/printer/z10.svg" alt="Move Z +10">
-      </button>
-      <button class="button button_z1" (click)="movePrinter('z', 1)">
-          <img src="/assets/svg/printer/z1.svg" alt="Move Z +1">
-      </button>
-      <button class="button button_z01" (click)="movePrinter('z', 0.1)">
-          <img src="/assets/svg/printer/z01.svg" alt="Move Z +0.1">
-      </button>
-      <button class="button button_z-01" (click)="movePrinter('z', -0.1)">
-          <img src="/assets/svg/printer/z-01.svg" alt="Move Z -0.1">
-      </button>
-      <button class="button button_z-1" (click)="movePrinter('z', -1)">
-          <img src="/assets/svg/printer/z-1.svg" alt="Move Z -1">
-      </button>
-      <button class="button button_z-10" (click)="movePrinter('z', -10)">
-          <img src="/assets/svg/printer/z-10.svg" alt="Move Z -10">
-      </button>
+  <div class="controls-container">
+    <div class="movement-buttons">
+      <button class="direction-button" (click)="movePrinterRelative('x', -movementAmount)" [disabled]="motorOffState">&#x3C;</button> <!-- -X -->
+      <div class="movement-column">
+        <button class="direction-button rotate-down" (click)="movePrinterRelative('y', movementAmount)" [disabled]="motorOffState">&#x3C;</button> <!-- +Y -->
+        <div class="gap"></div>
+        <button class="direction-button rotate-up" (click)="movePrinterRelative('y', -movementAmount)" [disabled]="motorOffState">&#x3C;</button> <!-- -Y -->
+      </div>
+      <button class="direction-button" (click)="movePrinterRelative('x', movementAmount)" [disabled]="motorOffState">&#x3E;</button> <!-- +X -->
+      <div class="movement-column">
+        <button class="direction-button rotate-down" (click)="movePrinterRelative('z', movementAmount)" [disabled]="motorOffState">&#x3C;</button> <!-- +Z -->
+        <div class="gap"></div>
+        <button class="direction-button rotate-up" (click)="movePrinterRelative('z', -movementAmount)" [disabled]="motorOffState">&#x3C;</button> <!-- -Z -->
+      </div>
+    </div>
+
+    <div class="home-buttons-grid">
+      <button class="home-axis-button" (click)="homeAxis('x')">HomeX</button>
+      <button class="home-axis-button" (click)="homeAxis('y')">HomeY</button>
+      <button class="home-axis-button" (click)="homeAxis('z')">HomeZ</button>
+      <button class="home-button" (click)="homeAxis()">Home</button>
+      <button class="home-button" [ngClass]="{'active': motorOffState}" (click)="motorOff()">MotorOff</button>
+      <button class="home-button" (click)="movePrinterAbsolute()">FirstTablet</button>
+    </div>
+  </div>
+
+  <div class="movement-amount-buttons">
+    <button [class.active]="movementAmount === 0.1" (click)="setMovementAmount(0.1)">0.1</button>
+    <button [class.active]="movementAmount === 1" (click)="setMovementAmount(1)">1</button>
+    <button [class.active]="movementAmount === 10" (click)="setMovementAmount(10)">10</button>
+    <button [class.active]="movementAmount === 25" (click)="setMovementAmount(25)">25</button>
+    <button [class.active]="movementAmount === 50" (click)="setMovementAmount(50)">50</button>
+    <button [class.active]="movementAmount === 100" (click)="setMovementAmount(100)">100</button>
   </div>
 </div>

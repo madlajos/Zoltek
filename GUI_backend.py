@@ -62,6 +62,7 @@ printer=[]
 lamp=[]
 psu=[]
 
+SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'Angular', 'src', 'assets', 'settings.json')
 
 # Configure logging
 if not app.debug:
@@ -80,7 +81,6 @@ if not app.debug:
     app.logger.addHandler(console_handler)
 
 app.logger.setLevel(logging.DEBUG)
-
 
 
 ### Serial Device Functions ###
@@ -166,18 +166,59 @@ def check_connections():
 # Function to home all axis of the printer
 @app.route('/home_printer', methods=['POST'])
 def home_printer():
-    global printer, handler, lamp, psu, folder_selected
-    print(str(printer))  # Print the serial object
-    time.sleep(1)
-    if printer is not None:
-        printercontrols.home_axes(printer)
-        return jsonify('Printer axes homed successfully!')
-    else:
-        return jsonify('Error')
+    data = request.get_json()
+    axes = data.get('axes', []) 
 
+    printer = porthandler.get_printer()
+    if printer is not None:
+        try:
+            printercontrols.home_axes(printer, *axes)
+            return jsonify(f'Printer axes {axes if axes else ["X", "Y", "Z"]} homed successfully!')
+        except Exception as e:
+            return jsonify(f'An error occurred: {str(e)}'), 500
+    else:
+        return jsonify('Error: Printer not connected'), 500
+
+@app.route('/get_printer_position', methods=['GET'])
+def get_printer_position():
+    global printer
+    printer = porthandler.get_printer()
+
+    if printer is not None:
+        try:
+            position = printercontrols.get_printer_position(printer)
+            if position:
+                return jsonify(position), 200
+            else:
+                return jsonify({'status': 'error', 'message': 'Failed to get printer position'}), 500
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    else:
+        print("Printer not connected")
+        return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
+
+
+@app.route('/disable_stepper', methods=['POST'])
+def disable_stepper():
+    data = request.get_json()
+    axes = data.get('axes', [])
+
+    # Check if the printer is connected without reconnecting
+    printer = porthandler.get_printer()
+    
+    if printer is not None:
+        try:
+            printercontrols.disable_steppers(printer, *axes)
+            return jsonify({'status': 'success', 'message': 'Printer motors disabled successfully!'}), 200
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    else:
+        return jsonify({'status': 'error', 'message': 'Printer not connected'}), 500
+    
 # Function to move the printer by a given amount (relative movement)
-@app.route('/move_printer', methods=['POST'])
-def move_printer():
+@app.route('/move_printer_relative', methods=['POST'])
+def move_printer_relative():
     data = request.get_json()
     axis = data.get('axis')
     value = data.get('value')
@@ -197,8 +238,41 @@ def move_printer():
         else:
             return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
     except Exception as e:
+        return jsonify({'statuWs': 'error', 'message': str(e)}), 500
+    
+# Function to move the printer to a given coordinate (absolute movement)
+@app.route('/move_printer_absolute', methods=['POST'])
+def move_printer_absolute():
+    try:
+        data = request.get_json()
+        logging.debug(f"Received data: {data}")
+        x_pos = data.get('x')
+        y_pos = data.get('y')
+        z_pos = data.get('z')
+        
+        # Load default coordinates from the JSON file if not provided in the request
+        if x_pos is None or y_pos or z_pos is None:
+            logging.debug("Loading default coordinates from settings.json")
+            with open(SETTINGS_PATH, 'r') as f:
+                settings = json.load(f)
+            x_pos = x_pos if x_pos is not None else settings['firstTabletPosition']['x']
+            y_pos = y_pos if y_pos is not None else settings['firstTabletPosition']['y']
+        
+        logging.debug(f"Coordinates to move to: X={x_pos}, Y={y_pos}, z={z_pos}")
+        
+        # Check if the printer is connected without reconnecting
+        printer = porthandler.get_printer()
+        if printer is not None:
+            logging.debug(f"Printer found: {printer}")
+            # Move the printer to the specified position
+            printercontrols.move_to_position(printer, x_pos, y_pos, z_pos)
+            return jsonify({'status': 'success', 'message': 'Printer moved to the specified position successfully!'}), 200
+        else:
+            logging.error("Printer not connected")
+            return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
 
 ### Lamp Functions ###
 # Function to turn on channels of the lamp
