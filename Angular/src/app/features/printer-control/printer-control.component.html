@@ -4,21 +4,18 @@
       <div class="position-container">
         <span class="position-label">X</span>
         <input id="x-position" type="text" [(ngModel)]="xPosition" [disabled]="motorOffState" (focus)="onFocus('x')" (blur)="onBlur('x')" (keyup.enter)="movePrinterAbsolute(xPosition, yPosition, zPosition)">
-        <span class="corner-text">[{{xPosition}}]</span>
       </div>
     </div>
     <div class="position">
       <div class="position-container">
         <span class="position-label">Y</span>
         <input id="y-position" type="text" [(ngModel)]="yPosition" [disabled]="motorOffState" (focus)="onFocus('y')" (blur)="onBlur('y')" (keyup.enter)="movePrinterAbsolute(xPosition, yPosition, zPosition)">
-        <span class="corner-text">[{{yPosition}}]</span>
       </div>
     </div>
     <div class="position">
       <div class="position-container">
         <span class="position-label">Z</span>
         <input id="z-position" type="text" [(ngModel)]="zPosition" [disabled]="motorOffState" (focus)="onFocus('z')" (blur)="onBlur('z')" (keyup.enter)="movePrinterAbsolute(xPosition, yPosition, zPosition)">
-        <span class="corner-text">[{{zPosition}}]</span>
       </div>
     </div>
   </div>
