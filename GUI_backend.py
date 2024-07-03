@@ -312,7 +312,6 @@ def get_psu_readings():
     else:
         return jsonify({'voltage': '-', 'current': '-'}), 200
 
-
 @app.route('/api/toggle-lamp', methods=['POST'])
 def toggle_lamp():
     try:
@@ -363,24 +362,25 @@ def select_folder():
 
 @app.route('/video-stream')
 def live_start():
-    global printer, handler, lamp, psu, folder_selected
+    global handler
 
     def generate_frames():
-        global printer, handler, lamp, psu, folder_selected
-
         with VmbSystem.get_instance() as vimba:
             camera_id = parse_args()
             with get_camera(camera_id) as cam:
                 setup_camera(cam)
-                handler = handler   # Use the current handler if available
+                handler = Handler([])  # Initialize handler
                 cam.start_streaming(handler=handler, buffer_count=10)
                 while True:
-                    # Retrieve the current frame from the handler
                     display = handler.get_image()
-                    resized_frame = cv2.resize(display, (640, 640))
-                    _, frame = cv2.imencode('.jpg', resized_frame)
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                    if display is not None:
+                        resized_frame = cv2.resize(display, (640, 640))
+                        _, frame = cv2.imencode('.jpg', resized_frame)
+                        print("Frame generated")  # Debugging print statement
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                    else:
+                        print("No frame to display")  # Debugging print statement
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 

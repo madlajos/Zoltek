@@ -25,16 +25,9 @@ p {
 }
 
 .sidenav-container {
-    height: 100vh;
-    display: flex;
-    flex-direction: row-reverse; /* Place sidebar on the right */
-  }
-  
-  /* Main content area */
-  .main-content {
-    flex: 1;
-    padding: 20px;
-  }
+  height: 100vh;
+  display: flex;
+}
   
   /* Sidebar styling */
   .sidenav {
@@ -44,6 +37,29 @@ p {
     font-size: 16px; /* Adjust text size as needed */
   }
   
+  /* Main content area */
+  .main-content {
+    flex-grow: 1; /* Ensure the main content takes up remaining space */
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    height: 100vh; /* Full viewport height */
+  }
+
+  .video-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-left: 300px;
+  }
+
+  .video-container {
+    width: 640px;
+    height: 480px;
+    border: 2px solid black;
+  }
+
   /* Style the expansion panel headers */
   .mat-expansion-panel-header {
     background-color: #333; /* Darker background for expansion panel headers */
