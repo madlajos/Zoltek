@@ -31,7 +31,7 @@ import sys
 from typing import Optional
 from queue import Queue
 from vmbpy import *
-from cameracontrol import parse_args, get_camera, setup_camera, Handler, camera_params
+from cameracontrol import parse_args, get_camera, setup_camera, Handler
 import porthandler
 import time
 import printercontrols
@@ -63,6 +63,11 @@ lamp=[]
 psu=[]
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'Angular', 'src', 'assets', 'settings.json')
+with open(SETTINGS_PATH) as f:
+    settings = json.load(f)
+
+camera_params = settings['camera_params']
+
 
 # Configure logging
 if not app.debug:
@@ -366,24 +371,28 @@ def live_start():
 
     def generate_frames():
         global handler, camera, streaming
-        with VmbSystem.get_instance() as vimba:
-            camera_id = parse_args()
-            with get_camera(camera_id) as cam:
-                setup_camera(cam, camera_params)
-                handler = Handler([])
-                cam.start_streaming(handler=handler, buffer_count=10)
-                camera = cam  # Assign the camera to the global variable
-                streaming = True
-                while True:
-                    if handler:
-                        display = handler.get_image()
-                        if display is not None:
-                            resized_frame = cv2.resize(display, (640, 480))
-                            _, frame = cv2.imencode('.jpg', resized_frame)
-                            yield (b'--frame\r\n'
-                                b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-                    else:
-                        break
+        try:
+            with VmbSystem.get_instance() as vimba:
+                camera_id = parse_args()
+                with get_camera(camera_id) as cam:
+                    setup_camera(cam, camera_params)
+                    handler = Handler([])
+                    cam.start_streaming(handler=handler, buffer_count=10)
+                    camera = cam  # Assign the camera to the global variable
+                    streaming = True
+                    while True:
+                        if handler:
+                            display = handler.get_image()
+                            if display is not None:
+                                resized_frame = cv2.resize(display, (640, 480))
+                                _, frame = cv2.imencode('.jpg', resized_frame)
+                                yield (b'--frame\r\n'
+                                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                        else:
+                            break
+        except VmbSystemError as e:
+            app.logger.exception("Failed to start VmbSystem")
+            return
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
@@ -444,6 +453,7 @@ def stop_video_stream():
         if camera and streaming:
             camera.stop_streaming()
             handler = None
+            camera.__exit__(None, None, None)  # Properly exit the camera context
             streaming = False
             return jsonify({'status': 'success', 'message': 'Video stream stopped successfully!'})
         else:

@@ -8,20 +8,6 @@ from queue import Queue, Empty  # Import Empty from queue module
 
 opencv_display_format = PixelFormat.Bgr8
 
-# Library to handle Camera parameters
-# Gamma is stored with a 100 multiplication
-camera_params = {
-    'ImageWidth': 800, 
-    'ImageHeight': 400, 
-    'FrameRate': 20, 
-    'ExposureTime': 200, 
-    'Gain': 10, 
-    'Gamma': 100,
-    'CenterROI_x': True,
-    'CenterROI_y': True,
-    'OffsetX': 320,
-    'OffsetY': 900 
-}
 def abort(reason: str, return_code: int = 1, usage: bool = False):
     print(reason + '\n')
     if usage:
