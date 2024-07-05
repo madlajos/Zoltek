@@ -3,6 +3,7 @@ import sys
 from typing import Optional
 from queue import Queue
 from vmbpy import *
+import logging
 
 opencv_display_format = PixelFormat.Bgr8
 
@@ -11,7 +12,7 @@ opencv_display_format = PixelFormat.Bgr8
 camera_params = {
     'ImageWidth': 800, 
     'ImageHeight': 400, 
-    'FrameRate': 60, 
+    'FrameRate': 20, 
     'ExposureTime': 200, 
     'Gain': 10, 
     'Gamma': 100,
@@ -39,8 +40,6 @@ def parse_args() -> Optional[str]:
         abort(reason="Invalid number of arguments. Abort.", return_code=2, usage=True)
 
     return None if argc == 0 else args[0]
-
-
 
 # Function to calculate nearest accepted image size to user specified value
 def nearestAcceptedImgSize(user_size, dimension, camera: Camera):
@@ -80,25 +79,25 @@ def get_camera(camera_id: Optional[str]) -> Camera:
                 raise ValueError('No Cameras accessible.')
             return cams[0]
 
-def setup_camera(camera: Camera):
+def setup_camera(camera: Camera, camera_params: dict):
     with camera:
         try:
             camera.AcquisitionFrameRateEnable.set(True)
             camera.AcquisitionFrameRate.set(camera_params['FrameRate'])
-            camera.ExposureTime.set(camera_params['ExposureTime'])
-            camera.Gain.set(camera_params['Gain'])
-            camera.Gamma.set(camera_params['Gamma'] / 100)
-            camera.BalanceWhiteAuto.set('Off')
-        except (AttributeError, VmbFeatureError):
-            print("Error setting camera parameters")
+            logging.info(f"Set AcquisitionFrameRate to {camera_params['FrameRate']}")
 
-        try:
-            stream = camera.get_streams()[0]
-            stream.GVSPAdjustPacketSize.run()
-            while not stream.GVSPAdjustPacketSize.is_done():
-                pass
-        except (AttributeError, VmbFeatureError):
-            pass
+            camera.ExposureTime.set(camera_params['ExposureTime'])
+            logging.info(f"Set ExposureTime to {camera_params['ExposureTime']}")
+
+            camera.Gain.set(camera_params['Gain'])
+            logging.info(f"Set Gain to {camera_params['Gain']}")
+
+            camera.Gamma.set(camera_params['Gamma'] / 100)
+            logging.info(f"Set Gamma to {camera_params['Gamma'] / 100}")
+        except AttributeError as ae:
+            logging.error(f"AttributeError setting camera parameters: {ae}")
+        except VmbFeatureError as vfe:
+            logging.error(f"VmbFeatureError setting camera parameters: {vfe}")
 
 def setup_pixel_format(cam: Camera):
     cam_formats = cam.get_pixel_formats()
@@ -124,7 +123,10 @@ class Handler:
         self.folder_selected = folder_selected
 
     def get_image(self):
-        return self.display_queue.get(True)
+        try:
+            return self.display_queue.get(timeout=1)  # Added timeout to prevent blocking
+        except Queue.Empty:
+            return None
 
     def set_save_next_frame(self):
         self.save_next_frame = True
@@ -151,6 +153,7 @@ class Handler:
 
             cam.queue_frame(frame)
             return frame
+
 
 def start_streaming(camera: Camera):
     setup_camera(camera)

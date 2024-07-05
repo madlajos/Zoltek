@@ -1,8 +1,8 @@
 .lamp-control {
   display: flex;
   align-items: flex-start; /* Align items to the top */
-  margin-top: 10px;
-  height: 150px;
+  margin-top: 15px;
+  height: 165px;
 }
 
 .lamp-status {

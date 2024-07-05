@@ -31,9 +31,7 @@ import sys
 from typing import Optional
 from queue import Queue
 from vmbpy import *
-from cameracontrol import parse_args
-from cameracontrol import get_camera
-from cameracontrol import setup_camera, Handler
+from cameracontrol import parse_args, get_camera, setup_camera, Handler, camera_params
 import porthandler
 import time
 import printercontrols
@@ -56,6 +54,8 @@ display=[]
 CORS(app)
 # Global variable to store the current frame being displayed
 display = None
+camera = None
+streaming = False
 folder_selected=[]
 handler = Handler(folder_selected)
 printer=[]
@@ -362,28 +362,81 @@ def select_folder():
 
 @app.route('/video-stream')
 def live_start():
-    global handler
+    global handler, camera, streaming
 
     def generate_frames():
+        global handler, camera, streaming
         with VmbSystem.get_instance() as vimba:
             camera_id = parse_args()
             with get_camera(camera_id) as cam:
-                setup_camera(cam)
-                handler = Handler([])  # Initialize handler
+                setup_camera(cam, camera_params)
+                handler = Handler([])
                 cam.start_streaming(handler=handler, buffer_count=10)
+                camera = cam  # Assign the camera to the global variable
+                streaming = True
                 while True:
-                    display = handler.get_image()
-                    if display is not None:
-                        resized_frame = cv2.resize(display, (640, 640))
-                        _, frame = cv2.imencode('.jpg', resized_frame)
-                        print("Frame generated")  # Debugging print statement
-                        yield (b'--frame\r\n'
-                               b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                    if handler:
+                        display = handler.get_image()
+                        if display is not None:
+                            resized_frame = cv2.resize(display, (640, 480))
+                            _, frame = cv2.imencode('.jpg', resized_frame)
+                            yield (b'--frame\r\n'
+                                   b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
                     else:
-                        print("No frame to display")  # Debugging print statement
+                        break
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/connect-camera', methods=['POST'])
+def connect_camera():
+    global camera, handler
+    try:
+        with VmbSystem.get_instance() as vmb:
+            camera_id = parse_args()
+            camera = get_camera(camera_id)
+            handler = Handler([])
+            setup_camera(camera, camera_params)
+            app.logger.info("Camera connected successfully")
+            return jsonify({"message": "Camera connected successfully"}), 200
+    except Exception as e:
+        app.logger.exception("Failed to connect camera")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/disconnect-camera', methods=['POST'])
+def disconnect_camera():
+    global camera, streaming
+    try:
+        if camera is not None:
+            if streaming:
+                camera.stop_streaming()
+                streaming = False
+            camera.close()
+            camera = None
+            app.logger.info("Camera disconnected successfully")
+            return jsonify({"message": "Camera disconnected successfully"}), 200
+        else:
+            app.logger.warning("No camera to disconnect")
+            return jsonify({"error": "No camera to disconnect"}), 400
+    except Exception as e:
+        app.logger.exception("Failed to disconnect camera")
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route('/stop-video-stream', methods=['POST'])
+def stop_video_stream():
+    global handler, camera, streaming
+    try:
+        if camera and streaming:
+            camera.stop_streaming()
+            handler = None
+            camera = None
+            streaming = False
+            return jsonify({'status': 'success', 'message': 'Video stream stopped successfully!'})
+        else:
+            return jsonify({'status': 'error', 'message': 'No active stream to stop'}), 400
+    except Exception as e:
+        app.logger.exception("Failed to stop video stream")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/capture-image', methods=['POST'])
 def connect_cap():

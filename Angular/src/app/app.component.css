@@ -27,48 +27,97 @@ p {
 .sidenav-container {
   height: 100vh;
   display: flex;
+  overflow: hidden;
+}
+
+/* Sidebar styling */
+.sidenav {
+  width: 400px; /* Adjust width as needed */
+  background-color: #000; /* Black background color */
+  color: #fff; /* White text color */
+  font-size: 16px; /* Adjust text size as needed */
+  margin-right: 10px;
 }
   
-  /* Sidebar styling */
-  .sidenav {
-    width: 400px; /* Adjust width as needed */
-    background-color: #000; /* Black background color */
-    color: #fff; /* White text color */
-    font-size: 16px; /* Adjust text size as needed */
-  }
+/* Main content area */
+.main-content {
+ flex: 1;
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ padding: 20px;
+ margin-left: 250px;
+ margin-top: -20px;
+}
+
+.video-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-left: 100px;
+}
+
+.video-container {
+  width: 800px;
+  height: 600px;
+}
+
+/* Style the expansion panel headers */
+.mat-expansion-panel-header {
+  background-color: rgb(46, 46, 46);
+  color: #fff;
+  height: 36px;
+  line-height: 36px;
+  padding: 2px 24px;
+  margin: 0;
+  transition: background-color 0.3s;
+}
+
+.mat-expansion-panel-header .mat-expansion-indicator {
+  color: #fff; /* Ensure the arrow is visible */
+  margin: 0; /* Remove any margin around the indicator */
+  padding: 0; /* Remove any padding around the indicator */
+}
+
+.mat-accordion .mat-expansion-panel {
+  margin: 0px; /* Remove margin between panels */
+}
+
+.mat-expansion-panel-body {
+  padding: 100px; /* Remove padding to ensure content aligns correctly */
+  padding-bottom: 100px; /* Add padding to the bottom to create space between components */
+}
+
+.mat-expansion-panel-content {
+  padding-top: 12px; /* Add vertical padding above the content */
+  padding-bottom: 12px; /* Add vertical padding below the content */
+  margin: 10px; /* Remove any margin that may cause offset */
+}
   
-  /* Main content area */
-  .main-content {
-    flex-grow: 1; /* Ensure the main content takes up remaining space */
-    display: flex;
-    justify-content: center; /* Center horizontally */
-    align-items: center; /* Center vertically */
-    height: 100vh; /* Full viewport height */
-  }
+.content-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 800px;
+}
 
-  .video-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    margin-left: 300px;
-  }
+/* Hover effect for both closed and open panel headers */
+.mat-expansion-panel:not(.mat-expanded) .mat-expansion-panel-header:hover,
+.mat-expansion-panel.mat-expanded .mat-expansion-panel-header:hover {
+  background-color: #444; /* Darker grey for hover effect */
+}
 
-  .video-container {
-    width: 640px;
-    height: 480px;
-    border: 2px solid black;
-  }
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;  /* Prevents scrollbars from appearing */
+}
 
-  /* Style the expansion panel headers */
-  .mat-expansion-panel-header {
-    background-color: #333; /* Darker background for expansion panel headers */
-    color: #fff; /* White text color for expansion panel headers */
-    height: 48px; /* Set a fixed height for the header */
-    line-height: 48px; /* Center align text vertically */
-  }
-  
-  /* Adjust the panel content padding */
-  .mat-expansion-panel-content {
-    padding: 0 24px 24px 24px; /* Adjust padding as needed */
-  }
+.mat-sidenav-container {
+  height: 100vh;
+  overflow: hidden;  /* Prevents scrollbars from appearing in the sidenav container */
+}

@@ -20,6 +20,7 @@ import { PrinterControlComponent } from './features/printer-control/printer-cont
 import { LampControlComponent } from './features/lamp-control/lampcontrol.component';
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
+import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
 
 @NgModule({
   declarations: [
@@ -28,7 +29,8 @@ import { CameraControlComponent } from './features/camera-control/camera-control
     PrinterControlComponent,
     LampControlComponent,
     ComportControlComponent,
-    CameraControlComponent
+    CameraControlComponent,
+    ImageViewerComponent
   ],
   imports: [
     MatCommonModule,

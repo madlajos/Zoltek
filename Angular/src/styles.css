@@ -2,13 +2,81 @@
 html { background-color: #212529 ; }
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
-.button {
-    background-color: transparent;
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    padding-left: 40px; /* Adjust to ensure the icon is visible */
-  }
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;  /* Prevents scrollbars from appearing */
+}
+
+/* Custom Scrollbar for WebKit browsers (Chrome, Safari) */
+.sidenav-container ::-webkit-scrollbar {
+  width: 8px; /* Set the width of the scrollbar */
+  height: 8px; /* Set the height of the horizontal scrollbar */
+}
+
+.sidenav-container ::-webkit-scrollbar-track {
+  background: #2c2c2c; /* Set the background of the scrollbar track */
+  border-radius: 10px; /* Round the edges of the scrollbar track */
+}
+
+.sidenav-container ::-webkit-scrollbar-thumb {
+  background-color: #555; /* Set the color of the scrollbar thumb */
+  border-radius: 10px; /* Round the edges of the scrollbar thumb */
+  border: none; /* Remove border around the scrollbar thumb */
+}
+
+/* Remove scrollbar arrows for WebKit */
+.sidenav-container ::-webkit-scrollbar-button {
+  display: none; /* Hides the scrollbar arrows */
+}
+
+/* Custom Scrollbar for Firefox */
+.sidenav-container {
+  scrollbar-width: thin; /* Set the width of the scrollbar */
+  scrollbar-color: #555 #2c2c2c; /* Set the color of the scrollbar thumb and track */
+}
+
+/* Optional: To apply custom scrollbar styles for all elements in sidenav */
+.sidenav ::-webkit-scrollbar {
+  width: 8px; /* Set the width of the scrollbar */
+  height: 8px; /* Set the height of the horizontal scrollbar */
+}
+
+.sidenav ::-webkit-scrollbar-track {
+  background: #2c2c2c; /* Set the background of the scrollbar track */
+  border-radius: 10px; /* Round the edges of the scrollbar track */
+}
+
+.sidenav ::-webkit-scrollbar-thumb {
+  background-color: #555; /* Set the color of the scrollbar thumb */
+  border-radius: 10px; /* Round the edges of the scrollbar thumb */
+  border: none; /* Remove border around the scrollbar thumb */
+}
+
+/* Remove scrollbar arrows for WebKit */
+.sidenav ::-webkit-scrollbar-button {
+  display: none; /* Hides the scrollbar arrows */
+}
+
+/* Custom Scrollbar for Firefox */
+.sidenav {
+  scrollbar-width: thin; /* Set the width of the scrollbar */
+  scrollbar-color: #555 #2c2c2c; /* Set the color of the scrollbar thumb and track */
+}
+
+/* New CSS for hiding scrollbar arrows and rounding thumb corners in Firefox */
+.sidenav-container ::-moz-scrollbar-button {
+  display: none; /* Hides the scrollbar arrows */
+}
+
+.sidenav-container ::-moz-scrollbar-thumb {
+  border-radius: 10px; /* Round the edges of the scrollbar thumb */
+}
+
+.sidenav ::-moz-scrollbar-button {
+  display: none; /* Hides the scrollbar arrows */
+}
+
+.sidenav ::-moz-scrollbar-thumb {
+  border-radius: 10px; /* Round the edges of the scrollbar thumb */
+}

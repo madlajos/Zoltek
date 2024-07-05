@@ -1,0 +1,20 @@
+<div class="image-viewer-container">
+    <div class="top-bar">
+      <div class="camera-name">Camera Name</div>
+      <div class="top-buttons">
+        <button class="stream-button" (click)="toggleStream()">
+          <mat-icon>{{ button1Icon }}</mat-icon>
+        </button>
+        <button class="connect-button" (click)="toggleConnection()">
+          <mat-icon>{{ button2Icon }}</mat-icon>
+        </button>
+      </div>
+    </div>
+    <div class="live-view">
+      <div #videoContainer></div>
+    </div>
+    <div class="bottom-bar">
+      <button>Bottom Button</button>
+    </div>
+  </div>
+  
