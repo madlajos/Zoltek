@@ -38,6 +38,11 @@ export class ImageViewerComponent implements AfterViewInit {
   }
 
   toggleStream(): void {
+    if (!this.isConnected) {
+      console.warn('Cannot start stream. Camera is not connected.');
+      return;
+    }
+
     if (this.isStreaming) {
       this.stopVideoStream();
     } else {
@@ -119,10 +124,14 @@ export class ImageViewerComponent implements AfterViewInit {
 
   updateButtonStyles(): void {
     const connectButton = document.querySelector('.connect-button') as HTMLElement;
+    const streamButton = document.querySelector('.stream-button') as HTMLElement;
+  
     if (this.isConnected) {
       connectButton.style.backgroundColor = '#2a628c'; // Connected color
+      streamButton.removeAttribute('disabled'); // Enable stream button
     } else {
       connectButton.style.backgroundColor = '#555'; // Default color
+      streamButton.setAttribute('disabled', 'true'); // Disable stream button
     }
   }
 

@@ -4,6 +4,7 @@ from typing import Optional
 from queue import Queue
 from vmbpy import *
 import logging
+from queue import Queue, Empty  # Import Empty from queue module
 
 opencv_display_format = PixelFormat.Bgr8
 
@@ -125,7 +126,7 @@ class Handler:
     def get_image(self):
         try:
             return self.display_queue.get(timeout=1)  # Added timeout to prevent blocking
-        except Queue.Empty:
+        except Empty: 
             return None
 
     def set_save_next_frame(self):

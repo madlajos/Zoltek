@@ -381,7 +381,7 @@ def live_start():
                             resized_frame = cv2.resize(display, (640, 480))
                             _, frame = cv2.imencode('.jpg', resized_frame)
                             yield (b'--frame\r\n'
-                                   b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                                b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
                     else:
                         break
 
@@ -391,13 +391,17 @@ def live_start():
 def connect_camera():
     global camera, handler
     try:
-        with VmbSystem.get_instance() as vmb:
-            camera_id = parse_args()
-            camera = get_camera(camera_id)
-            handler = Handler([])
-            setup_camera(camera, camera_params)
-            app.logger.info("Camera connected successfully")
-            return jsonify({"message": "Camera connected successfully"}), 200
+        if camera is None:  # Check if camera is already connected
+            with VmbSystem.get_instance() as vmb:
+                camera_id = parse_args()
+                camera = get_camera(camera_id)
+                handler = Handler(folder_selected)
+                setup_camera(camera, camera_params)
+                app.logger.info("Camera connected successfully")
+                return jsonify({"message": "Camera connected successfully"}), 200
+        else:
+            app.logger.warning("Camera is already connected")
+            return jsonify({"message": "Camera is already connected"}), 200
     except Exception as e:
         app.logger.exception("Failed to connect camera")
         return jsonify({"error": str(e)}), 500
@@ -410,7 +414,7 @@ def disconnect_camera():
             if streaming:
                 camera.stop_streaming()
                 streaming = False
-            camera.close()
+            camera.__exit__(None, None, None)  # Properly exit the camera context
             camera = None
             app.logger.info("Camera disconnected successfully")
             return jsonify({"message": "Camera disconnected successfully"}), 200
@@ -421,6 +425,17 @@ def disconnect_camera():
         app.logger.exception("Failed to disconnect camera")
         return jsonify({"error": str(e)}), 500
     
+@app.route('/api/status/camera', methods=['GET'])
+def check_camera_status():
+    global camera
+    try:
+        if camera is not None:
+            return jsonify({"connected": True}), 200
+        else:
+            return jsonify({"connected": False}), 200
+    except Exception as e:
+        app.logger.exception("Failed to check camera status")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/stop-video-stream', methods=['POST'])
 def stop_video_stream():
@@ -429,7 +444,6 @@ def stop_video_stream():
         if camera and streaming:
             camera.stop_streaming()
             handler = None
-            camera = None
             streaming = False
             return jsonify({'status': 'success', 'message': 'Video stream stopped successfully!'})
         else:
@@ -448,8 +462,6 @@ def connect_cap():
             handler.set_save_next_frame()  # Call set_save_next_frame method to set the flag
         return jsonify('ok')  # Return JSON response
 
-
-
 @app.route('/capture-and-send-expo', methods=['POST'])
 def capture_and_send():
     global printer, handler, lamp, psu, folder_selected
@@ -467,7 +479,6 @@ def capture_and_send():
             cam.ExposureTime.set(number)  # Set exposure time
 
             return jsonify({'success': True})
-
 
 @app.route('/get-images')
 def get_images():
