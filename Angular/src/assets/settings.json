@@ -52,15 +52,13 @@
     }
   },
   "camera_params": {
-    "ImageWidth": 800,
-    "ImageHeight": 400,
+    "Width": 800,
+    "Height": 400,
+	"OffsetX": 0,
+    "OffsetY": 0,
     "FrameRate": 30,
     "ExposureTime": 200,
     "Gain": 10,
-    "Gamma": 100,
-    "CenterROI_x": true,
-    "CenterROI_y": true,
-    "OffsetX": 0,
-    "OffsetY": 0
+    "Gamma": 1
   }
 }

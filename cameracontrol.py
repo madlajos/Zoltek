@@ -69,6 +69,12 @@ def get_camera(camera_id: Optional[str]) -> Camera:
 def setup_camera(camera: Camera, camera_params: dict):
     with camera:
         try:
+            camera.Width.set(camera_params['Width'])
+            logging.info(f"Set Image Width to {camera_params['Width']}")
+            
+            camera.Height.set(camera_params['Height'])
+            logging.info(f"Set Image Height to {camera_params['Height']}")
+            
             camera.AcquisitionFrameRateEnable.set(True)
             camera.AcquisitionFrameRate.set(camera_params['FrameRate'])
             logging.info(f"Set AcquisitionFrameRate to {camera_params['FrameRate']}")
@@ -79,8 +85,8 @@ def setup_camera(camera: Camera, camera_params: dict):
             camera.Gain.set(camera_params['Gain'])
             logging.info(f"Set Gain to {camera_params['Gain']}")
 
-            camera.Gamma.set(camera_params['Gamma'] / 100)
-            logging.info(f"Set Gamma to {camera_params['Gamma'] / 100}")
+            camera.Gamma.set(camera_params['Gamma'])
+            logging.info(f"Set Gamma to {camera_params['Gamma']}")
         except AttributeError as ae:
             logging.error(f"AttributeError setting camera parameters: {ae}")
         except VmbFeatureError as vfe:

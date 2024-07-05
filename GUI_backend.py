@@ -446,6 +446,64 @@ def check_camera_status():
         app.logger.exception("Failed to check camera status")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/update-camera-settings', methods=['POST'])
+def update_camera_settings():
+    global camera, handler, streaming
+    try:
+        setting = request.json
+        app.logger.info(f"Received setting: {setting}")
+        if camera:
+            # Temporarily stop the streaming if it's running
+            if streaming:
+                camera.stop_streaming()
+                streaming = False
+
+            try:
+                with VmbSystem.get_instance() as vimba:
+                    camera_id = parse_args()
+                    cam = get_camera(camera_id)
+                    with cam:  # Ensure the camera context is opened
+                        for key, value in setting.items():
+                            if hasattr(cam, key):
+                                feature = getattr(cam, key)
+                                feature.set(value)
+                                app.logger.info(f"Set {key} to {value}")
+
+            except VmbError as e:
+                app.logger.exception("Failed to open camera context or set feature")
+                return jsonify({"error": str(e)}), 500
+
+            # Restart the streaming if it was previously running
+            if handler and not streaming:
+                with cam:
+                    cam.start_streaming(handler=handler, buffer_count=10)
+                    streaming = True
+
+            return jsonify({"message": "Camera setting updated successfully"}), 200
+        else:
+            return jsonify({"error": "Camera not connected"}), 400
+    except Exception as e:
+        app.logger.exception("Failed to update camera settings")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+
+
+
+    
+@app.route('/api/get-camera-settings', methods=['GET'])
+def get_camera_settings():
+    try:
+        return jsonify(camera_params)
+    except Exception as e:
+        app.logger.exception("Failed to get camera settings")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/stop-video-stream', methods=['POST'])
 def stop_video_stream():
     global handler, camera, streaming

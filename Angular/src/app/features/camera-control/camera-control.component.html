@@ -1,3 +1,9 @@
-<div class="feature-content">
+<div>
   <h2>Camera Control</h2>
+  <form>
+    <div *ngFor="let setting of settingOrder" class="form-group">
+      <label>{{ setting }}</label>
+      <input type="text" [(ngModel)]="cameraSettings[setting]" name="{{ setting }}" (keyup)="handleKeyDown($event, setting)">
+    </div>
+  </form>
 </div>

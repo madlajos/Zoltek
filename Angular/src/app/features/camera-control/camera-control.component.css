@@ -1,8 +1,65 @@
-.feature-content {
-    padding: 20px;
-  }
-  
-  .video-container {
-    margin-top: 20px;
-  }
-  
+/* Dark Mode Styles for Camera Control Component */
+
+:host {
+  display: block;
+  padding: 20px;
+  background-color: #1e1e1e;
+  color: #c9d1d9;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  font-family: 'Arial', sans-serif;
+}
+
+h2 {
+  font-size: 24px;
+  color: #ffffff;
+  margin-bottom: 20px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+label {
+  font-size: 14px;
+  color: #9e9e9e;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+input[type="text"] {
+  padding: 8px;
+  border: 1px solid #2c2c2c;
+  border-radius: 4px;
+  background-color: #2e2e2e;
+  color: #ffffff;
+  flex: 2;
+}
+
+input[type="text"]:focus {
+  border-color: #3b82f6;
+  outline: none;
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3b82f6;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 10px;
+}
+
+button:hover {
+  background-color: #2563eb;
+}
