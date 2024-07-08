@@ -1,9 +1,16 @@
 <div>
-  <h2>Camera Control</h2>
   <form>
     <div *ngFor="let setting of settingOrder" class="form-group">
       <label>{{ setting }}</label>
       <input type="text" [(ngModel)]="cameraSettings[setting]" name="{{ setting }}" (keyup)="handleKeyDown($event, setting)">
+    </div>
+    <div *ngIf="loadedFileName" class="form-group">
+      <label>Profile: </label>
+      <span>{{ loadedFileName }}</span>
+    </div>
+    <div class="buttons">
+      <button type="button" (click)="saveSettings()" class="button">Save Settings</button>
+      <button type="button" (click)="loadSettings()" class="button">Load Settings</button>
     </div>
   </form>
 </div>

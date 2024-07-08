@@ -45,21 +45,25 @@ input[type="text"] {
 }
 
 input[type="text"]:focus {
-  border-color: #3b82f6;
+  border-color: rgb(42, 98, 140);
   outline: none;
 }
 
-button {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  background-color: #3b82f6;
-  color: #ffffff;
-  cursor: pointer;
-  transition: background-color 0.3s;
+.buttons {
+  display: flex;
+  justify-content: space-between;
   margin-top: 10px;
 }
 
-button:hover {
-  background-color: #2563eb;
+.button {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  background-color: rgb(42, 98, 140);
+  color: white;
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: rgb(20, 69, 107)b;
 }

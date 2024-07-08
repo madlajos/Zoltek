@@ -56,6 +56,7 @@ CORS(app)
 display = None
 camera = None
 streaming = False
+was_streaming = False
 folder_selected=[]
 handler = Handler(folder_selected)
 printer=[]
@@ -398,16 +399,20 @@ def live_start():
 
 @app.route('/connect-camera', methods=['POST'])
 def connect_camera():
-    global camera, handler
+    global camera, handler, vimba_system_instance
     try:
         if camera is None:  # Check if camera is already connected
-            with VmbSystem.get_instance() as vmb:
-                camera_id = parse_args()
-                camera = get_camera(camera_id)
-                handler = Handler(folder_selected)
-                setup_camera(camera, camera_params)
-                app.logger.info("Camera connected successfully")
-                return jsonify({"message": "Camera connected successfully"}), 200
+            # Initialize Vimba API system instance
+            vimba_system_instance = VmbSystem.get_instance()
+            vimba_system_instance.__enter__()  # Ensure Vimba system context is opened
+
+            camera_id = parse_args()
+            camera = get_camera(camera_id)
+            camera.__enter__()  # Open the camera context using __enter__
+            handler = Handler(folder_selected)
+            setup_camera(camera, camera_params)
+            app.logger.info("Camera connected successfully")
+            return jsonify({"message": "Camera connected successfully"}), 200
         else:
             app.logger.warning("Camera is already connected")
             return jsonify({"message": "Camera is already connected"}), 200
@@ -417,7 +422,7 @@ def connect_camera():
 
 @app.route('/disconnect-camera', methods=['POST'])
 def disconnect_camera():
-    global camera, streaming
+    global camera, streaming, vimba_system_instance
     try:
         if camera is not None:
             if streaming:
@@ -425,6 +430,12 @@ def disconnect_camera():
                 streaming = False
             camera.__exit__(None, None, None)  # Properly exit the camera context
             camera = None
+
+            # Close the Vimba API system context if it was opened
+            if vimba_system_instance:
+                vimba_system_instance.__exit__(None, None, None)
+                vimba_system_instance = None
+
             app.logger.info("Camera disconnected successfully")
             return jsonify({"message": "Camera disconnected successfully"}), 200
         else:
@@ -448,7 +459,7 @@ def check_camera_status():
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
-    global camera, handler, streaming
+    global camera, handler, streaming, vimba_system_instance, was_streaming
     try:
         setting = request.json
         app.logger.info(f"Received setting: {setting}")
@@ -457,27 +468,31 @@ def update_camera_settings():
             if streaming:
                 camera.stop_streaming()
                 streaming = False
+                was_streaming = True
 
             try:
-                with VmbSystem.get_instance() as vimba:
-                    camera_id = parse_args()
-                    cam = get_camera(camera_id)
-                    with cam:  # Ensure the camera context is opened
-                        for key, value in setting.items():
-                            if hasattr(cam, key):
-                                feature = getattr(cam, key)
-                                feature.set(value)
-                                app.logger.info(f"Set {key} to {value}")
+                # Ensure the camera context is opened if not already
+                if not camera:
+                    camera.__enter__()
+
+                for key, value in setting.items():
+                    if hasattr(camera, key):
+                        feature = getattr(camera, key)
+                        feature.set(value)
+                        app.logger.info(f"Set {key} to {value}")
+
+                # Only close the camera context if it was opened here
+                if not camera:
+                    camera.__exit__(None, None, None)
 
             except VmbError as e:
                 app.logger.exception("Failed to open camera context or set feature")
                 return jsonify({"error": str(e)}), 500
 
             # Restart the streaming if it was previously running
-            if handler and not streaming:
-                with cam:
-                    cam.start_streaming(handler=handler, buffer_count=10)
-                    streaming = True
+            if handler and was_streaming:
+                camera.start_streaming(handler=handler, buffer_count=10)
+                streaming = True
 
             return jsonify({"message": "Camera setting updated successfully"}), 200
         else:
@@ -485,16 +500,6 @@ def update_camera_settings():
     except Exception as e:
         app.logger.exception("Failed to update camera settings")
         return jsonify({"error": str(e)}), 500
-
-
-
-
-
-
-
-
-
-
     
 @app.route('/api/get-camera-settings', methods=['GET'])
 def get_camera_settings():
@@ -506,19 +511,61 @@ def get_camera_settings():
 
 @app.route('/stop-video-stream', methods=['POST'])
 def stop_video_stream():
-    global handler, camera, streaming
+    global handler, camera, streaming, was_streaming
     try:
         if camera and streaming:
             camera.stop_streaming()
             handler = None
-            camera.__exit__(None, None, None)  # Properly exit the camera context
             streaming = False
+            was_streaming = False
             return jsonify({'status': 'success', 'message': 'Video stream stopped successfully!'})
         else:
             return jsonify({'status': 'error', 'message': 'No active stream to stop'}), 400
     except Exception as e:
         app.logger.exception("Failed to stop video stream")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/save-camera-settings', methods=['POST'])
+def save_camera_settings():
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)  # Ensure the window stays on top
+        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
+        root.destroy()
+
+        if file_path:
+            settings = request.json
+            with open(file_path, 'w') as f:
+                json.dump(settings, f)
+            return jsonify({'message': 'Settings saved successfully'}), 200
+        else:
+            return jsonify({'error': 'No file selected'}), 400
+    except Exception as e:
+        app.logger.exception("Failed to save camera settings")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/load-camera-settings', methods=['GET'])
+def load_camera_settings():
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)  # Ensure the window stays on top
+        file_path = filedialog.askopenfilename(defaultextension=".json", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
+        root.destroy()
+
+        if file_path:
+            with open(file_path, 'r') as f:
+                settings = json.load(f)
+            settings['fileName'] = os.path.basename(file_path).replace('.json', '')
+            return jsonify(settings), 200
+        else:
+            return jsonify({'error': 'No file selected'}), 400
+    except Exception as e:
+        app.logger.exception("Failed to load camera settings")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/capture-image', methods=['POST'])
 def connect_cap():

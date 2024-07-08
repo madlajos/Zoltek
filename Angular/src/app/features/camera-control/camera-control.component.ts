@@ -30,6 +30,8 @@ export class CameraControlComponent implements OnInit {
     FrameRate: 30
   };
 
+  loadedFileName: string = '';
+
   // Define the desired order of the settings
   settingOrder: string[] = [
     'Width',
@@ -53,14 +55,37 @@ export class CameraControlComponent implements OnInit {
   loadCameraSettings(): void {
     this.http.get('/assets/settings.json').subscribe((settings: any) => {
       this.cameraSettings = settings.camera_params;
+      this.loadedFileName = 'settings.json'.replace('.json', '');
       console.log('Camera settings loaded:', this.cameraSettings);
+    });
+  }
+
+  saveSettings(): void {
+    console.log('Save Settings button clicked');
+    const settings = {
+      camera_params: this.cameraSettings
+    };
+    this.http.post(`${this.BASE_URL}/save-camera-settings`, settings).subscribe(response => {
+      console.log('Settings saved successfully:', response);
+    }, error => {
+      console.error('Error saving settings:', error);
+    });
+  }
+
+  loadSettings(): void {
+    console.log('Load Settings button clicked');
+    this.http.get(`${this.BASE_URL}/load-camera-settings`).subscribe((settings: any) => {
+      this.cameraSettings = settings.camera_params;
+      this.loadedFileName = settings.fileName.replace('.json', '');
+      console.log('Loaded settings:', this.cameraSettings);
+    }, error => {
+      console.error('Error loading settings:', error);
     });
   }
 
   applySetting(setting: string): void {
     const value = this.cameraSettings[setting];
     console.log(`Applying setting ${setting}: ${value}`);
-    // Add actual implementation to apply the individual setting to the camera
     this.http.post('/api/update-camera-settings', { [setting]: value }).subscribe(response => {
       console.log('Setting applied successfully:', response);
     }, error => {
