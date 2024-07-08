@@ -1,8 +1,10 @@
 <div>
+  <h2>Camera Control</h2>
   <form>
     <div *ngFor="let setting of settingOrder" class="form-group">
       <label>{{ setting }}</label>
-      <input type="text" [(ngModel)]="cameraSettings[setting]" name="{{ setting }}" (keyup)="handleKeyDown($event, setting)">
+      <input type="text" [(ngModel)]="cameraSettings[setting]" name="{{ setting }}" 
+             (input)="validateInput($event, setting)" (keypress)="preventInvalidChars($event, setting)" (keyup)="handleKeyDown($event, setting)">
     </div>
     <div *ngIf="loadedFileName" class="form-group">
       <label>Profile: </label>

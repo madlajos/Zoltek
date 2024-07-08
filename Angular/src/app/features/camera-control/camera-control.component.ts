@@ -100,6 +100,22 @@ export class CameraControlComponent implements OnInit {
     }
   }
 
+  validateInput(event: any, setting: string): void {
+    const input = event.target.value;
+    const parsedValue = ['Width', 'Height', 'OffsetX', 'OffsetY', 'ExposureTime'].includes(setting) ? 
+                        input.replace(/[^0-9]/g, '') : input.replace(/[^0-9.]/g, '');
+    this.cameraSettings[setting] = parsedValue;
+  }
+
+  preventInvalidChars(event: KeyboardEvent, setting: string): void {
+    const char = String.fromCharCode(event.which);
+    const pattern = ['Width', 'Height', 'OffsetX', 'OffsetY', 'ExposureTime'].includes(setting) ? 
+                    /[0-9]/ : /[0-9.]/;
+    if (!pattern.test(char)) {
+      event.preventDefault();
+    }
+  }
+
   objectKeys(obj: any): string[] {
     return Object.keys(obj);
   }
