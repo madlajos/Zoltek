@@ -49,9 +49,51 @@ input[type="text"]:focus {
   outline: none;
 }
 
+.directory-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.directory-input {
+  display: flex;
+  flex-grow: 1;
+}
+
+.directory-text {
+  flex-grow: 1;
+  padding: 8px;
+  border: 1px solid #2c2c2c;
+  border-radius: 4px 0 0 4px;
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+.directory-button {
+  padding: 8px 10px;
+  border-radius: 0 4px 4px 0;
+  background-color: rgb(42, 98, 140);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.directory-button:hover {
+  background-color: rgb(20, 69, 107);
+}
+
+.directory-button i {
+  font-size: 16px;
+  color: white;  /* Ensures the icon is visible */
+}
+
 .buttons {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   margin-top: 10px;
 }
 
@@ -62,8 +104,9 @@ input[type="text"]:focus {
   background-color: rgb(42, 98, 140);
   color: white;
   cursor: pointer;
+  flex: 1;
 }
 
 .button:hover {
-  background-color: rgb(20, 69, 107)b;
+  background-color: rgb(20, 69, 107);
 }

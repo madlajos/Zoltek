@@ -31,6 +31,7 @@ export class CameraControlComponent implements OnInit {
   };
 
   loadedFileName: string = '';
+  saveDirectory: string = 'C:\\Users\\Public\\Pictures';
 
   // Define the desired order of the settings
   settingOrder: string[] = [
@@ -80,6 +81,15 @@ export class CameraControlComponent implements OnInit {
       console.log('Loaded settings:', this.cameraSettings);
     }, error => {
       console.error('Error loading settings:', error);
+    });
+  }
+
+  selectSaveDirectory(): void {
+    this.http.get(`${this.BASE_URL}/select-folder`).subscribe((response: any) => {
+      this.saveDirectory = response.folder;
+      console.log('Selected directory:', this.saveDirectory);
+    }, error => {
+      console.error('Error selecting directory:', error);
     });
   }
 

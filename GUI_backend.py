@@ -352,7 +352,7 @@ def get_lamp_state():
         return jsonify(-1), 200
 
 # Define the route for starting the video stream
-@app.route('/select-folder', methods=['GET'])
+@app.route('/api/select-folder', methods=['GET'])
 def select_folder():
     global printer, handler, lamp, psu, folder_selected
     root = tk.Tk()
@@ -564,6 +564,26 @@ def load_camera_settings():
             return jsonify({'error': 'No file selected'}), 400
     except Exception as e:
         app.logger.exception("Failed to load camera settings")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/save-image', methods=['POST'])
+def save_image():
+    global save_directory
+    try:
+        data = request.get_json()
+        save_directory = data.get('save_directory', os.path.expanduser('~\\Pictures'))
+        # Logic to save the image to the specified directory
+        # For demonstration purposes, we assume that the image data is in the request as base64 string
+        image_data = data.get('image_data')
+        if image_data:
+            image_path = os.path.join(save_directory, 'captured_image.jpg')
+            with open(image_path, 'wb') as f:
+                f.write(base64.b64decode(image_data))
+            return jsonify({'message': 'Image saved successfully', 'path': image_path}), 200
+        else:
+            return jsonify({'error': 'No image data provided'}), 400
+    except Exception as e:
+        app.logger.exception("Failed to save image")
         return jsonify({'error': str(e)}), 500
 
 

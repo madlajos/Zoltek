@@ -6,9 +6,20 @@
       <input type="text" [(ngModel)]="cameraSettings[setting]" name="{{ setting }}" 
              (input)="validateInput($event, setting)" (keypress)="preventInvalidChars($event, setting)" (keyup)="handleKeyDown($event, setting)">
     </div>
+    <div class="form-group">
+      <label>Save Directory:</label>
+    </div>
+    <div class="form-group directory-group">
+      <div class="directory-input">
+        <input type="text" [(ngModel)]="saveDirectory" name="saveDirectory" class="directory-text">
+        <button type="button" (click)="selectSaveDirectory()" class="directory-button">
+          <i class="fa fa-folder"></i>
+        </button>
+      </div>
+    </div>
     <div *ngIf="loadedFileName" class="form-group">
       <label>Profile: </label>
-      <span>{{ loadedFileName }}</span>
+      <span>{{ loadedFileName.replace('.json', '') }}</span>
     </div>
     <div class="buttons">
       <button type="button" (click)="saveSettings()" class="button">Save Settings</button>
