@@ -1,6 +1,6 @@
 <div class="image-viewer-container">
   <div class="top-bar">
-    <div class="camera-name">Camera Name</div>
+    <div class="camera-name">{{ cameraName }}</div>
     <div class="top-buttons">
       <button class="stream-button" (click)="toggleStream()" [disabled]="!isConnected">
         <mat-icon>{{ button1Icon }}</mat-icon>
@@ -14,6 +14,8 @@
     <div #videoContainer></div>
   </div>
   <div class="bottom-bar">
-    <button>Bottom Button</button>
+    <button class="save-button" (click)="saveImage()" [disabled]="!isConnected">
+      <mat-icon>camera_alt</mat-icon>
+    </button>
   </div>
 </div>

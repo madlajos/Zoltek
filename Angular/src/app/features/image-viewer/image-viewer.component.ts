@@ -12,6 +12,8 @@ export class ImageViewerComponent implements AfterViewInit {
   isConnected: boolean = false; // Track if the camera is connected
   button1Icon: string = 'play_arrow'; // Initial icon for Button 1
   button2Icon: string = 'link'; // Initial icon for Button 2
+  saveDirectory: string = ''; // Store the selected save directory
+  cameraName: string = 'No camera connected'; // Initial camera name
 
   constructor(private http: HttpClient) { }
 
@@ -27,12 +29,25 @@ export class ImageViewerComponent implements AfterViewInit {
         this.updateButtonStyles();
         if (this.isConnected) {
           this.button2Icon = 'link_off';
+          this.getCameraName();
         } else {
           this.button2Icon = 'link';
+          this.cameraName = 'No camera connected';
         }
       },
       error => {
         console.error('Failed to check camera status:', error);
+      }
+    );
+  }
+
+  getCameraName(): void {
+    this.http.get('http://localhost:5000/api/camera-name').subscribe(
+      (response: any) => {
+        this.cameraName = response.name;
+      },
+      error => {
+        console.error('Failed to get camera name:', error);
       }
     );
   }
@@ -86,6 +101,7 @@ export class ImageViewerComponent implements AfterViewInit {
   toggleConnection(): void {
     if (this.isConnected) {
       this.disconnectCamera();
+      this.cameraName = 'No camera connected';
     } else {
       this.connectCamera();
     }
@@ -125,13 +141,16 @@ export class ImageViewerComponent implements AfterViewInit {
   updateButtonStyles(): void {
     const connectButton = document.querySelector('.connect-button') as HTMLElement;
     const streamButton = document.querySelector('.stream-button') as HTMLElement;
-  
+    const saveButton = document.querySelector('.save-button') as HTMLElement;
+
     if (this.isConnected) {
       connectButton.style.backgroundColor = '#2a628c'; // Connected color
       streamButton.removeAttribute('disabled'); // Enable stream button
+      saveButton.removeAttribute('disabled'); // Enable save button
     } else {
       connectButton.style.backgroundColor = '#555'; // Default color
       streamButton.setAttribute('disabled', 'true'); // Disable stream button
+      saveButton.setAttribute('disabled', 'true'); // Disable save button
     }
   }
 
@@ -144,5 +163,25 @@ export class ImageViewerComponent implements AfterViewInit {
 
     videoContainer.innerHTML = '';
     videoContainer.appendChild(placeholder);
+  }
+
+  saveImage(): void {
+    if (!this.isConnected) {
+      console.warn('Cannot save image. Camera is not connected.');
+      return;
+    }
+  
+    // Logic to capture and save image
+    const saveDirectory = this.saveDirectory; // Use the save directory from your other component or service
+    const imageData = 'base64EncodedImageData'; // This should be the actual image data
+  
+    this.http.post('http://localhost:5000/api/save-image', { save_directory: saveDirectory, image_data: imageData }).subscribe(
+      (response: any) => {
+        console.log('Image saved:', response.path);
+      },
+      error => {
+        console.error('Failed to save image:', error);
+      }
+    );
   }
 }

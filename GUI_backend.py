@@ -20,6 +20,7 @@ import cv2
 import logging
 from logging.handlers import RotatingFileHandler
 from flask_debugtoolbar import DebugToolbarExtension
+import datetime
 
 
 # Enable camera emulation
@@ -576,7 +577,9 @@ def save_image():
         # For demonstration purposes, we assume that the image data is in the request as base64 string
         image_data = data.get('image_data')
         if image_data:
-            image_path = os.path.join(save_directory, 'captured_image.jpg')
+            # Generate image name using current time
+            current_time = datetime.datetime.now().strftime("IMG_%H%M%S")
+            image_path = os.path.join(save_directory, f'{current_time}.jpg')
             with open(image_path, 'wb') as f:
                 f.write(base64.b64decode(image_data))
             return jsonify({'message': 'Image saved successfully', 'path': image_path}), 200
@@ -585,7 +588,6 @@ def save_image():
     except Exception as e:
         app.logger.exception("Failed to save image")
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/capture-image', methods=['POST'])
 def connect_cap():

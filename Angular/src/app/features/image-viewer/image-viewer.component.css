@@ -24,11 +24,11 @@
   }
   
   .bottom-bar {
-    width: 100%;
+    width: calc(100% + 12px);
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 10px;
+    padding: 4px;
     background-color: #444;
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 10px;
@@ -42,8 +42,7 @@
     font-size: 16px;
   }
   
-  .top-buttons button,
-  .bottom-bar button {
+  .top-buttons button {
     background-color: #555;
     color: #fff;
     border: none;
@@ -85,3 +84,29 @@
     border-radius: 10px;
   }
   
+.save-button {
+  background-color: rgb(42, 98, 140);
+  border: none;
+  color: white;
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.save-button[disabled] {
+  background-color: #555; /* Disabled color */
+  cursor: not-allowed;
+}
+
+.save-button:hover:not([disabled]) {
+  background-color: rgb(20, 69, 107);
+}
+
+.save-button mat-icon {
+  font-size: 20px;
+  color: white; /* Ensure the icon is visible */
+  margin-bottom: -8px;
+  margin-right: 10px;
+  margin-left: 10px;
+}
