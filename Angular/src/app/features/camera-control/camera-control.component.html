@@ -11,7 +11,7 @@
     </div>
     <div class="form-group directory-group">
       <div class="directory-input">
-        <input type="text" [(ngModel)]="saveDirectory" name="saveDirectory" class="directory-text">
+        <input type="text" [(ngModel)]="saveDirectory" name="saveDirectory" class="directory-text" (blur)="sharedService.setSaveDirectory(saveDirectory)">
         <button type="button" (click)="selectSaveDirectory()" class="directory-button">
           <i class="fa fa-folder"></i>
         </button>

@@ -15,6 +15,7 @@ import glob
 import os
 import json
 import datetime
+import binascii
 import shutil
 import cv2
 import logging
@@ -353,19 +354,21 @@ def get_lamp_state():
         return jsonify(-1), 200
 
 # Define the route for starting the video stream
-@app.route('/api/select-folder', methods=['GET'])
+@app.route('/select-folder', methods=['GET'])
 def select_folder():
-    global printer, handler, lamp, psu, folder_selected
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)  # Ensure the window stays on top
-    folder_selected = filedialog.askdirectory()  # Open file explorer to select a folder
-    root.destroy()
-    if folder_selected:
-        handler = Handler(folder_selected)
-        return jsonify({'folder': folder_selected})
-    else:
-        return jsonify({'error': 'No folder selected'})
+    try:
+        root = Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        folder_selected = filedialog.askdirectory()
+        root.destroy()
+        if folder_selected:
+            return jsonify({'folder': folder_selected}), 200
+        else:
+            return jsonify({'error': 'No folder selected'}), 400
+    except Exception as e:
+        app.logger.exception("Failed to select folder")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/video-stream')
 def live_start():
@@ -566,28 +569,48 @@ def load_camera_settings():
     except Exception as e:
         app.logger.exception("Failed to load camera settings")
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/camera-name', methods=['GET'])
+def get_camera_name():
+    try:
+        if camera:
+            return jsonify({'name': camera.get_name()}), 200
+        else:
+            return jsonify({'name': 'No camera connected'}), 200
+    except Exception as e:
+        app.logger.exception("Failed to get camera name")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/save-image', methods=['POST'])
 def save_image():
-    global save_directory
+    global handler
     try:
         data = request.get_json()
-        save_directory = data.get('save_directory', os.path.expanduser('~\\Pictures'))
-        # Logic to save the image to the specified directory
-        # For demonstration purposes, we assume that the image data is in the request as base64 string
-        image_data = data.get('image_data')
-        if image_data:
-            # Generate image name using current time
-            current_time = datetime.datetime.now().strftime("IMG_%H%M%S")
-            image_path = os.path.join(save_directory, f'{current_time}.jpg')
-            with open(image_path, 'wb') as f:
-                f.write(base64.b64decode(image_data))
-            return jsonify({'message': 'Image saved successfully', 'path': image_path}), 200
-        else:
-            return jsonify({'error': 'No image data provided'}), 400
+        save_directory = data.get('save_directory', '').strip()
+
+        app.logger.info(f"Received save directory: {save_directory}")
+
+        if not save_directory:
+            raise ValueError("Save directory is empty")
+
+        # Check if directory exists, if not create it
+        if not os.path.exists(save_directory):
+            app.logger.info(f"Creating directory: {save_directory}")
+            os.makedirs(save_directory)
+
+        # Set the folder_selected in the handler
+        handler.folder_selected = save_directory
+
+        # Trigger the handler to save the next frame
+        handler.set_save_next_frame()
+        app.logger.info("Triggered handler to save the next frame")
+
+        return jsonify({'message': 'Image saving triggered'}), 200
     except Exception as e:
         app.logger.exception("Failed to save image")
         return jsonify({'error': str(e)}), 500
+
+
 
 @app.route('/capture-image', methods=['POST'])
 def connect_cap():

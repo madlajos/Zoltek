@@ -4,6 +4,8 @@ from typing import Optional
 from queue import Queue
 from vmbpy import *
 import logging
+import datetime
+import os
 from queue import Queue, Empty  # Import Empty from queue module
 
 opencv_display_format = PixelFormat.Bgr8
@@ -127,7 +129,7 @@ class Handler:
     def save_frame(self, frame):
         frame_np = frame.as_opencv_image()
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = os.path.join(self.folder_selected, f"image_from_stream_{timestamp}.jpg")
+        filename = os.path.join(self.folder_selected, f"IMG_{timestamp}.jpg")
         cv2.imwrite(filename, frame_np)
         print("Image saved as:", filename)
 
@@ -146,7 +148,6 @@ class Handler:
 
             cam.queue_frame(frame)
             return frame
-
 
 def start_streaming(camera: Camera):
     setup_camera(camera)

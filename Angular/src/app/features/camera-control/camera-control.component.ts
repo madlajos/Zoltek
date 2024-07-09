@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { SharedService } from '../../shared.service';
 
 interface CameraSettings {
   Width: number;
@@ -47,10 +48,11 @@ export class CameraControlComponent implements OnInit {
 
   private readonly BASE_URL = 'http://localhost:5000/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, public sharedService: SharedService) {}
 
   ngOnInit(): void {
     this.loadCameraSettings();
+    this.sharedService.setSaveDirectory(this.saveDirectory);
   }
 
   loadCameraSettings(): void {
@@ -85,12 +87,19 @@ export class CameraControlComponent implements OnInit {
   }
 
   selectSaveDirectory(): void {
-    this.http.get(`${this.BASE_URL}/select-folder`).subscribe((response: any) => {
-      this.saveDirectory = response.folder;
-      console.log('Selected directory:', this.saveDirectory);
-    }, error => {
-      console.error('Error selecting directory:', error);
-    });
+    this.http.get('http://localhost:5000/select-folder').subscribe(
+      (response: any) => {
+        if (response.folder) {
+          this.saveDirectory = response.folder;
+          this.sharedService.setSaveDirectory(response.folder);
+        } else {
+          console.error('No folder selected');
+        }
+      },
+      error => {
+        console.error('Failed to select folder:', error);
+      }
+    );
   }
 
   applySetting(setting: string): void {

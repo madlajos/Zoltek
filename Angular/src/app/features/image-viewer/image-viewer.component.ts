@@ -1,5 +1,6 @@
 import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { SharedService } from '../../shared.service';
 
 @Component({
   selector: 'app-image-viewer',
@@ -12,10 +13,9 @@ export class ImageViewerComponent implements AfterViewInit {
   isConnected: boolean = false; // Track if the camera is connected
   button1Icon: string = 'play_arrow'; // Initial icon for Button 1
   button2Icon: string = 'link'; // Initial icon for Button 2
-  saveDirectory: string = ''; // Store the selected save directory
   cameraName: string = 'No camera connected'; // Initial camera name
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private sharedService: SharedService) { }
 
   ngAfterViewInit(): void {
     this.displayPlaceholder();
@@ -29,10 +29,9 @@ export class ImageViewerComponent implements AfterViewInit {
         this.updateButtonStyles();
         if (this.isConnected) {
           this.button2Icon = 'link_off';
-          this.getCameraName();
+          this.getCameraName(); // Fetch the camera name if connected
         } else {
           this.button2Icon = 'link';
-          this.cameraName = 'No camera connected';
         }
       },
       error => {
@@ -101,7 +100,6 @@ export class ImageViewerComponent implements AfterViewInit {
   toggleConnection(): void {
     if (this.isConnected) {
       this.disconnectCamera();
-      this.cameraName = 'No camera connected';
     } else {
       this.connectCamera();
     }
@@ -114,6 +112,7 @@ export class ImageViewerComponent implements AfterViewInit {
         this.button2Icon = 'link_off';
         this.updateButtonStyles();
         console.log('Camera connected');
+        this.getCameraName(); // Fetch the camera name after connecting
       },
       error => {
         console.error('Failed to connect camera:', error);
@@ -131,9 +130,35 @@ export class ImageViewerComponent implements AfterViewInit {
         this.button2Icon = 'link';
         this.updateButtonStyles();
         console.log('Camera disconnected');
+        this.cameraName = 'No camera connected';
       },
       error => {
         console.error('Failed to disconnect camera:', error);
+      }
+    );
+  }
+
+  saveImage(): void {
+    console.log('Save image button clicked.');
+    if (!this.isConnected) {
+      console.warn('Cannot save image. Camera is not connected.');
+      return;
+    }
+  
+    const saveDirectory = this.sharedService.getSaveDirectory(); // Get save directory from SharedService
+    console.log(`Save directory: ${saveDirectory}`);
+    if (!saveDirectory) {
+      console.error('Save directory is empty.');
+      return;
+    }
+  
+    this.http.post('http://localhost:5000/api/save-image', { save_directory: saveDirectory }).subscribe(
+      (response: any) => {
+        console.log('Image saved:', response.path);
+        // Reload images after saving if needed
+      },
+      error => {
+        console.error('Failed to save image:', error);
       }
     );
   }
@@ -142,14 +167,16 @@ export class ImageViewerComponent implements AfterViewInit {
     const connectButton = document.querySelector('.connect-button') as HTMLElement;
     const streamButton = document.querySelector('.stream-button') as HTMLElement;
     const saveButton = document.querySelector('.save-button') as HTMLElement;
-
+  
     if (this.isConnected) {
       connectButton.style.backgroundColor = '#2a628c'; // Connected color
       streamButton.removeAttribute('disabled'); // Enable stream button
+      saveButton.style.backgroundColor = '#2a628c'; // Enable save button
       saveButton.removeAttribute('disabled'); // Enable save button
     } else {
       connectButton.style.backgroundColor = '#555'; // Default color
       streamButton.setAttribute('disabled', 'true'); // Disable stream button
+      saveButton.style.backgroundColor = '#555'; // Disable save button
       saveButton.setAttribute('disabled', 'true'); // Disable save button
     }
   }
@@ -163,25 +190,5 @@ export class ImageViewerComponent implements AfterViewInit {
 
     videoContainer.innerHTML = '';
     videoContainer.appendChild(placeholder);
-  }
-
-  saveImage(): void {
-    if (!this.isConnected) {
-      console.warn('Cannot save image. Camera is not connected.');
-      return;
-    }
-  
-    // Logic to capture and save image
-    const saveDirectory = this.saveDirectory; // Use the save directory from your other component or service
-    const imageData = 'base64EncodedImageData'; // This should be the actual image data
-  
-    this.http.post('http://localhost:5000/api/save-image', { save_directory: saveDirectory, image_data: imageData }).subscribe(
-      (response: any) => {
-        console.log('Image saved:', response.path);
-      },
-      error => {
-        console.error('Failed to save image:', error);
-      }
-    );
   }
 }
