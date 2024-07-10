@@ -9,17 +9,25 @@ import { SharedService } from '../../shared.service';
 })
 export class ImageViewerComponent implements AfterViewInit {
   @ViewChild('videoContainer', { static: false }) videoContainer!: ElementRef<HTMLDivElement>;
-  isStreaming: boolean = false; // Track if the stream is active
-  isConnected: boolean = false; // Track if the camera is connected
-  button1Icon: string = 'play_arrow'; // Initial icon for Button 1
-  button2Icon: string = 'link'; // Initial icon for Button 2
-  cameraName: string = 'No camera connected'; // Initial camera name
+  @ViewChild('imageOverlay', { static: false }) imageOverlay!: ElementRef<HTMLDivElement>;
+  isStreaming: boolean = false;
+  isConnected: boolean = false;
+  button1Icon: string = 'play_arrow';
+  button2Icon: string = 'link';
+  cameraName: string = 'No camera connected';
+  images: string[] = [];
+  selectedImage: string | null = null;
 
   constructor(private http: HttpClient, private sharedService: SharedService) { }
 
   ngAfterViewInit(): void {
     this.displayPlaceholder();
     this.checkCameraConnection();
+    this.sharedService.selectedImage$.subscribe(imagePath => {
+      if (imagePath) {
+        this.showImage(imagePath);
+      }
+    });
   }
 
   checkCameraConnection(): void {
@@ -29,7 +37,7 @@ export class ImageViewerComponent implements AfterViewInit {
         this.updateButtonStyles();
         if (this.isConnected) {
           this.button2Icon = 'link_off';
-          this.getCameraName(); // Fetch the camera name if connected
+          this.getCameraName();
         } else {
           this.button2Icon = 'link';
         }
@@ -65,10 +73,13 @@ export class ImageViewerComponent implements AfterViewInit {
   }
 
   startVideoStream(): void {
+    if (this.isStreaming) {
+      return; // Exit if the stream is already running
+    }
+
     this.isStreaming = true;
     this.button1Icon = 'stop';
 
-    // Add a timestamp to the video URL to prevent caching
     const videoUrl = `http://localhost:5000/video-stream?${new Date().getTime()}`;
     const videoContainer = this.videoContainer.nativeElement;
 
@@ -82,6 +93,10 @@ export class ImageViewerComponent implements AfterViewInit {
   }
 
   stopVideoStream(): void {
+    if (!this.isStreaming) {
+      return; // Exit if the stream is already stopped
+    }
+
     this.isStreaming = false;
     this.button1Icon = 'play_arrow';
 
@@ -112,7 +127,7 @@ export class ImageViewerComponent implements AfterViewInit {
         this.button2Icon = 'link_off';
         this.updateButtonStyles();
         console.log('Camera connected');
-        this.getCameraName(); // Fetch the camera name after connecting
+        this.getCameraName();
       },
       error => {
         console.error('Failed to connect camera:', error);
@@ -139,23 +154,20 @@ export class ImageViewerComponent implements AfterViewInit {
   }
 
   saveImage(): void {
-    console.log('Save image button clicked.');
     if (!this.isConnected) {
       console.warn('Cannot save image. Camera is not connected.');
       return;
     }
-  
-    const saveDirectory = this.sharedService.getSaveDirectory(); // Get save directory from SharedService
-    console.log(`Save directory: ${saveDirectory}`);
+
+    const saveDirectory = this.sharedService.getSaveDirectory();
     if (!saveDirectory) {
       console.error('Save directory is empty.');
       return;
     }
-  
+
     this.http.post('http://localhost:5000/api/save-image', { save_directory: saveDirectory }).subscribe(
       (response: any) => {
-        console.log('Image saved:', response.path);
-        // Reload images after saving if needed
+        this.images.push(response.filename);
       },
       error => {
         console.error('Failed to save image:', error);
@@ -167,17 +179,17 @@ export class ImageViewerComponent implements AfterViewInit {
     const connectButton = document.querySelector('.connect-button') as HTMLElement;
     const streamButton = document.querySelector('.stream-button') as HTMLElement;
     const saveButton = document.querySelector('.save-button') as HTMLElement;
-  
+
     if (this.isConnected) {
-      connectButton.style.backgroundColor = '#2a628c'; // Connected color
-      streamButton.removeAttribute('disabled'); // Enable stream button
-      saveButton.style.backgroundColor = '#2a628c'; // Enable save button
-      saveButton.removeAttribute('disabled'); // Enable save button
+      connectButton.style.backgroundColor = '#2a628c';
+      streamButton.removeAttribute('disabled');
+      saveButton.style.backgroundColor = '#2a628c';
+      saveButton.removeAttribute('disabled');
     } else {
-      connectButton.style.backgroundColor = '#555'; // Default color
-      streamButton.setAttribute('disabled', 'true'); // Disable stream button
-      saveButton.style.backgroundColor = '#555'; // Disable save button
-      saveButton.setAttribute('disabled', 'true'); // Disable save button
+      connectButton.style.backgroundColor = '#555';
+      streamButton.setAttribute('disabled', 'true');
+      saveButton.style.backgroundColor = '#555';
+      saveButton.setAttribute('disabled', 'true');
     }
   }
 
@@ -190,5 +202,25 @@ export class ImageViewerComponent implements AfterViewInit {
 
     videoContainer.innerHTML = '';
     videoContainer.appendChild(placeholder);
+  }
+
+  showImage(imagePath: string): void {
+    this.selectedImage = imagePath;  // Set the current image
+    const imageOverlay = this.imageOverlay.nativeElement;
+
+    const img = document.createElement('img');
+    img.src = `http://localhost:5000/images/${imagePath}`;
+    img.style.width = '100%';
+    img.style.height = '100%';
+
+    imageOverlay.innerHTML = '';
+    imageOverlay.appendChild(img);
+    imageOverlay.style.display = 'flex';
+  }
+
+  clearImage(): void {
+    this.selectedImage = null;
+    const imageOverlay = this.imageOverlay.nativeElement;
+    imageOverlay.style.display = 'none';
   }
 }

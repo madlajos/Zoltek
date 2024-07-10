@@ -21,6 +21,9 @@ import { LampControlComponent } from './features/lamp-control/lampcontrol.compon
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
+import { ImageGalleryComponent } from './features/image-gallery/image-gallery.component';
+import { SharedService } from './shared.service';
+
 
 @NgModule({
   declarations: [
@@ -30,7 +33,8 @@ import { ImageViewerComponent } from './features/image-viewer/image-viewer.compo
     LampControlComponent,
     ComportControlComponent,
     CameraControlComponent,
-    ImageViewerComponent
+    ImageViewerComponent,
+    ImageGalleryComponent
   ],
   imports: [
     MatCommonModule,
@@ -47,7 +51,7 @@ import { ImageViewerComponent } from './features/image-viewer/image-viewer.compo
     MatIconModule,
     FormsModule,
   ],
-  providers: [MessageService], // Add the MessageService to providers
+  providers: [SharedService, MessageService, ImageViewerComponent],
   bootstrap: [AppComponent]
   
 })

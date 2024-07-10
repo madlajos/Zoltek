@@ -60,7 +60,7 @@ camera = None
 streaming = False
 was_streaming = False
 folder_selected=[]
-handler = Handler(folder_selected)
+handler = Handler('default_directory_path')
 printer=[]
 lamp=[]
 psu=[]
@@ -593,23 +593,33 @@ def save_image():
         if not save_directory:
             raise ValueError("Save directory is empty")
 
-        # Check if directory exists, if not create it
         if not os.path.exists(save_directory):
             app.logger.info(f"Creating directory: {save_directory}")
             os.makedirs(save_directory)
 
-        # Set the folder_selected in the handler
         handler.folder_selected = save_directory
-
-        # Trigger the handler to save the next frame
         handler.set_save_next_frame()
         app.logger.info("Triggered handler to save the next frame")
 
-        return jsonify({'message': 'Image saving triggered'}), 200
+        # Wait for the image to be saved
+        while not handler.saved_image_path:
+            pass
+        
+        saved_image_path = os.path.join(save_directory, handler.get_latest_image_name())
+
+        return jsonify({'message': 'Image saved', 'filename': os.path.basename(saved_image_path)}), 200
     except Exception as e:
         app.logger.exception("Failed to save image")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/images/<path:filename>')
+def serve_image(filename):
+    try:
+        directory = handler.folder_selected
+        return send_from_directory(directory, filename)
+    except Exception as e:
+        app.logger.exception("Failed to serve image")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/capture-image', methods=['POST'])
@@ -660,13 +670,6 @@ def get_images():
     return send_file(out_files, mimetype='image/jpg')
 
 IMAGE_DIRECTORY = os.path.join(os.getcwd(), 'static')
-
-# Route to serve images
-@app.route('/images/<path:last_three_images>')
-def serve_image(filename):
-    global printer, handler, lamp, psu, folder_selected, last_three_images
-
-    return send_from_directory(IMAGE_DIRECTORY, filename)
 
 
 if __name__ == '__main__':

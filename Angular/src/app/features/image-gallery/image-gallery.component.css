@@ -1,0 +1,28 @@
+.image-gallery-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+  background-color: #333;
+  padding: 10px;
+  border-top: 1px solid #444;
+  width: 100%; /* Ensure it takes the full width */
+  height: 150px; /* Set a fixed height */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+.image-gallery {
+  display: flex;
+  flex-direction: row; /* Ensure images appear next to each other */
+  width: 100%;
+}
+
+.gallery-image {
+  width: 100px;
+  height: 100px;
+  object-fit: contain; /* Fit the image to the box while preserving aspect ratio */
+  margin-right: 10px;
+  cursor: pointer;
+  border: 1px solid #ccc; /* Optional: add a border around the images */
+  background-color: #000; /* Optional: add a background color for better visibility */
+}

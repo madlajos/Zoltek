@@ -8,14 +8,19 @@
       <button class="connect-button" (click)="toggleConnection()">
         <mat-icon>{{ button2Icon }}</mat-icon>
       </button>
+      <button *ngIf="selectedImage" class="close-image-button" (click)="clearImage()">
+        <mat-icon>close</mat-icon>
+      </button>
     </div>
   </div>
   <div class="live-view">
     <div #videoContainer></div>
+    <div #imageOverlay class="overlay" style="display: none;"></div>
   </div>
   <div class="bottom-bar">
     <button class="save-button" (click)="saveImage()" [disabled]="!isConnected">
       <mat-icon>camera_alt</mat-icon>
     </button>
   </div>
+  <app-image-gallery [images]="images"></app-image-gallery>
 </div>

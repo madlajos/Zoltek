@@ -114,23 +114,28 @@ def setup_pixel_format(cam: Camera):
 class Handler:
     def __init__(self, folder_selected):
         self.display_queue = Queue(10)
-        self.save_next_frame = False  # Flag to save the next frame
+        self.save_next_frame = False
         self.folder_selected = folder_selected
+        self.saved_image_path = None
 
     def get_image(self):
         try:
-            return self.display_queue.get(timeout=1)  # Added timeout to prevent blocking
+            return self.display_queue.get(timeout=1)
         except Empty: 
             return None
 
     def set_save_next_frame(self):
         self.save_next_frame = True
 
+    def get_latest_image_name(self):
+        return self.saved_image_path
+
     def save_frame(self, frame):
         frame_np = frame.as_opencv_image()
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         filename = os.path.join(self.folder_selected, f"IMG_{timestamp}.jpg")
         cv2.imwrite(filename, frame_np)
+        self.saved_image_path = f"IMG_{timestamp}.jpg"
         print("Image saved as:", filename)
 
     def __call__(self, cam: Camera, stream: Stream, frame: Frame):
@@ -149,6 +154,7 @@ class Handler:
             cam.queue_frame(frame)
             return frame
 
+        
 def start_streaming(camera: Camera):
     setup_camera(camera)
     setup_pixel_format(camera)

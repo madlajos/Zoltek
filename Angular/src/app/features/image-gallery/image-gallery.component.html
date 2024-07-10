@@ -1,0 +1,8 @@
+<div class="image-gallery-container">
+    <div class="image-gallery">
+      <div *ngFor="let image of images" (click)="onImageClick(image)">
+        <img [src]="'http://localhost:5000/images/' + image" alt="Saved Image" class="gallery-image">
+      </div>
+    </div>
+  </div>
+  
