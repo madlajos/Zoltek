@@ -33,7 +33,7 @@ import sys
 from typing import Optional
 from queue import Queue
 from vmbpy import *
-from cameracontrol import validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
+from cameracontrol import set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
 import porthandler
 import time
 import printercontrols
@@ -389,7 +389,17 @@ def live_start():
                         if handler:
                             display = handler.get_image()
                             if display is not None:
-                                resized_frame = cv2.resize(display, (640, 480))
+                                height, width, _ = display.shape
+                                aspect_ratio = width / height
+
+                                target_width = 1000
+                                target_height = int(target_width / aspect_ratio)
+
+                                if target_height > 1000:
+                                    target_height = 1000
+                                    target_width = int(target_height * aspect_ratio)
+
+                                resized_frame = cv2.resize(display, (target_width, target_height))
                                 _, frame = cv2.imencode('.jpg', resized_frame)
                                 yield (b'--frame\r\n'
                                        b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
@@ -400,6 +410,7 @@ def live_start():
             return
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
         
 @app.route('/connect-camera', methods=['POST'])
 def connect_camera():
@@ -469,6 +480,8 @@ def update_camera_settings():
     try:
         settings = request.json
         app.logger.info(f"Received settings: {settings}")
+        updated_settings = {}
+        
         if camera:
             # Temporarily stop the streaming if it's running
             if streaming:
@@ -481,25 +494,12 @@ def update_camera_settings():
                 if not camera:
                     camera.__enter__()
 
-                # Correctly map the incoming keys to the expected camera setting keys
-                key_mapping = {
-                    'width': 'Width',
-                    'height': 'Height',
-                    'offsetx': 'OffsetX',
-                    'offsety': 'OffsetY',
-                    'exposuretime': 'ExposureTime',
-                    'gain': 'Gain',
-                    'gamma': 'Gamma',
-                    'framerate': 'FrameRate'
-                }
-
                 for key, value in settings.items():
-                    normalized_key = key_mapping.get(key.lower(), key)
-                    app.logger.info(f"Normalized key: {normalized_key}")
-                    if normalized_key in properties:
-                        validate_and_set_camera_param(camera, normalized_key, value, properties)
+                    app.logger.info(f"Processing key: {key}")
+                    if key in properties:
+                        updated_settings[key] = validate_and_set_camera_param(camera, key, value, properties)
                     else:
-                        app.logger.warning(f"Unknown setting: {normalized_key}")
+                        app.logger.warning(f"Unknown setting: {key}")
 
                 # Only close the camera context if it was opened here
                 if not camera:
@@ -514,7 +514,7 @@ def update_camera_settings():
                 camera.start_streaming(handler=handler, buffer_count=10)
                 streaming = True
 
-            return jsonify({"message": "Camera settings updated successfully"}), 200
+            return jsonify({"message": "Camera settings updated successfully", "updated_settings": updated_settings}), 200
         else:
             return jsonify({"error": "Camera not connected"}), 400
     except Exception as e:
@@ -585,6 +585,15 @@ def load_camera_settings():
     except Exception as e:
         app.logger.exception("Failed to load camera settings")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/set-centered-offset', methods=['POST'])
+def set_centered_offset_route():
+    global camera
+    if camera:
+        centered_offsets = set_centered_offset(camera)
+        return jsonify(centered_offsets), 200
+    else:
+        return jsonify({"error": "Camera not connected"}), 400
     
 @app.route('/api/camera-name', methods=['GET'])
 def get_camera_name():
