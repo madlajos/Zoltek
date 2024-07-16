@@ -35,6 +35,7 @@ export class ImageViewerComponent implements AfterViewInit {
       (response: any) => {
         this.isConnected = response.connected;
         this.updateButtonStyles();
+        this.sharedService.setCameraConnectionStatus(this.isConnected);
         if (this.isConnected) {
           this.button2Icon = 'link_off';
           this.getCameraName();
@@ -126,6 +127,7 @@ export class ImageViewerComponent implements AfterViewInit {
         this.isConnected = true;
         this.button2Icon = 'link_off';
         this.updateButtonStyles();
+        this.sharedService.setCameraConnectionStatus(this.isConnected);
         console.log('Camera connected');
         this.getCameraName();
       },
@@ -144,6 +146,7 @@ export class ImageViewerComponent implements AfterViewInit {
         this.isConnected = false;
         this.button2Icon = 'link';
         this.updateButtonStyles();
+        this.sharedService.setCameraConnectionStatus(this.isConnected);
         console.log('Camera disconnected');
         this.cameraName = 'No camera connected';
       },

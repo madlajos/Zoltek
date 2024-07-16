@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { SharedService } from '../../shared.service';
+import { interval } from 'rxjs';
 
 interface CameraSettings {
   Width: number;
@@ -33,8 +34,8 @@ export class CameraControlComponent implements OnInit {
 
   loadedFileName: string = '';
   saveDirectory: string = 'C:\\Users\\Public\\Pictures';
+  isConnected: boolean = false;
 
-  // Define the desired order of the settings
   settingOrder: string[] = [
     'Width',
     'Height',
@@ -53,6 +54,20 @@ export class CameraControlComponent implements OnInit {
   ngOnInit(): void {
     this.loadCameraSettings();
     this.sharedService.setSaveDirectory(this.saveDirectory);
+    this.sharedService.cameraConnectionStatus$.subscribe(status => {
+      this.isConnected = status;
+    });
+
+    interval(5000).subscribe(() => this.checkCameraConnection());
+  }
+
+  checkCameraConnection(): void {
+    this.http.get(`${this.BASE_URL}/status/camera`).subscribe((status: any) => {
+      this.isConnected = status.connected;
+      console.log('Camera connection status:', this.isConnected);
+    }, error => {
+      console.error('Error checking camera connection status:', error);
+    });
   }
 
   loadCameraSettings(): void {
@@ -104,8 +119,8 @@ export class CameraControlComponent implements OnInit {
 
   applySetting(setting: string): void {
     const value = this.cameraSettings[setting];
-    console.log(`Applying setting ${setting}: ${value}`);
-    this.http.post('/api/update-camera-settings', { [setting]: value }).subscribe(response => {
+    console.log(`Applying setting ${setting.toLowerCase()}: ${value}`);
+    this.http.post('/api/update-camera-settings', { [setting.toLowerCase()]: value }).subscribe(response => {
       console.log('Setting applied successfully:', response);
     }, error => {
       console.error('Error applying setting:', error);

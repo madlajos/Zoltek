@@ -12,8 +12,6 @@ opencv_display_format = PixelFormat.Bgr8
 
 def abort(reason: str, return_code: int = 1, usage: bool = False):
     print(reason + '\n')
-    if usage:
-        print_usage()
     sys.exit(return_code)
 
 def parse_args() -> Optional[str]:
@@ -22,38 +20,12 @@ def parse_args() -> Optional[str]:
 
     for arg in args:
         if arg in ('/h', '-h'):
-            print_usage()
             sys.exit(0)
 
     if argc > 1:
         abort(reason="Invalid number of arguments. Abort.", return_code=2, usage=True)
 
     return None if argc == 0 else args[0]
-
-# Function to calculate nearest accepted image size to user specified value
-def nearestAcceptedImgSize(user_size, dimension, camera: Camera):
-    if dimension == "width":
-        min_size = camera.Width.GetMin()
-        max_size = camera.Width.GetMax()
-        min_increment = camera.Width.GetInc()
-
-    elif dimension == "height": 
-        min_size = camera.Height.GetMin()
-        max_size = camera.Height.GetMax()
-        min_increment = camera.Height.GetInc()
-    
-    else:
-        raise ValueError(f"Invalid dimension: {dimension}")
-
-    if(user_size < min_size):
-        nearest_accepted_size = min_size
-    elif(user_size > max_size):
-        nearest_accepted_size = max_size
-    else:
-        diff = user_size - min_size
-        nearest_accepted_size = min_size + diff // min_increment * min_increment
-    
-    return nearest_accepted_size
 
 def get_camera(camera_id: Optional[str]) -> Camera:
     with VmbSystem.get_instance() as vmb:
@@ -71,28 +43,29 @@ def get_camera(camera_id: Optional[str]) -> Camera:
 def setup_camera(camera: Camera, camera_params: dict):
     with camera:
         try:
-            camera.Width.set(camera_params['Width'])
-            logging.info(f"Set Image Width to {camera_params['Width']}")
+            camera.Width.set(round(camera_params['Width'], 3))
+            logging.info(f"Set Image Width to {round(camera_params['Width'], 3)}")
             
-            camera.Height.set(camera_params['Height'])
-            logging.info(f"Set Image Height to {camera_params['Height']}")
+            camera.Height.set(round(camera_params['Height'], 3))
+            logging.info(f"Set Image Height to {round(camera_params['Height'], 3)}")
             
             camera.AcquisitionFrameRateEnable.set(True)
-            camera.AcquisitionFrameRate.set(camera_params['FrameRate'])
-            logging.info(f"Set AcquisitionFrameRate to {camera_params['FrameRate']}")
+            camera.AcquisitionFrameRate.set(round(camera_params['FrameRate'], 3))
+            logging.info(f"Set AcquisitionFrameRate to {round(camera_params['FrameRate'], 3)}")
 
-            camera.ExposureTime.set(camera_params['ExposureTime'])
-            logging.info(f"Set ExposureTime to {camera_params['ExposureTime']}")
+            camera.ExposureTime.set(round(camera_params['ExposureTime'], 3))
+            logging.info(f"Set ExposureTime to {round(camera_params['ExposureTime'], 3)}")
 
-            camera.Gain.set(camera_params['Gain'])
-            logging.info(f"Set Gain to {camera_params['Gain']}")
+            camera.Gain.set(round(camera_params['Gain'], 3))
+            logging.info(f"Set Gain to {round(camera_params['Gain'], 3)}")
 
-            camera.Gamma.set(camera_params['Gamma'])
-            logging.info(f"Set Gamma to {camera_params['Gamma']}")
+            camera.Gamma.set(round(camera_params['Gamma'], 3))
+            logging.info(f"Set Gamma to {round(camera_params['Gamma'], 3)}")
         except AttributeError as ae:
             logging.error(f"AttributeError setting camera parameters: {ae}")
         except VmbFeatureError as vfe:
             logging.error(f"VmbFeatureError setting camera parameters: {vfe}")
+
 
 def setup_pixel_format(cam: Camera):
     cam_formats = cam.get_pixel_formats()
@@ -172,3 +145,62 @@ def start_streaming(camera: Camera):
             cv2.imshow(msg.format(camera.get_name()), display)
     finally:
         camera.stop_streaming()
+        
+
+def get_camera_properties(camera: Camera) -> dict:
+    properties = {}
+    try:
+        properties['Width'] = {'min': camera.Width.get_range()[0], 'max': camera.Width.get_range()[1], 'inc': camera.Width.get_increment()}
+        properties['Height'] = {'min': camera.Height.get_range()[0], 'max': camera.Height.get_range()[1], 'inc': camera.Height.get_increment()}
+        properties['OffsetX'] = {'min': camera.OffsetX.get_range()[0], 'max': camera.OffsetX.get_range()[1], 'inc': camera.OffsetX.get_increment()}
+        properties['OffsetY'] = {'min': camera.OffsetY.get_range()[0], 'max': camera.OffsetY.get_range()[1], 'inc': camera.OffsetY.get_increment()}
+        properties['ExposureTime'] = {'min': camera.ExposureTime.get_range()[0], 'max': camera.ExposureTime.get_range()[1], 'inc': camera.ExposureTime.get_increment()}
+        properties['Gain'] = {'min': camera.Gain.get_range()[0], 'max': camera.Gain.get_range()[1], 'inc': camera.Gain.get_increment()}
+        properties['Gamma'] = {'min': camera.Gamma.get_range()[0], 'max': camera.Gamma.get_range()[1], 'inc': camera.Gamma.get_increment()}
+        properties['FrameRate'] = {'min': camera.AcquisitionFrameRate.get_range()[0], 'max': camera.AcquisitionFrameRate.get_range()[1], 'inc': 0.01}
+    except VmbFeatureError as vfe:
+        logging.error(f"VmbFeatureError getting camera properties: {vfe}")
+    return properties
+
+def validate_param(param_name: str, param_value: int, properties: dict) -> float:
+    prop = properties.get(param_name)
+    if prop:
+        min_value = prop['min']
+        max_value = prop['max']
+        increment = prop.get('inc', 1)
+        if param_value < min_value:
+            return round(min_value, 3)
+        elif param_value > max_value:
+            return round(max_value, 3)
+        else:
+            diff = param_value - min_value
+            return round(min_value + round(diff / increment) * increment, 3)
+    else:
+        raise KeyError(f"Property '{param_name}' not found in camera properties.")
+
+def validate_and_set_camera_param(camera: Camera, param_name: str, param_value: int, properties: dict):
+    valid_value = validate_param(param_name, param_value, properties)
+    with camera:
+        try:
+            if param_name == 'Width':
+                camera.Width.set(valid_value)
+            elif param_name == 'Height':
+                camera.Height.set(valid_value)
+            elif param_name == 'OffsetX':
+                camera.OffsetX.set(valid_value)
+            elif param_name == 'OffsetY':
+                camera.OffsetY.set(valid_value)
+            elif param_name == 'ExposureTime':
+                camera.ExposureTime.set(valid_value)
+            elif param_name == 'FrameRate':
+                camera.AcquisitionFrameRateEnable.set(True)
+                camera.AcquisitionFrameRate.set(valid_value)
+            elif param_name == 'Gain':
+                camera.Gain.set(valid_value)
+            elif param_name == 'Gamma':
+                camera.Gamma.set(valid_value)
+            logging.info(f"Set {param_name} to {valid_value}")
+        except AttributeError as ae:
+            logging.error(f"AttributeError setting camera parameter {param_name}: {ae}")
+        except VmbFeatureError as vfe:
+            logging.error(f"VmbFeatureError setting camera parameter {param_name}: {vfe}")

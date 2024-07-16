@@ -8,6 +8,9 @@ export class SharedService {
   private selectedImageSource = new BehaviorSubject<string | null>(null);
   selectedImage$ = this.selectedImageSource.asObservable();
 
+  private cameraConnectionStatus = new BehaviorSubject<boolean>(false);
+  cameraConnectionStatus$ = this.cameraConnectionStatus.asObservable();
+
   setSelectedImage(imagePath: string | null): void {
     this.selectedImageSource.next(imagePath);
   }
@@ -22,5 +25,9 @@ export class SharedService {
   getSaveDirectory(): string {
     console.log(`Retrieving save directory: ${this.saveDirectory}`);
     return this.saveDirectory;
+  }
+
+  setCameraConnectionStatus(status: boolean) {
+    this.cameraConnectionStatus.next(status);
   }
 }

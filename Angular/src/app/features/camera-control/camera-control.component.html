@@ -1,18 +1,19 @@
 <div>
-  <h2>Camera Control</h2>
   <form>
     <div *ngFor="let setting of settingOrder" class="form-group">
       <label>{{ setting }}</label>
       <input type="text" [(ngModel)]="cameraSettings[setting]" name="{{ setting }}" 
-             (input)="validateInput($event, setting)" (keypress)="preventInvalidChars($event, setting)" (keyup)="handleKeyDown($event, setting)">
+             (input)="validateInput($event, setting)" (keypress)="preventInvalidChars($event, setting)" (keyup)="handleKeyDown($event, setting)"
+             [disabled]="!isConnected">
     </div>
     <div class="form-group">
       <label>Save Directory:</label>
     </div>
     <div class="form-group directory-group">
       <div class="directory-input">
-        <input type="text" [(ngModel)]="saveDirectory" name="saveDirectory" class="directory-text" (blur)="sharedService.setSaveDirectory(saveDirectory)">
-        <button type="button" (click)="selectSaveDirectory()" class="directory-button">
+        <input type="text" [(ngModel)]="saveDirectory" name="saveDirectory" class="directory-text" 
+               (blur)="sharedService.setSaveDirectory(saveDirectory)" [disabled]="!isConnected">
+        <button type="button" (click)="selectSaveDirectory()" class="directory-button" [disabled]="!isConnected">
           <i class="fa fa-folder"></i>
         </button>
       </div>
@@ -22,8 +23,8 @@
       <span>{{ loadedFileName.replace('.json', '') }}</span>
     </div>
     <div class="buttons">
-      <button type="button" (click)="saveSettings()" class="button">Save Settings</button>
-      <button type="button" (click)="loadSettings()" class="button">Load Settings</button>
+      <button type="button" (click)="saveSettings()" class="button" [disabled]="!isConnected">Save Settings</button>
+      <button type="button" (click)="loadSettings()" class="button" [disabled]="!isConnected">Load Settings</button>
     </div>
   </form>
 </div>

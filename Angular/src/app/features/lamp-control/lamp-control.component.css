@@ -54,8 +54,8 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  margin-top: 6px; /* Space between lamp icon and PSU button */
-  margin-left: 10px;
+  margin-top: 8px; /* Space between lamp icon and PSU button */
+  margin-left: -10px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -78,17 +78,7 @@
 }
 
 .lamp-icon {
-  width: auto; /* Adjust as needed */
-  height: 110px; /* Adjust as needed */
-  margin-left: 10px;
-}
-
-.lamp-info {
-  margin-top: 180px; /* Space between buttons and info */
-  margin-left: -320px; /* Space between buttons and info */
-  display: flex;
-  flex-direction: row;
-  gap: 10px; /* Adjust the gap between the information text */
-  width: 100%; /* Take full width available */
-  justify-content: space-between; /* Distribute space between items */
+  width: auto;
+  height: 110px;
+  margin-left: -10px;
 }

@@ -33,12 +33,11 @@ import sys
 from typing import Optional
 from queue import Queue
 from vmbpy import *
-from cameracontrol import parse_args, get_camera, setup_camera, Handler
+from cameracontrol import validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
 import porthandler
 import time
 import printercontrols
 import lampcontrols
-
 
 app = Flask(__name__)
 app.secret_key = 'TabletScanner'
@@ -59,6 +58,7 @@ display = None
 camera = None
 streaming = False
 was_streaming = False
+properties = {} # Camera properties. to be renamed
 folder_selected=[]
 handler = Handler('default_directory_path')
 printer=[]
@@ -400,20 +400,21 @@ def live_start():
             return
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
+        
 @app.route('/connect-camera', methods=['POST'])
 def connect_camera():
-    global camera, handler, vimba_system_instance
+    global camera, handler, vimba_system_instance, properties
     try:
-        if camera is None:  # Check if camera is already connected
-            # Initialize Vimba API system instance
+        if camera is None:
             vimba_system_instance = VmbSystem.get_instance()
-            vimba_system_instance.__enter__()  # Ensure Vimba system context is opened
+            vimba_system_instance.__enter__()
 
             camera_id = parse_args()
             camera = get_camera(camera_id)
-            camera.__enter__()  # Open the camera context using __enter__
+            camera.__enter__()
             handler = Handler(folder_selected)
+            properties = get_camera_properties(camera)
+            logging.info(f"Camera properties: {properties}")
             setup_camera(camera, camera_params)
             app.logger.info("Camera connected successfully")
             return jsonify({"message": "Camera connected successfully"}), 200
@@ -423,6 +424,7 @@ def connect_camera():
     except Exception as e:
         app.logger.exception("Failed to connect camera")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/disconnect-camera', methods=['POST'])
 def disconnect_camera():
@@ -463,10 +465,10 @@ def check_camera_status():
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
-    global camera, handler, streaming, vimba_system_instance, was_streaming
+    global camera, handler, streaming, was_streaming, properties
     try:
-        setting = request.json
-        app.logger.info(f"Received setting: {setting}")
+        settings = request.json
+        app.logger.info(f"Received settings: {settings}")
         if camera:
             # Temporarily stop the streaming if it's running
             if streaming:
@@ -479,11 +481,25 @@ def update_camera_settings():
                 if not camera:
                     camera.__enter__()
 
-                for key, value in setting.items():
-                    if hasattr(camera, key):
-                        feature = getattr(camera, key)
-                        feature.set(value)
-                        app.logger.info(f"Set {key} to {value}")
+                # Correctly map the incoming keys to the expected camera setting keys
+                key_mapping = {
+                    'width': 'Width',
+                    'height': 'Height',
+                    'offsetx': 'OffsetX',
+                    'offsety': 'OffsetY',
+                    'exposuretime': 'ExposureTime',
+                    'gain': 'Gain',
+                    'gamma': 'Gamma',
+                    'framerate': 'FrameRate'
+                }
+
+                for key, value in settings.items():
+                    normalized_key = key_mapping.get(key.lower(), key)
+                    app.logger.info(f"Normalized key: {normalized_key}")
+                    if normalized_key in properties:
+                        validate_and_set_camera_param(camera, normalized_key, value, properties)
+                    else:
+                        app.logger.warning(f"Unknown setting: {normalized_key}")
 
                 # Only close the camera context if it was opened here
                 if not camera:
@@ -498,13 +514,13 @@ def update_camera_settings():
                 camera.start_streaming(handler=handler, buffer_count=10)
                 streaming = True
 
-            return jsonify({"message": "Camera setting updated successfully"}), 200
+            return jsonify({"message": "Camera settings updated successfully"}), 200
         else:
             return jsonify({"error": "Camera not connected"}), 400
     except Exception as e:
         app.logger.exception("Failed to update camera settings")
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route('/api/get-camera-settings', methods=['GET'])
 def get_camera_settings():
     try:
