@@ -162,12 +162,15 @@ def get_camera_properties(camera: Camera) -> dict:
         logging.error(f"VmbFeatureError getting camera properties: {vfe}")
     return properties
 
-def validate_param(param_name: str, param_value: int, properties: dict) -> float:
+def validate_param(param_name: str, param_value: float, properties: dict) -> float:
+    param_value = float(param_value)  # Ensure param_value is a float
     prop = properties.get(param_name)
     if prop:
         min_value = prop['min']
         max_value = prop['max']
-        increment = prop.get('inc', 1)
+        increment = prop['inc']
+        if increment is None:
+            increment = 1
         if param_value < min_value:
             return round(min_value, 3)
         elif param_value > max_value:
@@ -178,7 +181,7 @@ def validate_param(param_name: str, param_value: int, properties: dict) -> float
     else:
         raise KeyError(f"Property '{param_name}' not found in camera properties.")
 
-def validate_and_set_camera_param(camera: Camera, param_name: str, param_value: int, properties: dict):
+def validate_and_set_camera_param(camera: Camera, param_name: str, param_value: float, properties: dict) -> float:
     valid_value = validate_param(param_name, param_value, properties)
     with camera:
         try:
@@ -204,3 +207,19 @@ def validate_and_set_camera_param(camera: Camera, param_name: str, param_value: 
             logging.error(f"AttributeError setting camera parameter {param_name}: {ae}")
         except VmbFeatureError as vfe:
             logging.error(f"VmbFeatureError setting camera parameter {param_name}: {vfe}")
+    return valid_value  # Return the valid value
+
+def set_centered_offset(camera: Camera):
+    properties = get_camera_properties(camera)
+    sensor_width = camera.SensorWidth.get()
+    sensor_height = camera.SensorHeight.get()
+    width = camera.Width.get()
+    height = camera.Height.get()
+
+    centered_x = (sensor_width - width) // 2
+    centered_y = (sensor_height - height) // 2
+
+    validate_and_set_camera_param(camera, 'OffsetX', centered_x, properties)
+    validate_and_set_camera_param(camera, 'OffsetY', centered_y, properties)
+
+    return {'OffsetX': centered_x, 'OffsetY': centered_y}

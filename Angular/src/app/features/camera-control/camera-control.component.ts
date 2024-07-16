@@ -83,8 +83,9 @@ export class CameraControlComponent implements OnInit {
     const settings = {
       camera_params: this.cameraSettings
     };
-    this.http.post(`${this.BASE_URL}/save-camera-settings`, settings).subscribe(response => {
+    this.http.post(`${this.BASE_URL}/save-camera-settings`, settings).subscribe((response: any) => {
       console.log('Settings saved successfully:', response);
+      this.updateCameraSettingsOnInterface(response.updated_settings); // Update the interface with the corrected values
     }, error => {
       console.error('Error saving settings:', error);
     });
@@ -96,6 +97,7 @@ export class CameraControlComponent implements OnInit {
       this.cameraSettings = settings.camera_params;
       this.loadedFileName = settings.fileName.replace('.json', '');
       console.log('Loaded settings:', this.cameraSettings);
+      this.updateCameraSettingsOnInterface(settings.updated_settings); // Update the interface with the corrected values
     }, error => {
       console.error('Error loading settings:', error);
     });
@@ -119,9 +121,10 @@ export class CameraControlComponent implements OnInit {
 
   applySetting(setting: string): void {
     const value = this.cameraSettings[setting];
-    console.log(`Applying setting ${setting.toLowerCase()}: ${value}`);
-    this.http.post('/api/update-camera-settings', { [setting.toLowerCase()]: value }).subscribe(response => {
+    console.log(`Applying setting ${setting}: ${value}`);
+    this.http.post('/api/update-camera-settings', { [setting]: value }).subscribe((response: any) => {
       console.log('Setting applied successfully:', response);
+      this.updateCameraSettingsOnInterface(response.updated_settings); // Update the interface with the corrected values
     }, error => {
       console.error('Error applying setting:', error);
     });
@@ -153,4 +156,28 @@ export class CameraControlComponent implements OnInit {
   objectKeys(obj: any): string[] {
     return Object.keys(obj);
   }
+
+  updateCameraSettingsOnInterface(updatedSettings: any): void {
+    for (const key in updatedSettings) {
+      if (updatedSettings.hasOwnProperty(key)) {
+        this.cameraSettings[key] = updatedSettings[key];
+      }
+    }
+  }
+
+  center(axis: 'X' | 'Y'): void {
+    this.http.post('/api/set-centered-offset', {}).subscribe((response: any) => {
+      if (response) {
+        console.log('Centering response:', response);
+        if (axis === 'X') {
+          this.cameraSettings.OffsetX = response.OffsetX;
+        } else {
+          this.cameraSettings.OffsetY = response.OffsetY;
+        }
+      }
+    }, error => {
+      console.error('Error centering:', error);
+    });
+  }
 }
+

@@ -1,6 +1,6 @@
 .image-viewer-container {
   width: 900px;
-  height: 900px;
+  height: 820px;
   margin: auto;
   border-radius: 15px;
   background-color: #333;
@@ -12,12 +12,12 @@
 }
 
 .top-bar {
-  width: 100%;
+  width: calc(100% + 12px);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  background-color: #444;
+  padding: 4px;
+  background-color: rgb(46, 46, 46);
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
   margin-top: -10px;
@@ -68,7 +68,8 @@
 
 .live-view img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover; /* Ensure the image covers the container */
 }
 
 .placeholder {
