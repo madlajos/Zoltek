@@ -1,26 +1,41 @@
+<!-- Main Camera Container -->
 <div class="image-viewer-container">
   <div class="top-bar">
-    <div class="camera-name">{{ cameraName }}</div>
+    <div class="camera-name">Central Camera</div>
     <div class="top-buttons">
-      <button class="stream-button" (click)="toggleStream()" [disabled]="!isConnected">
-        <mat-icon>{{ button1Icon }}</mat-icon>
+      <!-- Stream Button for Main Camera -->
+      <button class="stream-button main-stream-button" (click)="toggleStream('main')" [disabled]="!isMainConnected">
+        <mat-icon>{{ isMainStreaming ? 'stop' : 'play_arrow' }}</mat-icon>
       </button>
-      <button class="connect-button" (click)="toggleConnection()">
-        <mat-icon>{{ button2Icon }}</mat-icon>
-      </button>
-      <button *ngIf="selectedImage" class="close-image-button" (click)="clearImage()">
-        <mat-icon>close</mat-icon>
+
+      <!-- Connect/Disconnect Button for Main Camera -->
+      <button class="connect-button main-connect-button" (click)="toggleConnection('main')">
+        <mat-icon>{{ isMainConnected ? 'link_off' : 'link' }}</mat-icon>
       </button>
     </div>
   </div>
   <div class="live-view">
-    <div #videoContainer></div>
-    <div #imageOverlay class="overlay" style="display: none;"></div>
+    <div #mainVideoContainer></div>
   </div>
-  <div class="bottom-bar">
-    <button class="save-button" (click)="saveImage()" [disabled]="!isConnected">
-      <mat-icon>camera_alt</mat-icon>
-    </button>
+</div>
+
+<!-- Side Camera Container -->
+<div class="image-viewer-container">
+  <div class="top-bar">
+    <div class="camera-name">Side Camera</div>
+    <div class="top-buttons">
+      <!-- Stream Button for Side Camera -->
+      <button class="stream-button side-stream-button" (click)="toggleStream('side')" [disabled]="!isSideConnected">
+        <mat-icon>{{ isSideStreaming ? 'stop' : 'play_arrow' }}</mat-icon>
+      </button>
+
+      <!-- Connect/Disconnect Button for Side Camera -->
+      <button class="connect-button side-connect-button" (click)="toggleConnection('side')">
+        <mat-icon>{{ isSideConnected ? 'link_off' : 'link' }}</mat-icon>
+      </button>
+    </div>
   </div>
-  <app-image-gallery [images]="images"></app-image-gallery>
+  <div class="live-view">
+    <div #sideVideoContainer></div>
+  </div>
 </div>

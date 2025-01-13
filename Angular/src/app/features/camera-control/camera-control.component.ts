@@ -21,7 +21,18 @@ interface CameraSettings {
   styleUrls: ['./camera-control.component.css']
 })
 export class CameraControlComponent implements OnInit {
-  cameraSettings: CameraSettings = {
+  mainCameraSettings: CameraSettings = {
+    Width: 800,
+    Height: 400,
+    OffsetX: 0,
+    OffsetY: 0,
+    ExposureTime: 200,
+    Gain: 10,
+    Gamma: 100,
+    FrameRate: 30
+  };
+
+  sideCameraSettings: CameraSettings = {
     Width: 800,
     Height: 400,
     OffsetX: 0,
@@ -34,7 +45,8 @@ export class CameraControlComponent implements OnInit {
 
   loadedFileName: string = '';
   saveDirectory: string = 'C:\\Users\\Public\\Pictures';
-  isConnected: boolean = false;
+  isMainConnected: boolean = false;
+  isSideConnected: boolean = false;
 
   settingOrder: string[] = [
     'Width',
@@ -52,56 +64,85 @@ export class CameraControlComponent implements OnInit {
   constructor(private http: HttpClient, public sharedService: SharedService) {}
 
   ngOnInit(): void {
-    this.loadCameraSettings();
+    // Load settings for both cameras
+    this.loadCameraSettings('main');
+    this.loadCameraSettings('side');
+  
+    // Set the shared save directory
     this.sharedService.setSaveDirectory(this.saveDirectory);
-    this.sharedService.cameraConnectionStatus$.subscribe(status => {
-      this.isConnected = status;
-    });
+  
+    // Subscribe to connection status for both cameras
+    this.sharedService.cameraConnectionStatus$.subscribe((status: { main: boolean; side: boolean }) => {
+      this.isMainConnected = status.main;
+      this.isSideConnected = status.side;
 
-    interval(5000).subscribe(() => this.checkCameraConnection());
+      console.log(`Main Connected: ${this.isMainConnected}, Side Connected: ${this.isSideConnected}`);
+    });
+    
+
+    
+    
+    // Periodically check connection status for both cameras
+    interval(5000).subscribe(() => {
+      this.checkCameraConnection('main');
+      this.checkCameraConnection('side');
+    });
   }
 
-  checkCameraConnection(): void {
-    this.http.get(`${this.BASE_URL}/status/camera`).subscribe((status: any) => {
-      this.isConnected = status.connected;
-      console.log('Camera connection status:', this.isConnected);
+
+  checkCameraConnection(cameraType: 'main' | 'side'): void {
+    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe((status: any) => {
+      this.sharedService.setCameraConnectionStatus(cameraType, status.connected);
     }, error => {
-      console.error('Error checking camera connection status:', error);
+      console.error(`Error checking ${cameraType} camera connection status:`, error);
     });
   }
 
-  loadCameraSettings(): void {
-    this.http.get('/assets/settings.json').subscribe((settings: any) => {
-      this.cameraSettings = settings.camera_params;
-      this.loadedFileName = 'settings.json'.replace('.json', '');
-      console.log('Camera settings loaded:', this.cameraSettings);
+  loadCameraSettings(cameraType: 'main' | 'side'): void {
+    this.http.get(`/assets/settings_${cameraType}.json`).subscribe((settings: any) => {
+      if (cameraType === 'main') {
+        this.mainCameraSettings = settings.camera_params;
+        console.log('Main camera settings loaded:', this.mainCameraSettings);
+      } else {
+        this.sideCameraSettings = settings.camera_params;
+        console.log('Side camera settings loaded:', this.sideCameraSettings);
+      }
+    }, error => {
+      console.error(`Error loading ${cameraType} camera settings:`, error);
     });
   }
+  
 
-  saveSettings(): void {
-    console.log('Save Settings button clicked');
+  saveSettings(cameraType: 'main' | 'side'): void {
+    console.log(`Save Settings button clicked for ${cameraType} camera`);
+  
     const settings = {
-      camera_params: this.cameraSettings
+      camera_params: cameraType === 'main' ? this.mainCameraSettings : this.sideCameraSettings
     };
-    this.http.post(`${this.BASE_URL}/save-camera-settings`, settings).subscribe((response: any) => {
-      console.log('Settings saved successfully:', response);
-      this.updateCameraSettingsOnInterface(response.updated_settings); // Update the interface with the corrected values
-    }, error => {
-      console.error('Error saving settings:', error);
+  
+    this.http.post(`${this.BASE_URL}/save-camera-settings?type=${cameraType}`, settings).subscribe(
+      (response: any) => {
+        console.log(`Settings for ${cameraType} camera saved successfully:`, response);
+        this.updateCameraSettingsOnInterface(response.updated_settings, cameraType); // Update the correct interface
+      },
+      error => {
+        console.error(`Error saving settings for ${cameraType} camera:`, error);
+      }
+    );
+  }
+  
+  //Placeholder
+  loadSettings(cameraType: 'main' | 'side'): void {
+    this.http.get(`${this.BASE_URL}/load-camera-settings?type=${cameraType}`).subscribe((settings: any) => {
+      if (cameraType === 'main') {
+        this.mainCameraSettings = settings.camera_params;
+      } else {
+        this.sideCameraSettings = settings.camera_params;
+      }
     });
   }
 
-  loadSettings(): void {
-    console.log('Load Settings button clicked');
-    this.http.get(`${this.BASE_URL}/load-camera-settings`).subscribe((settings: any) => {
-      this.cameraSettings = settings.camera_params;
-      this.loadedFileName = settings.fileName.replace('.json', '');
-      console.log('Loaded settings:', this.cameraSettings);
-      this.updateCameraSettingsOnInterface(settings.updated_settings); // Update the interface with the corrected values
-    }, error => {
-      console.error('Error loading settings:', error);
-    });
-  }
+
 
   selectSaveDirectory(): void {
     this.http.get('http://localhost:5000/select-folder').subscribe(
@@ -119,29 +160,40 @@ export class CameraControlComponent implements OnInit {
     );
   }
 
-  applySetting(setting: string): void {
-    const value = this.cameraSettings[setting];
+  applySetting(setting: string, cameraType: 'main' | 'side'): void {
+    const value = cameraType === 'main' ? this.mainCameraSettings[setting] : this.sideCameraSettings[setting];
     console.log(`Applying setting ${setting}: ${value}`);
-    this.http.post('/api/update-camera-settings', { [setting]: value }).subscribe((response: any) => {
-      console.log('Setting applied successfully:', response);
-      this.updateCameraSettingsOnInterface(response.updated_settings); // Update the interface with the corrected values
-    }, error => {
-      console.error('Error applying setting:', error);
-    });
-  }
 
-  handleKeyDown(event: KeyboardEvent, setting: string): void {
+    this.http.post(`${this.BASE_URL}/update-camera-settings`, {
+      camera_type: cameraType,
+      setting_name: setting,
+      setting_value: value
+    }).subscribe(
+      (response: any) => {
+        console.log(`Setting applied successfully for ${cameraType} camera:`, response);
+      },
+      error => {
+        console.error(`Error applying setting for ${cameraType} camera:`, error);
+      }
+    );
+}
+
+
+  handleKeyDown(event: KeyboardEvent, setting: string, cameraType: 'main' | 'side'): void {
     if (event.key === 'Enter') {
-      console.log(`Enter pressed for ${setting}`);
-      this.applySetting(setting);
+      console.log(`Enter pressed for ${setting} on ${cameraType} camera`);
+      this.applySetting(setting, cameraType);  // Pass both arguments
     }
   }
+  
 
-  validateInput(event: any, setting: string): void {
-    const input = event.target.value;
-    const parsedValue = ['Width', 'Height', 'OffsetX', 'OffsetY', 'ExposureTime'].includes(setting) ? 
-                        input.replace(/[^0-9]/g, '') : input.replace(/[^0-9.]/g, '');
-    this.cameraSettings[setting] = parsedValue;
+  validateInput(event: any, setting: string, cameraType: 'main' | 'side'): void {
+    const input = event.target.value.replace(/[^0-9.]/g, '');
+    if (cameraType === 'main') {
+      this.mainCameraSettings[setting] = input;
+    } else {
+      this.sideCameraSettings[setting] = input;
+    }
   }
 
   preventInvalidChars(event: KeyboardEvent, setting: string): void {
@@ -157,27 +209,26 @@ export class CameraControlComponent implements OnInit {
     return Object.keys(obj);
   }
 
-  updateCameraSettingsOnInterface(updatedSettings: any): void {
+  updateCameraSettingsOnInterface(updatedSettings: any, cameraType: 'main' | 'side'): void {
+    const targetSettings = cameraType === 'main' ? this.mainCameraSettings : this.sideCameraSettings;
+    
     for (const key in updatedSettings) {
       if (updatedSettings.hasOwnProperty(key)) {
-        this.cameraSettings[key] = updatedSettings[key];
+        targetSettings[key] = updatedSettings[key];
       }
     }
   }
+  
 
-  center(axis: 'X' | 'Y'): void {
-    this.http.post('/api/set-centered-offset', {}).subscribe((response: any) => {
-      if (response) {
-        console.log('Centering response:', response);
-        if (axis === 'X') {
-          this.cameraSettings.OffsetX = response.OffsetX;
-        } else {
-          this.cameraSettings.OffsetY = response.OffsetY;
-        }
+  center(axis: 'X' | 'Y', cameraType: 'main' | 'side'): void {
+    this.http.post(`${this.BASE_URL}/set-centered-offset?type=${cameraType}`, {}).subscribe((response: any) => {
+      if (cameraType === 'main') {
+        this.mainCameraSettings[`Offset${axis}`] = response[`Offset${axis}`];
+      } else {
+        this.sideCameraSettings[`Offset${axis}`] = response[`Offset${axis}`];
       }
-    }, error => {
-      console.error('Error centering:', error);
     });
   }
+
 }
 

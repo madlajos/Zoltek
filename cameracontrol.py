@@ -2,13 +2,16 @@ import cv2
 import sys
 from typing import Optional
 from queue import Queue
-from vmbpy import *
+from pypylon import pylon
 import logging
 import datetime
 import os
 from queue import Queue, Empty  # Import Empty from queue module
+import time
+import requests
 
-opencv_display_format = PixelFormat.Bgr8
+opencv_display_format = 'BGR8'
+
 
 def abort(reason: str, return_code: int = 1, usage: bool = False):
     print(reason + '\n')
@@ -27,62 +30,82 @@ def parse_args() -> Optional[str]:
 
     return None if argc == 0 else args[0]
 
-def get_camera(camera_id: Optional[str]) -> Camera:
-    with VmbSystem.get_instance() as vmb:
-        if camera_id:
+def get_camera(camera_id: str) -> pylon.InstantCamera:
+    factory = pylon.TlFactory.GetInstance()
+    devices = factory.EnumerateDevices()
+
+    if not devices:
+        raise ValueError('No cameras connected.')
+
+    logging.info("Connected devices:")
+    for device in devices:
+        logging.info(f"Device Model: {device.GetModelName()}, Serial Number: {device.GetSerialNumber()}")
+
+    # Search for the requested camera ID
+    for device in devices:
+        if device.GetSerialNumber() == camera_id:
             try:
-                return vmb.get_camera_by_id(camera_id)
-            except VmbCameraError:
-                raise ValueError(f"Failed to access Camera '{camera_id}'.")
-        else:
-            cams = vmb.get_all_cameras()
-            if not cams:
-                raise ValueError('No Cameras accessible.')
-            return cams[0]
+                camera = pylon.InstantCamera(factory.CreateDevice(device))
+                camera.Open()
+                return camera
+            except Exception as e:
+                logging.error(f"Failed to open camera {camera_id}: {e}")
+                raise ValueError(f"Failed to open Camera '{camera_id}'.")
 
-def setup_camera(camera: Camera, camera_params: dict):
-    with camera:
-        try:
-            camera.Width.set(round(camera_params['Width'], 3))
-            logging.info(f"Set Image Width to {round(camera_params['Width'], 3)}")
-            
-            camera.Height.set(round(camera_params['Height'], 3))
-            logging.info(f"Set Image Height to {round(camera_params['Height'], 3)}")
-            
-            camera.AcquisitionFrameRateEnable.set(True)
-            camera.AcquisitionFrameRate.set(round(camera_params['FrameRate'], 3))
-            logging.info(f"Set AcquisitionFrameRate to {round(camera_params['FrameRate'], 3)}")
+    raise ValueError(f"Failed to access Camera '{camera_id}'. Available devices: {[device.GetSerialNumber() for device in devices]}")
 
-            camera.ExposureTime.set(round(camera_params['ExposureTime'], 3))
-            logging.info(f"Set ExposureTime to {round(camera_params['ExposureTime'], 3)}")
+    
 
-            camera.Gain.set(round(camera_params['Gain'], 3))
-            logging.info(f"Set Gain to {round(camera_params['Gain'], 3)}")
+def setup_camera(camera: pylon.InstantCamera, camera_params: dict):
+    camera.Open()
+    try:
+        camera.Width.SetValue(round(camera_params['Width']))
+        logging.info(f"Set Image Width to {round(camera_params['Width'])}")
 
-            camera.Gamma.set(round(camera_params['Gamma'], 3))
-            logging.info(f"Set Gamma to {round(camera_params['Gamma'], 3)}")
-        except AttributeError as ae:
-            logging.error(f"AttributeError setting camera parameters: {ae}")
-        except VmbFeatureError as vfe:
-            logging.error(f"VmbFeatureError setting camera parameters: {vfe}")
+        camera.Height.SetValue(round(camera_params['Height']))
+        logging.info(f"Set Image Height to {round(camera_params['Height'])}")
+
+        camera.AcquisitionFrameRateEnable.SetValue(True)
+        camera.AcquisitionFrameRate.SetValue(round(camera_params['FrameRate']))
+        logging.info(f"Set AcquisitionFrameRate to {round(camera_params['FrameRate'])}")
+
+        camera.ExposureTime.SetValue(round(camera_params['ExposureTime']))
+        logging.info(f"Set ExposureTime to {round(camera_params['ExposureTime'])}")
+
+        camera.Gain.SetValue(round(camera_params['Gain']))
+        logging.info(f"Set Gain to {round(camera_params['Gain'])}")
+
+    except Exception as e:
+        logging.error(f"Error setting camera parameters: {e}")
 
 
-def setup_pixel_format(cam: Camera):
-    cam_formats = cam.get_pixel_formats()
-    cam_color_formats = intersect_pixel_formats(cam_formats, COLOR_PIXEL_FORMATS)
-    convertible_color_formats = tuple(f for f in cam_color_formats
-                                      if opencv_display_format in f.get_convertible_formats())
-    cam_mono_formats = intersect_pixel_formats(cam_formats, MONO_PIXEL_FORMATS)
-    convertible_mono_formats = tuple(f for f in cam_mono_formats
-                                     if opencv_display_format in f.get_convertible_formats())
-    if opencv_display_format in cam_formats:
-        cam.set_pixel_format(opencv_display_format)
-    elif convertible_color_formats:
-        cam.set_pixel_format(convertible_color_formats[0])
-    elif convertible_mono_formats:
-        cam.set_pixel_format(convertible_mono_formats[0])
+def setup_pixel_format(camera: pylon.InstantCamera):
+    if camera.PixelFormat.GetValue() != opencv_display_format:
+        camera.PixelFormat.SetValue(opencv_display_format)
+        
+def start_streaming(camera: pylon.InstantCamera):
+    handler = Handler()
+    try:
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        while camera.IsGrabbing():
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array
+                cv2.imshow("Stream", image)
+                if cv2.waitKey(1) == 13:  # Enter key
+                    break
+                handler.save_frame(image)
+            grab_result.Release()
+    finally:
+        camera.StopGrabbing()
+        camera.Close()
+        
+def stop_streaming(camera: pylon.InstantCamera):
+    if camera.IsGrabbing():
+        camera.StopGrabbing()
+        logging.info(f"Stopped streaming for camera: {camera.GetDeviceInfo().GetSerialNumber()}")
     else:
-        raise ValueError('Camera does not support an OpenCV compatible format.')
+        logging.info(f"Camera {camera.GetDeviceInfo().GetSerialNumber()} is not currently streaming.")
 
 class Handler:
     def __init__(self, folder_selected):
@@ -111,8 +134,8 @@ class Handler:
         self.saved_image_path = f"IMG_{timestamp}.jpg"
         print("Image saved as:", filename)
 
-    def __call__(self, cam: Camera, stream: Stream, frame: Frame):
-        if frame.get_status() == FrameStatus.Complete:
+    def __call__(self, cam: pylon.InstantCamera, stream, frame: pylon.GrabResult):
+        if frame.GrabSucceeded():
             print('{} acquired {}'.format(cam, frame), flush=True)
             if frame.get_pixel_format() == opencv_display_format:
                 display = frame
@@ -125,42 +148,24 @@ class Handler:
                 self.save_next_frame = False
 
             cam.queue_frame(frame)
-            return frame
+            return frame  
 
-        
-def start_streaming(camera: Camera):
-    setup_camera(camera)
-    setup_pixel_format(camera)
-    handler = Handler()
-    try:
-        camera.start_streaming(handler=handler, buffer_count=1)
-        msg = 'Stream from \'{}\'. Press <Enter> to stop stream.'
-        ENTER_KEY_CODE = 13
-        while True:
-            key = cv2.waitKey(1)
-            if key == ENTER_KEY_CODE:
-                cv2.destroyWindow(msg.format(camera.get_name()))
-                break
-            display = handler.get_image()
-            cv2.imshow(msg.format(camera.get_name()), display)
-    finally:
-        camera.stop_streaming()
-        
-
-def get_camera_properties(camera: Camera) -> dict:
+def get_camera_properties(camera: pylon.InstantCamera) -> dict:
     properties = {}
     try:
-        properties['Width'] = {'min': camera.Width.get_range()[0], 'max': camera.Width.get_range()[1], 'inc': camera.Width.get_increment()}
-        properties['Height'] = {'min': camera.Height.get_range()[0], 'max': camera.Height.get_range()[1], 'inc': camera.Height.get_increment()}
-        properties['OffsetX'] = {'min': camera.OffsetX.get_range()[0], 'max': camera.OffsetX.get_range()[1], 'inc': camera.OffsetX.get_increment()}
-        properties['OffsetY'] = {'min': camera.OffsetY.get_range()[0], 'max': camera.OffsetY.get_range()[1], 'inc': camera.OffsetY.get_increment()}
-        properties['ExposureTime'] = {'min': camera.ExposureTime.get_range()[0], 'max': camera.ExposureTime.get_range()[1], 'inc': camera.ExposureTime.get_increment()}
-        properties['Gain'] = {'min': camera.Gain.get_range()[0], 'max': camera.Gain.get_range()[1], 'inc': camera.Gain.get_increment()}
-        properties['Gamma'] = {'min': camera.Gamma.get_range()[0], 'max': camera.Gamma.get_range()[1], 'inc': camera.Gamma.get_increment()}
-        properties['FrameRate'] = {'min': camera.AcquisitionFrameRate.get_range()[0], 'max': camera.AcquisitionFrameRate.get_range()[1], 'inc': 0.01}
-    except VmbFeatureError as vfe:
-        logging.error(f"VmbFeatureError getting camera properties: {vfe}")
+        properties['Width'] = {'min': camera.Width.GetMin(), 'max': camera.Width.GetMax(), 'inc': camera.Width.GetInc()}
+        properties['Height'] = {'min': camera.Height.GetMin(), 'max': camera.Height.GetMax(), 'inc': camera.Height.GetInc()}
+        properties['OffsetX'] = {'min': camera.OffsetX.GetMin(), 'max': camera.OffsetX.GetMax(), 'inc': camera.OffsetX.GetInc()}
+        properties['OffsetY'] = {'min': camera.OffsetY.GetMin(), 'max': camera.OffsetY.GetMax(), 'inc': camera.OffsetY.GetInc()}
+        properties['ExposureTime'] = {'min': camera.ExposureTime.GetMin(), 'max': camera.ExposureTime.GetMax(), 'inc': camera.ExposureTime.GetInc()}
+        properties['Gain'] = {'min': camera.Gain.GetMin(), 'max': camera.Gain.GetMax(), 'inc': None}
+        if hasattr(camera, 'Gamma'):
+            properties['Gamma'] = {'min': camera.Gamma.GetMin(), 'max': camera.Gamma.GetMax(), 'inc': None}
+        properties['FrameRate'] = {'min': camera.AcquisitionFrameRate.GetMin(), 'max': camera.AcquisitionFrameRate.GetMax(), 'inc': 0.01}
+    except Exception as e:
+        logging.error(f"Error getting camera properties: {e}")
     return properties
+
 
 def validate_param(param_name: str, param_value: float, properties: dict) -> float:
     param_value = float(param_value)  # Ensure param_value is a float
@@ -181,35 +186,71 @@ def validate_param(param_name: str, param_value: float, properties: dict) -> flo
     else:
         raise KeyError(f"Property '{param_name}' not found in camera properties.")
 
-def validate_and_set_camera_param(camera: Camera, param_name: str, param_value: float, properties: dict) -> float:
+def validate_and_set_camera_param(camera, param_name: str, param_value: float, properties: dict, camera_type: str):
     valid_value = validate_param(param_name, param_value, properties)
-    with camera:
-        try:
-            if param_name == 'Width':
-                camera.Width.set(valid_value)
-            elif param_name == 'Height':
-                camera.Height.set(valid_value)
-            elif param_name == 'OffsetX':
-                camera.OffsetX.set(valid_value)
-            elif param_name == 'OffsetY':
-                camera.OffsetY.set(valid_value)
-            elif param_name == 'ExposureTime':
-                camera.ExposureTime.set(valid_value)
-            elif param_name == 'FrameRate':
-                camera.AcquisitionFrameRateEnable.set(True)
-                camera.AcquisitionFrameRate.set(valid_value)
-            elif param_name == 'Gain':
-                camera.Gain.set(valid_value)
-            elif param_name == 'Gamma':
-                camera.Gamma.set(valid_value)
-            logging.info(f"Set {param_name} to {valid_value}")
-        except AttributeError as ae:
-            logging.error(f"AttributeError setting camera parameter {param_name}: {ae}")
-        except VmbFeatureError as vfe:
-            logging.error(f"VmbFeatureError setting camera parameter {param_name}: {vfe}")
-    return valid_value  # Return the valid value
 
-def set_centered_offset(camera: Camera):
+    try:
+        was_streaming = camera.IsGrabbing()
+
+        # ✅ Stop the stream ONLY for Width or Height changes
+        if param_name in ['Width', 'Height'] and was_streaming:
+            stop_streaming(camera)
+            logging.info(f"{camera_type.capitalize()} stream stopped to apply {param_name} change.")
+            time.sleep(0.5)  # ✅ Short delay to ensure proper stop
+
+        # ✅ Ensure the camera is open before applying any setting
+        if not camera.IsOpen():
+            camera.Open()
+            logging.info(f"{camera_type.capitalize()} camera opened to apply {param_name}.")
+
+        # ✅ Apply the setting based on the parameter name
+        if param_name == 'Width':
+            camera.Width.SetValue(valid_value)
+        elif param_name == 'Height':
+            camera.Height.SetValue(valid_value)
+        elif param_name == 'OffsetX':
+            camera.OffsetX.SetValue(valid_value)
+        elif param_name == 'OffsetY':
+            camera.OffsetY.SetValue(valid_value)
+        elif param_name == 'ExposureTime':
+            camera.ExposureTime.SetValue(valid_value)
+        elif param_name == 'FrameRate':
+            camera.AcquisitionFrameRateEnable.SetValue(True)
+            camera.AcquisitionFrameRate.SetValue(valid_value)
+        elif param_name == 'Gain':
+            camera.Gain.SetValue(valid_value)
+        elif param_name == 'Gamma':
+            camera.Gamma.SetValue(valid_value)
+
+        logging.info(f"Set {param_name} to {valid_value}")
+
+        # ✅ Restart the stream ONLY if it was stopped
+        if param_name in ['Width', 'Height'] and was_streaming:
+            start_streaming(camera)
+            logging.info(f"{camera_type.capitalize()} stream resumed after applying {param_name} change.")
+
+    except Exception as e:
+        logging.error(f"Failed to set {param_name} for {camera_type} camera: {e}")
+
+    return valid_value
+
+
+
+# ✅ Notify frontend about stream status
+def notify_stream_status(camera_type: str, is_streaming: bool):
+    try:
+        response = requests.post(f'http://localhost:4200/api/stream-status', json={
+            'camera_type': camera_type,
+            'is_streaming': is_streaming
+        })
+        if response.status_code == 200:
+            logging.info(f"Stream status for {camera_type} updated to {is_streaming}")
+        else:
+            logging.warning(f"Failed to update stream status for {camera_type}")
+    except Exception as e:
+        logging.error(f"Error notifying frontend about stream status: {e}")
+
+def set_centered_offset(camera: pylon.InstantCamera):
     properties = get_camera_properties(camera)
     sensor_width = camera.SensorWidth.get()
     sensor_height = camera.SensorHeight.get()

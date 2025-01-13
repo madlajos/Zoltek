@@ -32,7 +32,7 @@ import numpy as np
 import sys
 from typing import Optional
 from queue import Queue
-from vmbpy import *
+from pypylon import pylon
 from cameracontrol import set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
 import porthandler
 import time
@@ -46,7 +46,8 @@ CORS(app)
 app.debug = True
 toolbar = DebugToolbarExtension(app)
 
-opencv_display_format = PixelFormat.Bgr8
+opencv_display_format = 'BGR8'
+
 file_path = ''
 common_filenames=[]
 image=[]
@@ -58,6 +59,9 @@ display = None
 camera = None
 streaming = False
 was_streaming = False
+main_camera = None
+side_camera = None
+camera_properties = {'main': None, 'side': None}
 properties = {} # Camera properties. to be renamed
 folder_selected=[]
 handler = Handler('default_directory_path')
@@ -71,6 +75,20 @@ with open(SETTINGS_PATH) as f:
 
 camera_params = settings['camera_params']
 
+
+MAIN_CAMERA_ID = '40569959'
+SIDE_CAMERA_ID = '40569958'
+
+
+cameras = {
+    'main': None,
+    'side': None
+}
+
+CAMERA_IDS = {
+    'main': MAIN_CAMERA_ID,
+    'side': SIDE_CAMERA_ID
+}
 
 # Configure logging
 if not app.debug:
@@ -370,156 +388,235 @@ def select_folder():
         app.logger.exception("Failed to select folder")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/video-stream')
-def live_start():
-    global handler, camera, streaming
+@app.route('/start-video-stream', methods=['GET'])
+def start_video_stream():
+    from pypylon import pylon
+    camera_type = request.args.get('type')
 
-    def generate_frames():
-        global handler, camera, streaming
+    if camera_type not in cameras:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    camera = cameras.get(camera_type)
+
+    if camera is not None:
         try:
-            with VmbSystem.get_instance() as vimba:
-                camera_id = parse_args()
-                with get_camera(camera_id) as cam:
-                    setup_camera(cam, camera_params)
-                    handler = Handler([])
-                    cam.start_streaming(handler=handler, buffer_count=10)
-                    camera = cam  # Assign the camera to the global variable
-                    streaming = True
-                    while True:
-                        if handler:
-                            display = handler.get_image()
-                            if display is not None:
-                                height, width, _ = display.shape
-                                aspect_ratio = width / height
+            if not camera.IsOpen():
+                camera.Open()
+                app.logger.info(f"{camera_type.capitalize()} camera opened.")
 
-                                target_width = 1000
-                                target_height = int(target_width / aspect_ratio)
+            if not camera.IsGrabbing():
+                camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+                app.logger.info(f"{camera_type.capitalize()} camera stream started successfully.")
 
-                                if target_height > 1000:
-                                    target_height = 1000
-                                    target_width = int(target_height * aspect_ratio)
+            return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-                                resized_frame = cv2.resize(display, (target_width, target_height))
-                                _, frame = cv2.imencode('.jpg', resized_frame)
-                                yield (b'--frame\r\n'
-                                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-                        else:
-                            break
-        except VmbSystemError as e:
-            app.logger.exception("Failed to start VmbSystem")
-            return
+        except Exception as e:
+            app.logger.error(f"Failed to start stream for {camera_type} camera: {e}")
+            return jsonify({'error': f'Failed to start stream: {str(e)}'}), 500
+    else:
+        app.logger.error(f"{camera_type.capitalize()} camera is not connected")
+        return jsonify({'error': f'{camera_type.capitalize()} camera not connected'}), 500
 
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-        
+
+@app.route('/stop-video-stream', methods=['POST'])
+def stop_video_stream():
+    camera_type = request.args.get('type')
+
+    if camera_type not in cameras:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    camera = cameras.get(camera_type)
+
+    if camera and camera.IsGrabbing():
+        try:
+            camera.StopGrabbing()
+            app.logger.info(f"{camera_type.capitalize()} camera stream stopped successfully")
+            return jsonify({"message": f"{camera_type.capitalize()} camera stream stopped successfully"}), 200
+        except Exception as e:
+            app.logger.error(f"Failed to stop {camera_type} camera stream: {e}")
+            return jsonify({"error": f"Failed to stop {camera_type} camera stream"}), 500
+    else:
+        app.logger.warning(f"{camera_type.capitalize()} camera is not streaming")
+        return jsonify({"message": f"{camera_type.capitalize()} camera is not streaming"}), 200
+
+
+
+def generate_frames(camera_type):
+    camera = cameras.get(camera_type)
+
+    if not camera:
+        app.logger.error(f"{camera_type.capitalize()} camera is not connected")
+        return
+
+    if not camera.IsGrabbing():
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+
+    try:
+        while camera.IsGrabbing():
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array
+                _, frame = cv2.imencode('.jpg', image)
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+            grab_result.Release()
+    except Exception as e:
+        app.logger.error(f"Error in {camera_type} video stream: {e}")
+
+
 @app.route('/connect-camera', methods=['POST'])
 def connect_camera():
-    global camera, handler, vimba_system_instance, properties
-    try:
-        if camera is None:
-            vimba_system_instance = VmbSystem.get_instance()
-            vimba_system_instance.__enter__()
+    camera_type = request.args.get('type')
 
-            camera_id = parse_args()
-            camera = get_camera(camera_id)
-            camera.__enter__()
-            handler = Handler(folder_selected)
-            properties = get_camera_properties(camera)
-            logging.info(f"Camera properties: {properties}")
-            setup_camera(camera, camera_params)
-            app.logger.info("Camera connected successfully")
-            return jsonify({"message": "Camera connected successfully"}), 200
-        else:
-            app.logger.warning("Camera is already connected")
-            return jsonify({"message": "Camera is already connected"}), 200
+    if camera_type not in ['main', 'side']:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    try:
+        factory = pylon.TlFactory.GetInstance()
+        devices = factory.EnumerateDevices()
+
+        if not devices:
+            app.logger.error("No cameras detected.")
+            return jsonify({"error": "No cameras connected"}), 400
+
+        # Select the correct camera based on serial number
+        target_serial = MAIN_CAMERA_ID if camera_type == 'main' else SIDE_CAMERA_ID
+        selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
+
+        if not selected_device:
+            app.logger.error(f"{camera_type.capitalize()} camera with serial {target_serial} not found.")
+            return jsonify({"error": f"{camera_type.capitalize()} camera not connected"}), 400
+
+        # Avoid reconnecting if the camera is already connected
+        if cameras.get(camera_type) and cameras[camera_type].IsOpen():
+            app.logger.info(f"{camera_type.capitalize()} camera is already connected.")
+            return jsonify({
+                "connected": True,
+                "name": selected_device.GetModelName(),
+                "serial": selected_device.GetSerialNumber()
+            }), 200
+
+        # Connect the selected device
+        cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
+        cameras[camera_type].Open()
+
+        if not cameras[camera_type].IsOpen():
+            app.logger.error(f"Failed to open {camera_type} camera after connection.")
+            return jsonify({"error": f"{camera_type.capitalize()} camera failed to open"}), 500
+
+        # Initialize camera properties
+        camera_properties[camera_type] = get_camera_properties(cameras[camera_type])
+
+        app.logger.info(f"{camera_type.capitalize()} camera connected successfully.")
+        return jsonify({
+            "connected": True,
+            "name": selected_device.GetModelName(),
+            "serial": selected_device.GetSerialNumber()
+        }), 200
+
     except Exception as e:
-        app.logger.exception("Failed to connect camera")
+        app.logger.error(f"Failed to connect {camera_type} camera: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
 
 
 @app.route('/disconnect-camera', methods=['POST'])
 def disconnect_camera():
-    global camera, streaming, vimba_system_instance
+    camera_type = request.args.get('type')
+
+    if camera_type not in cameras or cameras[camera_type] is None:
+        app.logger.warning(f"{camera_type.capitalize()} camera is already disconnected or not initialized")
+        return jsonify({"status": "already disconnected"}), 200
+
     try:
-        if camera is not None:
-            if streaming:
-                camera.stop_streaming()
-                streaming = False
-            camera.__exit__(None, None, None)  # Properly exit the camera context
-            camera = None
+        camera = cameras[camera_type]
 
-            # Close the Vimba API system context if it was opened
-            if vimba_system_instance:
-                vimba_system_instance.__exit__(None, None, None)
-                vimba_system_instance = None
+        if camera.IsGrabbing():
+            camera.StopGrabbing()
 
-            app.logger.info("Camera disconnected successfully")
-            return jsonify({"message": "Camera disconnected successfully"}), 200
-        else:
-            app.logger.warning("No camera to disconnect")
-            return jsonify({"error": "No camera to disconnect"}), 400
+        camera.Close()
+        cameras[camera_type] = None
+        camera_properties[camera_type] = None
+
+        app.logger.info(f"{camera_type.capitalize()} camera disconnected successfully")
+        return jsonify({"status": "disconnected"}), 200
+
     except Exception as e:
-        app.logger.exception("Failed to disconnect camera")
+        app.logger.error(f"Failed to disconnect {camera_type} camera: {e}")
         return jsonify({"error": str(e)}), 500
+
+
     
 @app.route('/api/status/camera', methods=['GET'])
 def check_camera_status():
-    global camera
-    try:
-        if camera is not None:
-            return jsonify({"connected": True}), 200
-        else:
-            return jsonify({"connected": False}), 200
-    except Exception as e:
-        app.logger.exception("Failed to check camera status")
-        return jsonify({"error": str(e)}), 500
+    camera_type = request.args.get('type')
+
+    if camera_type not in cameras:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    camera = cameras.get(camera_type)
+
+    # ✅ Check if the camera is initialized and open
+    if camera is not None and camera.IsOpen():
+        return jsonify({"connected": True}), 200
+    else:
+        return jsonify({"connected": False}), 200
+
+
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
-    global camera, handler, streaming, was_streaming, properties
+    global cameras, camera_properties
     try:
-        settings = request.json
-        app.logger.info(f"Received settings: {settings}")
-        updated_settings = {}
-        
-        if camera:
-            # Temporarily stop the streaming if it's running
-            if streaming:
-                camera.stop_streaming()
-                streaming = False
-                was_streaming = True
+        data = request.json
+        camera_type = data.get('camera_type')
+        setting_name = data.get('setting_name')
+        setting_value = data.get('setting_value')
 
-            try:
-                # Ensure the camera context is opened if not already
-                if not camera:
-                    camera.__enter__()
+        app.logger.info(f"Received settings update: {data}")
 
-                for key, value in settings.items():
-                    app.logger.info(f"Processing key: {key}")
-                    if key in properties:
-                        updated_settings[key] = validate_and_set_camera_param(camera, key, value, properties)
-                    else:
-                        app.logger.warning(f"Unknown setting: {key}")
+        # Validate camera type
+        if camera_type not in cameras or cameras[camera_type] is None or not cameras[camera_type].IsOpen():
+            app.logger.error(f"{camera_type.capitalize()} camera is not connected or not open.")
+            return jsonify({"error": f"{camera_type.capitalize()} camera is not connected"}), 400
 
-                # Only close the camera context if it was opened here
-                if not camera:
-                    camera.__exit__(None, None, None)
+        # Validate properties
+        if camera_type not in camera_properties or not camera_properties[camera_type]:
+            app.logger.error(f"{camera_type.capitalize()} camera properties not initialized.")
+            return jsonify({"error": f"{camera_type.capitalize()} camera properties not found"}), 400
 
-            except VmbError as e:
-                app.logger.exception("Failed to open camera context or set feature")
-                return jsonify({"error": str(e)}), 500
+        # ✅ Corrected: Pass the 'properties' argument
+        updated_value = validate_and_set_camera_param(
+            cameras[camera_type],
+            setting_name,
+            setting_value,
+            camera_properties[camera_type],
+            camera_type  # ✅ Add this argument
+        )
 
-            # Restart the streaming if it was previously running
-            if handler and was_streaming:
-                camera.start_streaming(handler=handler, buffer_count=10)
-                streaming = True
+        app.logger.info(f"{camera_type.capitalize()} camera {setting_name} set to {updated_value}")
 
-            return jsonify({"message": "Camera settings updated successfully", "updated_settings": updated_settings}), 200
-        else:
-            return jsonify({"error": "Camera not connected"}), 400
+        return jsonify({
+            "message": f"{camera_type.capitalize()} camera {setting_name} updated successfully",
+            "updated_value": updated_value
+        }), 200
+
     except Exception as e:
         app.logger.exception("Failed to update camera settings")
         return jsonify({"error": str(e)}), 500
+
+
+
 
 @app.route('/api/get-camera-settings', methods=['GET'])
 def get_camera_settings():
@@ -529,21 +626,17 @@ def get_camera_settings():
         app.logger.exception("Failed to get camera settings")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/stop-video-stream', methods=['POST'])
-def stop_video_stream():
-    global handler, camera, streaming, was_streaming
-    try:
-        if camera and streaming:
-            camera.stop_streaming()
-            handler = None
-            streaming = False
-            was_streaming = False
-            return jsonify({'status': 'success', 'message': 'Video stream stopped successfully!'})
-        else:
-            return jsonify({'status': 'error', 'message': 'No active stream to stop'}), 400
-    except Exception as e:
-        app.logger.exception("Failed to stop video stream")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+@app.route('/video-stream', methods=['GET'])
+def video_stream():
+    camera_type = request.args.get('type')
+
+    if camera_type not in cameras:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    app.logger.info(f"{camera_type.capitalize()} camera stream started successfully")
+    return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 @app.route('/api/save-camera-settings', methods=['POST'])
 def save_camera_settings():
@@ -599,7 +692,7 @@ def set_centered_offset_route():
 def get_camera_name():
     try:
         if camera:
-            return jsonify({'name': camera.get_name()}), 200
+            return jsonify({'name': camera.GetDeviceInfo().GetModelName()}), 200
         else:
             return jsonify({'name': 'No camera connected'}), 200
     except Exception as e:
@@ -651,29 +744,59 @@ def serve_image(filename):
 def connect_cap():
     global printer, handler, lamp, psu, folder_selected
 
-    with VmbSystem.get_instance() as vimba:
+    try:
+        factory = pylon.TlFactory.GetInstance()
+        devices = factory.EnumerateDevices()
+
+        if not devices:
+            return jsonify({'error': 'No camera detected'}), 500
+
         camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-            handler.set_save_next_frame()  # Call set_save_next_frame method to set the flag
+        camera = get_camera(camera_id)
+
+        handler.set_save_next_frame()  # Call set_save_next_frame method to set the flag
+
         return jsonify('ok')  # Return JSON response
+
+    except Exception as e:
+        logging.error(f"Failed to connect to camera: {e}")
+        return jsonify({'error': 'Failed to connect to camera'}), 500
+
 
 @app.route('/capture-and-send-expo', methods=['POST'])
 def capture_and_send():
     global printer, handler, lamp, psu, folder_selected
     number = request.json.get('number')  # Get the exposure time from the request
     print("Exposure time received:", number)
+
     try:
         number = int(number)  # Convert to integer (assuming it's in microseconds)
     except (TypeError, ValueError):
-        return jsonify({'error': 'Exposure time must be an integer'})
+        return jsonify({'error': 'Exposure time must be an integer'}), 400
 
-    with VmbSystem.get_instance() as vimba:
+    try:
+        # Initialize the Basler camera system
+        factory = pylon.TlFactory.GetInstance()
+        devices = factory.EnumerateDevices()
+
+        if not devices:
+            return jsonify({'error': 'No Basler cameras detected'}), 500
+
         camera_id = parse_args()
-        with get_camera(camera_id) as cam:
-            setup_camera(cam)
-            cam.ExposureTime.set(number)  # Set exposure time
+        camera = get_camera(camera_id)
+        camera.Open()
 
-            return jsonify({'success': True})
+        setup_camera(camera, camera_params)
+        camera.ExposureTime.SetValue(number)  # Set exposure time
+
+        camera.Close()
+
+        return jsonify({'success': True}), 200
+
+    except Exception as e:
+        logging.error(f"Error setting exposure time: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/get-images')
 def get_images():
