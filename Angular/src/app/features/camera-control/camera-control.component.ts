@@ -45,8 +45,11 @@ export class CameraControlComponent implements OnInit {
 
   loadedFileName: string = '';
   saveDirectory: string = 'C:\\Users\\Public\\Pictures';
+
   isMainConnected: boolean = false;
   isSideConnected: boolean = false;
+  isMainStreaming: boolean = false;
+  isSideStreaming: boolean = false;
 
   settingOrder: string[] = [
     'Width',
@@ -67,35 +70,97 @@ export class CameraControlComponent implements OnInit {
     // Load settings for both cameras
     this.loadCameraSettings('main');
     this.loadCameraSettings('side');
-  
-    // Set the shared save directory
-    this.sharedService.setSaveDirectory(this.saveDirectory);
-  
-    // Subscribe to connection status for both cameras
-    this.sharedService.cameraConnectionStatus$.subscribe((status: { main: boolean; side: boolean }) => {
-      this.isMainConnected = status.main;
-      this.isSideConnected = status.side;
 
-      console.log(`Main Connected: ${this.isMainConnected}, Side Connected: ${this.isSideConnected}`);
-    });
-    
+    this.checkCameraConnection('main');
+    this.checkCameraConnection('side');
 
-    
-    
     // Periodically check connection status for both cameras
     interval(5000).subscribe(() => {
       this.checkCameraConnection('main');
       this.checkCameraConnection('side');
     });
+  
+    // Set the shared save directory
+    this.sharedService.setSaveDirectory(this.saveDirectory);
+  
+    this.sharedService.cameraConnectionStatus$.subscribe(status => {
+      this.isMainConnected = status.main;
+      this.isSideConnected = status.side;
+      console.log(`Main Connected: ${this.isMainConnected}, Side Connected: ${this.isSideConnected}`);
+    });
+
+    this.sharedService.cameraStreamStatus$.subscribe(status => {
+      this.isMainStreaming = status.main;
+      this.isSideStreaming = status.side;
+      console.log(`Main Streaming: ${this.isMainStreaming}, Side Streaming: ${this.isSideStreaming}`);
+    });
   }
 
-
   checkCameraConnection(cameraType: 'main' | 'side'): void {
-    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe((status: any) => {
-      this.sharedService.setCameraConnectionStatus(cameraType, status.connected);
-    }, error => {
-      console.error(`Error checking ${cameraType} camera connection status:`, error);
-    });
+    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe(
+      (response: any) => {
+        this.sharedService.setCameraConnectionStatus(cameraType, response.connected);
+      },
+      error => console.error(`Error checking ${cameraType} camera status:`, error)
+    );
+  }
+
+  toggleConnection(cameraType: 'main' | 'side'): void {
+    if ((cameraType === 'main' && this.isMainConnected) || (cameraType === 'side' && this.isSideConnected)) {
+      this.disconnectCamera(cameraType);
+    } else {
+      this.connectCamera(cameraType);
+    }
+  }
+
+  connectCamera(cameraType: 'main' | 'side'): void {
+    this.http.post(`${this.BASE_URL}/connect-camera?type=${cameraType}`, {}).subscribe(
+      () => {
+        this.sharedService.setCameraConnectionStatus(cameraType, true);
+        console.log(`${cameraType.toUpperCase()} camera connected.`);
+      },
+      error => console.error(`Failed to connect ${cameraType} camera:`, error)
+    );
+  }
+
+  disconnectCamera(cameraType: 'main' | 'side'): void {
+    this.http.post(`${this.BASE_URL}/disconnect-camera?type=${cameraType}`, {}).subscribe(
+      () => {
+        this.sharedService.setCameraConnectionStatus(cameraType, false);
+        console.log(`${cameraType.toUpperCase()} camera disconnected.`);
+      },
+      error => console.error(`Failed to disconnect ${cameraType} camera:`, error)
+    );
+  }
+
+  toggleStream(cameraType: 'main' | 'side'): void {
+    if ((cameraType === 'main' && this.isMainStreaming) || (cameraType === 'side' && this.isSideStreaming)) {
+      this.stopVideoStream(cameraType);
+    } else {
+      this.startVideoStream(cameraType);
+    }
+  }
+
+  startVideoStream(cameraType: 'main' | 'side'): void {
+    const streamUrl = `${this.BASE_URL}/start-video-stream?type=${cameraType}&nocache=${new Date().getTime()}`;
+    
+    this.http.get(streamUrl, { responseType: 'blob' }).subscribe(
+      () => {
+        this.sharedService.setCameraStreamStatus(cameraType, true);
+        console.log(`${cameraType.toUpperCase()} stream started.`);
+      },
+      error => console.error(`Failed to start ${cameraType} stream:`, error)
+    );
+  }
+
+  stopVideoStream(cameraType: 'main' | 'side'): void {
+    this.http.post(`${this.BASE_URL}/stop-video-stream?type=${cameraType}`, {}).subscribe(
+      () => {
+        this.sharedService.setCameraStreamStatus(cameraType, false);
+        console.log(`${cameraType.toUpperCase()} stream stopped.`);
+      },
+      error => console.error(`Failed to stop ${cameraType} stream:`, error)
+    );
   }
 
   loadCameraSettings(cameraType: 'main' | 'side'): void {

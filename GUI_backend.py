@@ -19,6 +19,7 @@ import binascii
 import shutil
 import cv2
 import logging
+import threading
 from logging.handlers import RotatingFileHandler
 from flask_debugtoolbar import DebugToolbarExtension
 import datetime
@@ -90,6 +91,21 @@ CAMERA_IDS = {
     'side': SIDE_CAMERA_ID
 }
 
+stream_threads = {
+    'main': None,
+    'side': None
+}
+
+stream_running = {
+    'main': False,
+    'side': False
+}
+
+grab_locks = {
+    'main': threading.Lock(),
+    'side': threading.Lock()
+}
+
 # Configure logging
 if not app.debug:
     # Set up logging to file
@@ -108,6 +124,30 @@ if not app.debug:
 
 app.logger.setLevel(logging.DEBUG)
 
+# Function to continuously generate and send frames
+def stream_video(camera_type):
+    camera = cameras.get(camera_type)
+    if not camera or not camera.IsOpen():
+        app.logger.error(f"{camera_type.capitalize()} camera is not open.")
+        return
+
+    app.logger.info(f"{camera_type.capitalize()} camera streaming thread started.")
+    stream_running[camera_type] = True
+
+    try:
+        while stream_running[camera_type]:
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array
+                _, frame = cv2.imencode('.jpg', image)
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+            grab_result.Release()
+    except Exception as e:
+        app.logger.error(f"Error in {camera_type} video stream: {e}")
+    finally:
+        stream_running[camera_type] = False
+        app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
 
 ### Serial Device Functions ###
 # Define the route for checking device status
@@ -390,7 +430,6 @@ def select_folder():
 
 @app.route('/start-video-stream', methods=['GET'])
 def start_video_stream():
-    from pypylon import pylon
     camera_type = request.args.get('type')
 
     if camera_type not in cameras:
@@ -399,24 +438,25 @@ def start_video_stream():
 
     camera = cameras.get(camera_type)
 
-    if camera is not None:
-        try:
-            if not camera.IsOpen():
-                camera.Open()
-                app.logger.info(f"{camera_type.capitalize()} camera opened.")
+    if camera is None or not camera.IsOpen():
+        app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
+        return jsonify({"error": f"{camera_type.capitalize()} camera not connected"}), 400
 
-            if not camera.IsGrabbing():
-                camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-                app.logger.info(f"{camera_type.capitalize()} camera stream started successfully.")
+    with grab_locks[camera_type]:  # ✅ Lock to prevent double start
+        if not camera.IsGrabbing():
+            camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+            app.logger.info(f"{camera_type.capitalize()} camera started grabbing.")
 
-            return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-        except Exception as e:
-            app.logger.error(f"Failed to start stream for {camera_type} camera: {e}")
-            return jsonify({'error': f'Failed to start stream: {str(e)}'}), 500
+    if not stream_running[camera_type]:
+        stream_running[camera_type] = True
+        stream_threads[camera_type] = threading.Thread(target=stream_video, args=(camera_type,))
+        stream_threads[camera_type].start()
+        app.logger.info(f"{camera_type.capitalize()} stream thread started.")
     else:
-        app.logger.error(f"{camera_type.capitalize()} camera is not connected")
-        return jsonify({'error': f'{camera_type.capitalize()} camera not connected'}), 500
+        app.logger.info(f"{camera_type.capitalize()} stream is already running.")
+
+    return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 
 
@@ -430,17 +470,20 @@ def stop_video_stream():
 
     camera = cameras.get(camera_type)
 
-    if camera and camera.IsGrabbing():
-        try:
+    if not stream_running[camera_type]:
+        app.logger.info(f"{camera_type.capitalize()} stream is not running.")
+        return jsonify({"message": "Stream already stopped."}), 200
+
+    try:
+        stream_running[camera_type] = False  # Stop the stream loop
+        if camera.IsGrabbing():
             camera.StopGrabbing()
-            app.logger.info(f"{camera_type.capitalize()} camera stream stopped successfully")
-            return jsonify({"message": f"{camera_type.capitalize()} camera stream stopped successfully"}), 200
-        except Exception as e:
-            app.logger.error(f"Failed to stop {camera_type} camera stream: {e}")
-            return jsonify({"error": f"Failed to stop {camera_type} camera stream"}), 500
-    else:
-        app.logger.warning(f"{camera_type.capitalize()} camera is not streaming")
-        return jsonify({"message": f"{camera_type.capitalize()} camera is not streaming"}), 200
+            app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
+
+        return jsonify({"message": f"{camera_type.capitalize()} stream stopped."}), 200
+    except Exception as e:
+        app.logger.error(f"Failed to stop {camera_type} stream: {e}")
+        return jsonify({'error': f'Failed to stop stream: {str(e)}'}), 500
 
 
 
@@ -448,23 +491,36 @@ def generate_frames(camera_type):
     camera = cameras.get(camera_type)
 
     if not camera:
-        app.logger.error(f"{camera_type.capitalize()} camera is not connected")
+        app.logger.error(f"{camera_type.capitalize()} camera is not connected.")
         return
 
     if not camera.IsGrabbing():
         camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        app.logger.info(f"{camera_type.capitalize()} camera started grabbing.")
 
     try:
-        while camera.IsGrabbing():
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grab_result.GrabSucceeded():
-                image = grab_result.Array
-                _, frame = cv2.imencode('.jpg', image)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-            grab_result.Release()
+        while stream_running[camera_type]:
+            with grab_locks[camera_type]:  # ✅ Lock the grabbing process
+                if camera.IsGrabbing():
+                    try:
+                        grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+                        if grab_result.GrabSucceeded():
+                            image = grab_result.Array
+                            _, frame = cv2.imencode('.jpg', image)
+                            yield (b'--frame\r\n'
+                                   b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                        grab_result.Release()
+                    except Exception as e:
+                        app.logger.error(f"Error retrieving frame from {camera_type} camera: {e}")
+                        continue
+                else:
+                    app.logger.warning(f"{camera_type.capitalize()} camera is not grabbing. Restarting...")
+                    camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
     except Exception as e:
         app.logger.error(f"Error in {camera_type} video stream: {e}")
+    finally:
+        app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
+
 
 
 @app.route('/connect-camera', methods=['POST'])

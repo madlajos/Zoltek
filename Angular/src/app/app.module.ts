@@ -13,7 +13,7 @@ import { MessageDisplayComponent } from './message-display/message-display.compo
 import { MessageService } from './message.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { FormsModule } from '@angular/forms'; // 
+import { FormsModule } from '@angular/forms';
 import { MatCommonModule } from '@angular/material/core';
 
 import { PrinterControlComponent } from './features/printer-control/printer-control.component';
@@ -21,9 +21,7 @@ import { LampControlComponent } from './features/lamp-control/lampcontrol.compon
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
-import { ImageGalleryComponent } from './features/image-gallery/image-gallery.component';
 import { SharedService } from './shared.service';
-
 
 @NgModule({
   declarations: [
@@ -34,7 +32,6 @@ import { SharedService } from './shared.service';
     ComportControlComponent,
     CameraControlComponent,
     ImageViewerComponent,
-    ImageGalleryComponent
   ],
   imports: [
     MatCommonModule,
@@ -47,15 +44,10 @@ import { SharedService } from './shared.service';
     MatSidenavModule,
     MatExpansionModule,
     MatButtonModule,
-    MatExpansionModule,
     MatIconModule,
     FormsModule,
   ],
-  providers: [SharedService, MessageService, ImageViewerComponent],
+  providers: [SharedService, MessageService],
   bootstrap: [AppComponent]
-  
 })
-
-export class AppModule { }
-
-
+export class AppModule {}

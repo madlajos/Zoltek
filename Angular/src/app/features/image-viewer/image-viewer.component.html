@@ -2,17 +2,6 @@
 <div class="image-viewer-container">
   <div class="top-bar">
     <div class="camera-name">Central Camera</div>
-    <div class="top-buttons">
-      <!-- Stream Button for Main Camera -->
-      <button class="stream-button main-stream-button" (click)="toggleStream('main')" [disabled]="!isMainConnected">
-        <mat-icon>{{ isMainStreaming ? 'stop' : 'play_arrow' }}</mat-icon>
-      </button>
-
-      <!-- Connect/Disconnect Button for Main Camera -->
-      <button class="connect-button main-connect-button" (click)="toggleConnection('main')">
-        <mat-icon>{{ isMainConnected ? 'link_off' : 'link' }}</mat-icon>
-      </button>
-    </div>
   </div>
   <div class="live-view">
     <div #mainVideoContainer></div>
@@ -23,17 +12,6 @@
 <div class="image-viewer-container">
   <div class="top-bar">
     <div class="camera-name">Side Camera</div>
-    <div class="top-buttons">
-      <!-- Stream Button for Side Camera -->
-      <button class="stream-button side-stream-button" (click)="toggleStream('side')" [disabled]="!isSideConnected">
-        <mat-icon>{{ isSideStreaming ? 'stop' : 'play_arrow' }}</mat-icon>
-      </button>
-
-      <!-- Connect/Disconnect Button for Side Camera -->
-      <button class="connect-button side-connect-button" (click)="toggleConnection('side')">
-        <mat-icon>{{ isSideConnected ? 'link_off' : 'link' }}</mat-icon>
-      </button>
-    </div>
   </div>
   <div class="live-view">
     <div #sideVideoContainer></div>

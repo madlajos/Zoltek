@@ -16,9 +16,27 @@
                placeholder="Enter {{ setting }} value"
                required>
       </div>
+
       <div class="buttons">
         <button type="button" (click)="center('X', 'main')" [disabled]="!isMainConnected">Center X</button>
         <button type="button" (click)="center('Y', 'main')" [disabled]="!isMainConnected">Center Y</button>
+      </div>
+
+      <!-- Main Camera Controls -->
+      <div class="buttons">
+        <!-- Stream Button -->
+        <button type="button"
+                (click)="sharedService.toggleStream('main')"
+                [disabled]="!(sharedService.cameraConnectionStatus$ | async)?.main">
+          <mat-icon *ngIf="(sharedService.cameraStreamStatus$ | async)?.main; else playMain">stop</mat-icon>
+          <ng-template #playMain><mat-icon>play_arrow</mat-icon></ng-template>
+        </button>
+
+        <!-- Connect/Disconnect Button -->
+        <button type="button" (click)="sharedService.toggleConnection('main')">
+          <mat-icon *ngIf="(sharedService.cameraConnectionStatus$ | async)?.main; else connectMain">link_off</mat-icon>
+          <ng-template #connectMain><mat-icon>link</mat-icon></ng-template>
+        </button>
       </div>
     </form>
   </div>
@@ -40,19 +58,37 @@
                placeholder="Enter {{ setting }} value"
                required>
       </div>
+
       <div class="buttons">
         <button type="button" (click)="center('X', 'side')" [disabled]="!isSideConnected">Center X</button>
         <button type="button" (click)="center('Y', 'side')" [disabled]="!isSideConnected">Center Y</button>
+      </div>
+
+      <!-- Side Camera Controls -->
+      <div class="buttons">
+        <!-- Stream Button -->
+        <button type="button"
+                (click)="sharedService.toggleStream('side')"
+                [disabled]="!(sharedService.cameraConnectionStatus$ | async)?.side">
+          <mat-icon *ngIf="(sharedService.cameraStreamStatus$ | async)?.side; else playSide">stop</mat-icon>
+          <ng-template #playSide><mat-icon>play_arrow</mat-icon></ng-template>
+        </button>
+
+        <!-- Connect/Disconnect Button -->
+        <button type="button" (click)="sharedService.toggleConnection('side')">
+          <mat-icon *ngIf="(sharedService.cameraConnectionStatus$ | async)?.side; else connectSide">link_off</mat-icon>
+          <ng-template #connectSide><mat-icon>link</mat-icon></ng-template>
+        </button>
       </div>
     </form>
   </div>
 
   <!-- Save & Load Buttons -->
   <div class="buttons">
-    <button type="button" (click)="saveSettings('main')" class="button" [disabled]="!isMainConnected">Save Main Settings</button>
-    <button type="button" (click)="loadSettings('main')" class="button" [disabled]="!isMainConnected">Load Main Settings</button>
+    <button type="button" (click)="saveSettings('main')" [disabled]="!isMainConnected">Save Main Settings</button>
+    <button type="button" (click)="loadSettings('main')" [disabled]="!isMainConnected">Load Main Settings</button>
 
-    <button type="button" (click)="saveSettings('side')" class="button" [disabled]="!isSideConnected">Save Side Settings</button>
-    <button type="button" (click)="loadSettings('side')" class="button" [disabled]="!isSideConnected">Load Side Settings</button>
+    <button type="button" (click)="saveSettings('side')" [disabled]="!isSideConnected">Save Side Settings</button>
+    <button type="button" (click)="loadSettings('side')" [disabled]="!isSideConnected">Load Side Settings</button>
   </div>
 </div>
