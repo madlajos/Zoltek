@@ -34,6 +34,7 @@ export class AppComponent implements OnInit {
     logMessages: string[] = [];
     showProgressBar = false;
     showModal: string | null = null;
+    isSidebarOpen = true;
     @ViewChild('video-container', { static: true }) videoContainer!: ElementRef<HTMLDivElement>;
 
   constructor(private http: HttpClient, private lightbox: Lightbox, private cdRef: ChangeDetectorRef, private messageService: MessageService ) { }
@@ -41,6 +42,10 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
 
+  }
+
+  toggleSidebar() {
+    this.isSidebarOpen = !this.isSidebarOpen;
   }
 }
 

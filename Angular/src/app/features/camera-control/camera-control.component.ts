@@ -21,27 +21,8 @@ interface CameraSettings {
   styleUrls: ['./camera-control.component.css']
 })
 export class CameraControlComponent implements OnInit {
-  mainCameraSettings: CameraSettings = {
-    Width: 800,
-    Height: 400,
-    OffsetX: 0,
-    OffsetY: 0,
-    ExposureTime: 200,
-    Gain: 10,
-    Gamma: 100,
-    FrameRate: 30
-  };
-
-  sideCameraSettings: CameraSettings = {
-    Width: 800,
-    Height: 400,
-    OffsetX: 0,
-    OffsetY: 0,
-    ExposureTime: 200,
-    Gain: 10,
-    Gamma: 100,
-    FrameRate: 30
-  };
+  mainCameraSettings: CameraSettings = {} as CameraSettings;
+  sideCameraSettings: CameraSettings = {} as CameraSettings;
 
   loadedFileName: string = '';
   saveDirectory: string = 'C:\\Users\\Public\\Pictures';
@@ -63,17 +44,21 @@ export class CameraControlComponent implements OnInit {
   ];
 
   private readonly BASE_URL = 'http://localhost:5000/api';
+  private settingsLoaded: boolean = false;
 
   constructor(private http: HttpClient, public sharedService: SharedService) {}
 
   ngOnInit(): void {
-    // Load settings for both cameras
-    this.loadCameraSettings('main');
-    this.loadCameraSettings('side');
-
+    if (!this.settingsLoaded) {
+      this.loadCameraSettings('main');
+      this.loadCameraSettings('side');
+      this.settingsLoaded = true;
+    }
+  
+    // Check camera connection status
     this.checkCameraConnection('main');
     this.checkCameraConnection('side');
-
+  
     // Periodically check connection status for both cameras
     interval(5000).subscribe(() => {
       this.checkCameraConnection('main');
@@ -83,12 +68,14 @@ export class CameraControlComponent implements OnInit {
     // Set the shared save directory
     this.sharedService.setSaveDirectory(this.saveDirectory);
   
+    // Subscribe to camera connection status
     this.sharedService.cameraConnectionStatus$.subscribe(status => {
       this.isMainConnected = status.main;
       this.isSideConnected = status.side;
       console.log(`Main Connected: ${this.isMainConnected}, Side Connected: ${this.isSideConnected}`);
     });
-
+  
+    // Subscribe to camera stream status
     this.sharedService.cameraStreamStatus$.subscribe(status => {
       this.isMainStreaming = status.main;
       this.isSideStreaming = status.side;
@@ -118,8 +105,25 @@ export class CameraControlComponent implements OnInit {
       () => {
         this.sharedService.setCameraConnectionStatus(cameraType, true);
         console.log(`${cameraType.toUpperCase()} camera connected.`);
+  
+        // Fetch the settings after successful connection
+        this.fetchCameraSettings(cameraType);
       },
       error => console.error(`Failed to connect ${cameraType} camera:`, error)
+    );
+  }
+
+  fetchCameraSettings(cameraType: 'main' | 'side'): void {
+    this.http.get(`${this.BASE_URL}/get-camera-settings?type=${cameraType}`).subscribe(
+      (settings: any) => {
+        if (cameraType === 'main') {
+          this.mainCameraSettings = settings.camera_params;
+        } else {
+          this.sideCameraSettings = settings.camera_params;
+        }
+        console.log(`${cameraType.toUpperCase()} settings loaded:`, settings);
+      },
+      error => console.error(`Error loading ${cameraType} camera settings:`, error)
     );
   }
 
@@ -164,18 +168,19 @@ export class CameraControlComponent implements OnInit {
   }
 
   loadCameraSettings(cameraType: 'main' | 'side'): void {
-    this.http.get(`/assets/settings_${cameraType}.json`).subscribe((settings: any) => {
+    this.http.get(`${this.BASE_URL}/get-camera-settings?type=${cameraType}`).subscribe((settings: any) => {
       if (cameraType === 'main') {
-        this.mainCameraSettings = settings.camera_params;
-        console.log('Main camera settings loaded:', this.mainCameraSettings);
+        this.mainCameraSettings = settings;
+        console.log('Loaded Main Camera Settings:', this.mainCameraSettings);
       } else {
-        this.sideCameraSettings = settings.camera_params;
-        console.log('Side camera settings loaded:', this.sideCameraSettings);
+        this.sideCameraSettings = settings;
+        console.log('Loaded Side Camera Settings:', this.sideCameraSettings);
       }
     }, error => {
       console.error(`Error loading ${cameraType} camera settings:`, error);
     });
   }
+  
   
 
   saveSettings(cameraType: 'main' | 'side'): void {
@@ -236,6 +241,13 @@ export class CameraControlComponent implements OnInit {
     }).subscribe(
       (response: any) => {
         console.log(`Setting applied successfully for ${cameraType} camera:`, response);
+
+        const correctedValue = response.updated_value;
+        if (cameraType === 'main') {
+          this.mainCameraSettings[setting] = correctedValue;
+        } else {
+          this.sideCameraSettings[setting] = correctedValue;
+        }
       },
       error => {
         console.error(`Error applying setting for ${cameraType} camera:`, error);

@@ -3,7 +3,6 @@ import { BehaviorSubject } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { map } from 'rxjs/operators';
 
-
 @Injectable({
   providedIn: 'root'
 })
@@ -58,10 +57,15 @@ export class SharedService {
     return this.cameraConnectionStatus.value[cameraType];
   }
 
+  getCameraStreamStatus(cameraType: 'main' | 'side'): boolean {
+    return this.cameraStreamStatus.value[cameraType];
+  }
+
   toggleStream(cameraType: 'main' | 'side'): void {
-    const isStreaming = this.getCameraStreamStatus(cameraType);
+    const isStreaming = this.getCameraStreamStatus(cameraType);  // Make sure this is defined first
   
-    // Prevent multiple clicks
+    console.log(`Toggling ${cameraType} stream. Current status: ${isStreaming}`);  // Now it works
+  
     this.setCameraStreamStatus(cameraType, !isStreaming);
   
     if (isStreaming) {
@@ -70,36 +74,42 @@ export class SharedService {
       this.startStream(cameraType);
     }
   }
-
+  
   startStream(cameraType: 'main' | 'side'): void {
+    if (this.getCameraStreamStatus(cameraType)) {
+      console.warn(`${cameraType} stream is already running. Preventing duplicate start.`);
+      return;  // ✅ Prevent multiple start requests
+    }
+  
     console.log(`Starting ${cameraType} stream...`);
+  
     this.http.get(`http://localhost:5000/start-video-stream?type=${cameraType}`).subscribe(
       () => {
         console.log(`✅ ${cameraType} camera stream started.`);
-        this.setCameraStreamStatus(cameraType, true); // Update immediately
+        this.setCameraStreamStatus(cameraType, true);
       },
       error => {
         console.error(`❌ Failed to start ${cameraType} camera stream:`, error);
-        this.setCameraStreamStatus(cameraType, false); // Revert on failure
+        this.setCameraStreamStatus(cameraType, false);
       }
     );
   }
-
+  
+  
   stopStream(cameraType: 'main' | 'side'): void {
     console.log(`Stopping ${cameraType} stream...`);
     this.http.post(`http://localhost:5000/stop-video-stream?type=${cameraType}`, {}).subscribe(
       () => {
-        console.log(`✅ ${cameraType} camera stream stopped.`);
-        this.setCameraStreamStatus(cameraType, false); // Update immediately
+        console.log(`${cameraType} camera stream stopped.`);
+        this.setCameraStreamStatus(cameraType, false);
       },
       error => {
-        console.error(`❌ Failed to stop ${cameraType} camera stream:`, error);
-        this.setCameraStreamStatus(cameraType, true); // Revert on failure
+        console.error(`Failed to stop ${cameraType} camera stream:`, error);
+        this.setCameraStreamStatus(cameraType, true);
       }
     );
   }
 
-  // ✅ Toggle Camera Connection
   toggleConnection(cameraType: 'main' | 'side'): void {
     const isConnected = this.getCameraConnectionStatus(cameraType);
 
@@ -123,9 +133,13 @@ export class SharedService {
   }
 
   disconnectCamera(cameraType: 'main' | 'side'): void {
+    // ✅ Stop stream before disconnecting
+    this.stopStream(cameraType);
+  
     this.http.post(`http://localhost:5000/disconnect-camera?type=${cameraType}`, {}).subscribe(
       () => {
         this.setCameraConnectionStatus(cameraType, false);
+        this.setCameraStreamStatus(cameraType, false);  // ✅ Reset stream status
         console.log(`Disconnected ${cameraType} camera.`);
       },
       error => {
@@ -133,9 +147,4 @@ export class SharedService {
       }
     );
   }
-
-  getCameraStreamStatus(cameraType: 'main' | 'side'): boolean {
-    return this.cameraStreamStatus.value[cameraType];
-  }
-
 }

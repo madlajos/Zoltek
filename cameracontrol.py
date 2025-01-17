@@ -9,9 +9,13 @@ import os
 from queue import Queue, Empty  # Import Empty from queue module
 import time
 import requests
+import json
+from globals import app, stream_running, stream_threads, cameras
+import threading
+
 
 opencv_display_format = 'BGR8'
-
+SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'settings.json')
 
 def abort(reason: str, return_code: int = 1, usage: bool = False):
     print(reason + '\n')
@@ -29,6 +33,33 @@ def parse_args() -> Optional[str]:
         abort(reason="Invalid number of arguments. Abort.", return_code=2, usage=True)
 
     return None if argc == 0 else args[0]
+
+
+# Function to continuously generate and send frames
+def stream_video(camera_type, scale_factor):
+    camera = cameras.get(camera_type)
+    if not camera or not camera.IsOpen():
+        app.logger.error(f"{camera_type.capitalize()} camera is not open.")
+        return
+
+    app.logger.info(f"{camera_type.capitalize()} camera streaming thread started with scale factor {scale_factor}.")
+    stream_running[camera_type] = True
+
+    try:
+        while stream_running[camera_type]:
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array  # No scaling here
+                _, frame = cv2.imencode('.jpg', image)
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+            grab_result.Release()
+    except Exception as e:
+        app.logger.error(f"Error in {camera_type} video stream: {e}")
+    finally:
+        stream_running[camera_type] = False
+        app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
+        
 
 def get_camera(camera_id: str) -> pylon.InstantCamera:
     factory = pylon.TlFactory.GetInstance()
@@ -185,25 +216,55 @@ def validate_param(param_name: str, param_value: float, properties: dict) -> flo
             return round(min_value + round(diff / increment) * increment, 3)
     else:
         raise KeyError(f"Property '{param_name}' not found in camera properties.")
+    
+def apply_camera_settings(camera_type, cameras, camera_properties, settings):
+    camera_settings = settings.get('camera_settings', {}).get(camera_type, {})
+
+    camera = cameras.get(camera_type)
+    if camera and camera.IsOpen():
+        try:
+            for setting_name, setting_value in camera_settings.items():
+                validate_and_set_camera_param(
+                    camera,
+                    setting_name,
+                    setting_value,
+                    camera_properties[camera_type],
+                    camera_type                  
+                )
+            logging.info(f"{camera_type.capitalize()} camera settings applied: {camera_settings}")
+        except Exception as e:
+            logging.error(f"Failed to apply settings to {camera_type} camera: {e}")
+    else:
+        logging.warning(f"{camera_type.capitalize()} camera is not open. Cannot apply settings.")
+
 
 def validate_and_set_camera_param(camera, param_name: str, param_value: float, properties: dict, camera_type: str):
     valid_value = validate_param(param_name, param_value, properties)
 
     try:
-        was_streaming = camera.IsGrabbing()
+        was_streaming = stream_running[camera_type]  # ✅ Check if stream was running
 
-        # ✅ Stop the stream ONLY for Width or Height changes
+        # ✅ Stop stream if changing Width or Height
         if param_name in ['Width', 'Height'] and was_streaming:
-            stop_streaming(camera)
-            logging.info(f"{camera_type.capitalize()} stream stopped to apply {param_name} change.")
-            time.sleep(0.5)  # ✅ Short delay to ensure proper stop
+            stream_running[camera_type] = False
 
-        # ✅ Ensure the camera is open before applying any setting
+            if camera.IsGrabbing():
+                camera.StopGrabbing()
+                logging.info(f"{camera_type.capitalize()} stream stopped to apply {param_name} change.")
+
+            # ✅ Wait for the streaming thread to fully stop
+            if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
+                stream_threads[camera_type].join(timeout=2)
+                logging.info(f"{camera_type.capitalize()} stream thread joined.")
+
+            stream_threads[camera_type] = None
+            time.sleep(0.5)  # Short pause to ensure the camera is ready
+
+        # ✅ Apply the new setting
         if not camera.IsOpen():
             camera.Open()
-            logging.info(f"{camera_type.capitalize()} camera opened to apply {param_name}.")
+            logging.info(f"{camera_type.capitalize()} camera reopened to apply {param_name}.")
 
-        # ✅ Apply the setting based on the parameter name
         if param_name == 'Width':
             camera.Width.SetValue(valid_value)
         elif param_name == 'Height':
@@ -222,17 +283,21 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
         elif param_name == 'Gamma':
             camera.Gamma.SetValue(valid_value)
 
-        logging.info(f"Set {param_name} to {valid_value}")
+        logging.info(f"✅ {camera_type.capitalize()} camera {param_name} set to {valid_value}")
 
-        # ✅ Restart the stream ONLY if it was stopped
+        # ✅ Restart the stream if it was running before
         if param_name in ['Width', 'Height'] and was_streaming:
-            start_streaming(camera)
-            logging.info(f"{camera_type.capitalize()} stream resumed after applying {param_name} change.")
+            stream_running[camera_type] = True
+            stream_threads[camera_type] = threading.Thread(target=stream_video, args=(camera_type, 1.0))
+            stream_threads[camera_type].start()
+            logging.info(f"🔄 {camera_type.capitalize()} stream restarted after {param_name} change.")
 
     except Exception as e:
-        logging.error(f"Failed to set {param_name} for {camera_type} camera: {e}")
+        logging.error(f"❌ Failed to set {param_name} for {camera_type} camera: {e}")
 
     return valid_value
+
+
 
 
 

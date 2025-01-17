@@ -1,44 +1,57 @@
+/* Main camera aligned to top-left */
 .image-viewer-container {
-  width: 45%;
-  height: 820px;
-  margin: 10px;
-  border-radius: 15px;
+  flex: 1 1 50%; /* Each camera takes 50% of the width */
+  height: 468px;
+  aspect-ratio: 2 / 1; /* Maintain 2:1 aspect ratio */
+  border-radius: 10px;
   background-color: #333;
-  padding: 10px;
+  padding: 5px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  display: inline-block;
-  vertical-align: top;
+  display: flex;
+  flex-direction: column;
+}
+
+.side-camera {
+  width: 100%;   
+  aspect-ratio: 2 / 1;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.main-camera {
+  width: 30%;
+  aspect-ratio: 2 / 1;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .top-bar {
-  width: calc(100% + 12px);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px;
-  background-color: rgb(46, 46, 46);
+  padding: 0px;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
-  margin-top: -10px;
-  margin-left: -10px;
-}
-
-.bottom-bar {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 4px;
-  background-color: #333;
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
-  margin-top: auto;
+  margin-top: -3px;
+  margin-left: 5px;
+  margin-bottom: 2px;
 }
 
 .camera-name {
   color: #fff;
   font-size: 16px;
 }
+
+.camera-wrapper {
+  display: flex;
+  justify-content: center; /* Center the camera containers */
+  align-items: flex-start;
+  width: auto;             /* Set width to auto to fit content */
+  max-width: 100%;         /* Prevent exceeding the viewport width */
+  margin: 0 auto;          /* Center the wrapper */
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;      /* Prevent horizontal overflow */
+  gap: 10px;               /* Space between camera viewers */
+}
+
 
 .top-buttons button {
   background-color: #555;
@@ -56,6 +69,7 @@
 .live-view {
   flex-grow: 1;
   width: 100%;
+  aspect-ratio: 2 / 1;  /* Maintain 2:1 aspect ratio */
   height: 700px;
   display: flex;
   justify-content: center;
@@ -81,33 +95,6 @@
   color: #fff;
   font-size: 24px;
   border-radius: 10px;
-}
-
-.save-button {
-  background-color: rgb(42, 98, 140);
-  border: none;
-  color: white;
-  padding: 10px;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 8px;
-}
-
-.save-button[disabled] {
-  background-color: #555; /* Disabled color */
-  cursor: not-allowed;
-}
-
-.save-button:hover:not([disabled]) {
-  background-color: rgb(20, 69, 107);
-}
-
-.save-button mat-icon {
-  font-size: 20px;
-  color: white; /* Ensure the icon is visible */
-  margin-bottom: -8px;
-  margin-right: 10px;
-  margin-left: 10px;
 }
 
 .close-button {
@@ -142,3 +129,27 @@
   max-height: 100%;
   object-fit: contain;
 }
+
+
+/* Status Indicator Circle */
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background-color: grey; /* Default (disconnected) */
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+/* Connected but not streaming */
+.status-indicator.connected {
+  background-color: rgb(42, 98, 140); /* Blue when connected */
+}
+
+/* Streaming with glow effect */
+.status-indicator.streaming {
+  background-color: rgb(42, 98, 140); /* Same blue */
+  box-shadow: 0 0 8px 2px rgba(42, 98, 140, 0.8); /* Glow effect */
+}
+

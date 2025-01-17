@@ -1,41 +1,24 @@
 {
-    "channels": [
-      {
-        "channel": 1,
-        "on_time_ms": 10000,
-        "voltage": 30,
-        "current": 0.06
-      },
-      {
-        "channel": 2,
-        "on_time_ms": 10000,
-        "voltage": 39,
-        "current": 0.50
-      },
-      {
-        "channel": 3,
-        "on_time_ms": 10000,
-        "voltage": 24,
-        "current": 0.80
-      },
-      {
-        "channel": 4,
-        "on_time_ms": 10000,
-        "voltage": 24,
-        "current": 0.80
-      },
-      {
-        "channel": 5,
-        "on_time_ms": 10000,
-        "voltage": 41,
-        "current": 0.50
-      },
-      {
-        "channel": 6,
-        "on_time_ms": 10000,
-        "voltage": 39,
-        "current": 0.35
-      }
-    ]
-  }
-  
+    "camera_params": {
+        "main": {
+            "Width": 4200,
+            "Height": 2160,
+            "OffsetX": 0,
+            "OffsetY": 0,
+            "ExposureTime": 2000.0,
+            "Gain": 0.0,
+            "Gamma": 1.0,
+            "FrameRate": 30.0
+        },
+        "side": {
+            "Width": 800,
+            "Height": 600,
+            "OffsetX": 0,
+            "OffsetY": 0,
+            "ExposureTime": 20000,
+            "Gain": 10,
+            "Gamma": 1,
+            "FrameRate": 30
+        }
+    }
+}

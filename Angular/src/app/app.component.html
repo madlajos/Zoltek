@@ -1,44 +1,43 @@
 <mat-sidenav-container class="sidenav-container">
-  <mat-sidenav mode="side" position="end" opened class="sidenav">
+  <!-- Sidebar -->
+  <mat-sidenav #sidenav mode="side" position="end" opened class="sidenav">
     <mat-accordion multi="true">
       <mat-expansion-panel expanded="true">
         <mat-expansion-panel-header>
-          <mat-panel-title>
-            Lamp Controller
-          </mat-panel-title>
+          <mat-panel-title>Lamp Controller</mat-panel-title>
         </mat-expansion-panel-header>
         <app-lamp-control></app-lamp-control>
       </mat-expansion-panel>
 
       <mat-expansion-panel expanded="true">
         <mat-expansion-panel-header>
-          <mat-panel-title>
-            Printer Control
-          </mat-panel-title>
+          <mat-panel-title>Printer Control</mat-panel-title>
         </mat-expansion-panel-header>
         <app-printer-control></app-printer-control>
       </mat-expansion-panel>
 
       <mat-expansion-panel expanded="true">
         <mat-expansion-panel-header>
-          <mat-panel-title>
-            Camera Settings
-          </mat-panel-title>
+          <mat-panel-title>Camera Settings</mat-panel-title>
         </mat-expansion-panel-header>
         <app-camera-control></app-camera-control>
       </mat-expansion-panel>
 
       <mat-expansion-panel expanded="true">
         <mat-expansion-panel-header>
-          <mat-panel-title>
-            COM Settings
-          </mat-panel-title>
+          <mat-panel-title>COM Settings</mat-panel-title>
         </mat-expansion-panel-header>
         <app-comport-control></app-comport-control>
       </mat-expansion-panel>
     </mat-accordion>
   </mat-sidenav>
 
+  <!-- Toggle Button for Sidebar -->
+  <button class="toggle-button" (click)="sidenav.toggle()">
+    <mat-icon>{{ sidenav.opened ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+  </button>
+
+  <!-- Main Content -->
   <div class="main-content">
     <router-outlet></router-outlet>
   </div>

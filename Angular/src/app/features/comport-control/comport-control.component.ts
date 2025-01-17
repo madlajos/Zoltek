@@ -26,7 +26,7 @@ export class ComportControlComponent implements OnInit {
   constructor(private http: HttpClient) { }
 
   ngOnInit(): void {
-    this.checkStatusAndConnectDevices();
+    //this.checkStatusAndConnectDevices();
   }
 
   checkStatusAndConnectDevices(): void {

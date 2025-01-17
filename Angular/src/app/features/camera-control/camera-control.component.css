@@ -102,3 +102,133 @@ input[type="text"]:focus {
 .button:hover {
   background-color: rgb(20, 69, 107);
 }
+
+/* Compact Table Layout */
+.camera-settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0;
+}
+
+.camera-settings-table th,
+.camera-settings-table td {
+  text-align: center;
+  padding: 4px 6px;
+  border: 1px solid #444;
+  background-color: #222;
+  color: #fff;
+  font-size: 12px;
+}
+
+/* Input Fields */
+.camera-settings-table input {
+  width: 90%;
+  padding: 3px;
+  font-size: 12px;
+  border-radius: 3px;
+  border: 1px solid #555;
+  background-color: #333;
+  color: #fff;
+}
+
+/* 🔵 Camera Control Buttons */
+.camera-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.camera-buttons button {
+  background-color: #555;
+  display: flex;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0px 0px;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 🔵 Connect Button - Connected State */
+.camera-buttons button.connect-button.connected {
+  background-color: #2a628c;
+}
+
+/* 🔵 Stream Button - Streaming State */
+.camera-buttons button.stream-button.streaming {
+  background-color: #2a628c;
+}
+
+/* 🔵 Button Hover */
+.camera-buttons button:hover {
+  background-color: #777;
+}
+
+
+/* 🟢 Status Indicator */
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background-color: grey;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.status-indicator.connected {
+  background-color: rgb(42, 98, 140);
+}
+
+.status-indicator.streaming {
+  background-color: rgb(42, 98, 140);
+  box-shadow: 0 0 8px 2px rgba(42, 98, 140, 0.8);
+}
+
+
+/* ✅ Ensure Buttons Are Aligned Horizontally */
+td {
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* 🟦 Arrange Buttons Horizontally */
+td button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #555;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 0 2px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* 🔵 Connected Button State */
+.connect-button.connected {
+  background-color: #2a628c;
+}
+
+/* 🟢 Streaming Button State */
+.stream-button.streaming {
+  background-color: #2a628c;
+}
+
+/* ✨ Hover Effect */
+td button:hover {
+  background-color: #777;
+}
+
+.button-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px; /* Space between buttons */
+}

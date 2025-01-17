@@ -26,8 +26,12 @@ p {
 
 .sidenav-container {
   height: 100vh;
+  width: 100vw;
   display: flex;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 /* Sidebar styling */
@@ -39,15 +43,14 @@ p {
   margin-right: 10px;
 }
   
-/* Main content area */
+/* Force main-content to stretch fully */
 .main-content {
- flex: 1;
- display: flex;
- justify-content: center;
- align-items: center;
- padding: 20px;
- margin-left: 200px;
- margin-top: -20px;
+  display: flex;
+  justify-content: left;  /* Center the content */
+  align-items: flex-start;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .video-wrapper {
@@ -116,4 +119,29 @@ html, body {
 .mat-sidenav-container {
   height: 100vh;
   overflow: hidden;  /* Prevents scrollbars from appearing in the sidenav container */
+}
+
+
+/* Toggle Button */
+.toggle-button {
+  position: absolute;
+  top: 50%;
+  right: 360px; /* Align next to the sidebar */
+  transform: translateY(-50%);
+  background-color: #444;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  padding: 10px;
+  cursor: pointer;
+  transition: right 0.3s ease;
+  z-index: 10;
+}
+
+.toggle-button mat-icon {
+  color: #fff;
+}
+
+/* Adjust position when sidebar is closed */
+.mat-drawer-closed + .toggle-button {
+  right: 0; /* Move the button to the edge */
 }
