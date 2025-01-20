@@ -4,6 +4,8 @@ import threading
 
 app = Flask(__name__)
 
+turntable_position = 0
+
 cameras = {
     'main': None,
     'side': None

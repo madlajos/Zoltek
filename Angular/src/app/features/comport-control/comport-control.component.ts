@@ -16,9 +16,7 @@ interface Device {
 })
 export class ComportControlComponent implements OnInit {
   devices: Device[] = [
-    { name: 'Printer', status: 'Disconnected', action: 'Connect' },
-    { name: 'Lampcontroller', status: 'Disconnected', action: 'Connect' },
-    { name: 'PSU', status: 'Disconnected', action: 'Connect' }
+    { name: 'Turntable', status: 'Disconnected', action: 'Connect' }
   ];
 
   private readonly BASE_URL = 'http://localhost:5000/api';

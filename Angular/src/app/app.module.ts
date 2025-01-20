@@ -16,8 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 import { MatCommonModule } from '@angular/material/core';
 
-import { PrinterControlComponent } from './features/printer-control/printer-control.component';
-import { LampControlComponent } from './features/lamp-control/lampcontrol.component';
+import { TurntableControlComponent } from './features/turntable-control/turntable-control.component';
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
@@ -27,8 +26,7 @@ import { SharedService } from './shared.service';
   declarations: [
     AppComponent,
     MessageDisplayComponent,
-    PrinterControlComponent,
-    LampControlComponent,
+    TurntableControlComponent,
     ComportControlComponent,
     CameraControlComponent,
     ImageViewerComponent,

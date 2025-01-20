@@ -37,8 +37,7 @@ from pypylon import pylon
 from cameracontrol import stream_video, apply_camera_settings, set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
 import porthandler
 import time
-import printercontrols
-import lampcontrols
+import turntablecontrols
 
 app = Flask(__name__)
 app.secret_key = 'TabletScanner'
@@ -67,7 +66,6 @@ properties = {} # Camera properties. to be renamed
 folder_selected=[]
 handler = Handler('default_directory_path')
 printer=[]
-lamp=[]
 psu=[]
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'settings.json')
@@ -83,6 +81,7 @@ SIDE_CAMERA_ID = '40569958'
 SCALE_FACTOR = 0.25
 
 settings_loaded = False
+turntable_position = None
 
 CAMERA_IDS = {
     'main': MAIN_CAMERA_ID,
@@ -164,15 +163,11 @@ def save_settings():
 ### Serial Device Functions ###
 # Define the route for checking device status
 @app.route('/api/status/<device_name>', methods=['GET'])
-def get_status(device_name):
+def get_serial_device_status(device_name):
     logging.debug(f"Received status request for device: {device_name}")
     device = None
-    if device_name == 'psu':
-        device = porthandler.psu
-    elif device_name == 'lampcontroller':
-        device = porthandler.lampcontroller
-    elif device_name == 'printer':
-        device = porthandler.printer
+    if device_name == 'turntable':
+        device = porthandler.turntable
     else:
         logging.error("Invalid device name")
         return jsonify({'error': 'Invalid device name'}), 400
@@ -185,31 +180,21 @@ def get_status(device_name):
         return jsonify({'connected': False})
 
 @app.route('/api/connect-to-<device_name>', methods=['POST'])
-def connect_device(device_name):
+def connect_serial_device(device_name):
     try:
         app.logger.info(f"Attempting to connect to {device_name}")
         device = None
-        if device_name == 'psu':
-            device = porthandler.connect_to_psu()
-            app.logger.debug(f"PSU connection attempt result: {device}")
-        elif device_name == 'lampcontroller':
-            device = porthandler.connect_to_lampcontroller()
-            app.logger.debug(f"Lampcontroller connection attempt result: {device}")
-        elif device_name == 'printer':
-            device = porthandler.connect_to_printer()
-            app.logger.debug(f"Printer connection attempt result: {device}")
+        if device_name == 'turntable':
+            device = porthandler.connect_to_turntable()
+            app.logger.debug(f"Turntable connection attempt result: {device}")
         else:
             app.logger.error(f"Invalid device name: {device_name}")
             return jsonify({'error': 'Invalid device name'}), 400
 
         if device is not None:
             # Update global state
-            if device_name == 'psu':
-                porthandler.psu = device
-            elif device_name == 'lampcontroller':
-                porthandler.lampcontroller = device
-            elif device_name == 'printer':
-                porthandler.printer = device
+            if device_name == 'turntable':
+                porthandler.turntable = device
 
             app.logger.info(f"Successfully connected to {device_name}")
             return jsonify('ok')
@@ -221,10 +206,10 @@ def connect_device(device_name):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/disconnect-to-<device_name>', methods=['POST'])
-def disconnect_device(device_name):
+def disconnect_serial_device(device_name):
     try:
         logging.info(f"Attempting to disconnect from {device_name}")
-        porthandler.disconnect_device(device_name)
+        porthandler.disconnect_serial_device(device_name)
         logging.info(f"Successfully disconnected from {device_name}")
         return jsonify('ok')
     except Exception as e:
@@ -232,196 +217,100 @@ def disconnect_device(device_name):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/check-connections', methods=['GET'])
-def check_connections():
-    lamp_controller_connected = porthandler.lampcontroller is not None
-    psu_connected = porthandler.psu is not None
+def check_serial_connections():
+    turntable_connected = porthandler.turntable is not None
     return jsonify({
-        'lampControllerConnected': lamp_controller_connected,
-        'psuConnected': psu_connected
+        'turntableConnected': turntable_connected
     })
-
-### Printer Functions ###
-# Function to home all axis of the printer
-@app.route('/home_printer', methods=['POST'])
-def home_printer():
-    data = request.get_json()
-    axes = data.get('axes', []) 
-
-    printer = porthandler.get_printer()
-    if printer is not None:
-        try:
-            printercontrols.home_axes(printer, *axes)
-            return jsonify(f'Printer axes {axes if axes else ["X", "Y", "Z"]} homed successfully!')
-        except Exception as e:
-            return jsonify(f'An error occurred: {str(e)}'), 500
-    else:
-        return jsonify('Error: Printer not connected'), 500
-
-@app.route('/get_printer_position', methods=['GET'])
-def get_printer_position():
-    global printer
-    printer = porthandler.get_printer()
-
-    if printer is not None:
-        try:
-            position = printercontrols.get_printer_position(printer)
-            if position:
-                return jsonify(position), 200
-            else:
-                return jsonify({'status': 'error', 'message': 'Failed to get printer position'}), 500
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            return jsonify({'status': 'error', 'message': str(e)}), 500
-    else:
-        print("Printer not connected")
-        return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
-
-
-@app.route('/disable_stepper', methods=['POST'])
-def disable_stepper():
-    data = request.get_json()
-    axes = data.get('axes', [])
-
-    # Check if the printer is connected without reconnecting
-    printer = porthandler.get_printer()
     
-    if printer is not None:
-        try:
-            printercontrols.disable_steppers(printer, *axes)
-            return jsonify({'status': 'success', 'message': 'Printer motors disabled successfully!'}), 200
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 500
-    else:
-        return jsonify({'status': 'error', 'message': 'Printer not connected'}), 500
     
-# Function to move the printer by a given amount (relative movement)
-@app.route('/move_printer_relative', methods=['POST'])
-def move_printer_relative():
-    data = request.get_json()
-    axis = data.get('axis')
-    value = data.get('value')
     
-    if axis not in ['x', 'y', 'z']:
-        return jsonify({'status': 'error', 'message': 'Invalid axis'}), 400
+    
+    
+    
+    
+    
+    
+
+### Turntable Functions ###
+##TODO: Add normal functionality
+@app.route('/home_turntable', methods=['POST'])
+def home_turntable():
+    global turntable_position
 
     try:
-        # Check if the printer is connected without reconnecting
-        printer = porthandler.get_printer()
-
-        if printer is not None:
-            # Dynamically call move_relative with the axis and value
-            move_args = {axis: value}
-            printercontrols.move_relative(printer, **move_args)
-            return jsonify({'status': 'success'}), 200
-        else:
-            return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
-    except Exception as e:
-        return jsonify({'statuWs': 'error', 'message': str(e)}), 500
-    
-# Function to move the printer to a given coordinate (absolute movement)
-@app.route('/move_printer_absolute', methods=['POST'])
-def move_printer_absolute():
-    try:
-        data = request.get_json()
-        logging.debug(f"Received data: {data}")
-        x_pos = data.get('x')
-        y_pos = data.get('y')
-        z_pos = data.get('z')
-        
-        # Load default coordinates from the JSON file if not provided in the request
-        if x_pos is None or y_pos or z_pos is None:
-            logging.debug("Loading default coordinates from settings.json")
-            with open(SETTINGS_PATH, 'r') as f:
-                settings = json.load(f)
-            x_pos = x_pos if x_pos is not None else settings['firstTabletPosition']['x']
-            y_pos = y_pos if y_pos is not None else settings['firstTabletPosition']['y']
-        
-        logging.debug(f"Coordinates to move to: X={x_pos}, Y={y_pos}, z={z_pos}")
-        
-        # Check if the printer is connected without reconnecting
-        printer = porthandler.get_printer()
-        if printer is not None:
-            logging.debug(f"Printer found: {printer}")
-            # Move the printer to the specified position
-            printercontrols.move_to_position(printer, x_pos, y_pos, z_pos)
-            return jsonify({'status': 'success', 'message': 'Printer moved to the specified position successfully!'}), 200
-        else:
-            logging.error("Printer not connected")
-            return jsonify({'status': 'error', 'message': 'Printer not connected'}), 404
-    except Exception as e:
-        logging.error(f"An error occurred: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-### Lamp Functions ###
-# Function to turn on channels of the lamp
-@app.route('/api/toggle-psu', methods=['POST'])
-def api_toggle_psu():
-    try:
-        data = request.get_json()
-        state = data.get('state')
-        if state is None:
-            return jsonify({'error': 'State is required'}), 400
-        lampcontrols.toggle_psu(state)
-        return jsonify({'status': 'success'}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/get-psu-state', methods=['GET'])
-def api_get_psu_state():
-    try:
-        state = lampcontrols.get_psu_state()
-        return jsonify({'state': state}), 200
+        porthandler.write_turntable("HOME")  # Send homing command to Arduino
+        turntable_position = 0  # Set to 0 after homing
+        return jsonify({'message': 'Turntable homed successfully!', 'current_position': turntable_position})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
+@app.route('/move_turntable_relative', methods=['POST'])
+def move_turntable_relative():
+    global turntable_position
+    data = request.get_json()
+    move_by = data.get('degrees')
 
-@app.route('/api/get-psu-readings', methods=['GET'])
-def get_psu_readings():
-    if porthandler.psu is not None:
-        try:
-            porthandler.write(porthandler.psu, "VOLTage?")
-            voltage = porthandler.psu.readline().decode().strip()
-            porthandler.write(porthandler.psu, "CURRent?")
-            current = porthandler.psu.readline().decode().strip()
-            return jsonify({'voltage': voltage, 'current': current})
-        except Exception as e:
-            logging.exception("Failed to get PSU readings")
-            return jsonify({'voltage': '-', 'current': '-'}), 500
-    else:
-        return jsonify({'voltage': '-', 'current': '-'}), 200
+    if move_by is None or not isinstance(move_by, (int, float)):
+        return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
 
-@app.route('/api/toggle-lamp', methods=['POST'])
-def toggle_lamp():
+    direction = 'CW' if move_by > 0 else 'CCW'
+    command = f"{abs(move_by)},{1 if move_by > 0 else 0}"
+
     try:
-        data = request.get_json()
-        channel = data.get('channel')
-        on_time_ms = data.get('on_time_ms')
+        porthandler.write_turntable(command)
 
-        if channel is None or on_time_ms is None:
-            return jsonify({'error': 'Channel and on_time_ms are required'}), 400
-
-        if not (1 <= channel <= 6):
-            return jsonify({'error': 'Invalid channel number'}), 400
-
-        lampcontrols.turn_on_channel(channel, on_time_ms)
-        return jsonify({'status': 'success'}), 200
-
+        if turntable_position is not None:
+            turntable_position = (turntable_position + move_by) % 360  # Update position only if homed
+        
+        return jsonify({
+            'message': f'Turntable moved {move_by} degrees {direction}',
+            'current_position': turntable_position if turntable_position is not None else '?'
+        })
     except Exception as e:
-        logging.exception(f"Exception occurred while turning on lamp channel {channel}")
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/move_turntable_absolute', methods=['POST'])
+def move_turntable_absolute():
+    global turntable_position
+    data = request.get_json()
+    target_position = data.get('degrees')
+
+    if target_position is None or not isinstance(target_position, (int, float)):
+        return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
+
+    # Calculate the shortest path to target position
+    move_by = (target_position - turntable_position) % 360
+    if move_by > 180:
+        move_by -= 360  # Take the shorter path
+
+    direction = 1 if move_by > 0 else 0
+    command = f"{abs(move_by)},{direction}"
+
+    try:
+        # Send command to Arduino
+        porthandler.write_turntable(command)
+
+        #TODO: Wait for confirmation from Arduino that the rotation was successful
+        # Update the global position
+        turntable_position = target_position % 360
+
+        return jsonify({'message': f'Turntable moved to {target_position} degrees {direction}',
+                        'current_position': turntable_position})
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/get-lamp-state', methods=['GET'])
-def get_lamp_state():
-    if porthandler.lampcontroller is not None:
-        try:
-            porthandler.write(porthandler.lampcontroller, "LS?")
-            state = porthandler.lampcontroller.readline().decode().strip()
-            return jsonify(int(state))  # Returns -1 if no channel is active, otherwise returns the active channel number
-        except Exception as e:
-            logging.exception("Failed to get lamp state")
-            return jsonify(-1), 500
-    else:
-        return jsonify(-1), 200
+
+
+
+
+
+
+
+
+
+
+
 
 # Define the route for starting the video stream
 @app.route('/select-folder', methods=['GET'])
@@ -612,8 +501,6 @@ def connect_camera():
         app.logger.error(f"Failed to connect {camera_type} camera: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-
 @app.route('/disconnect-camera', methods=['POST'])
 def disconnect_camera():
     camera_type = request.args.get('type')
@@ -668,8 +555,6 @@ def check_camera_status():
         return jsonify({"connected": True}), 200
     else:
         return jsonify({"connected": False}), 200
-
-
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
@@ -740,8 +625,6 @@ def save_camera_settings():
     except Exception as e:
         app.logger.exception("Failed to save camera settings")
         return jsonify({'error': str(e)}), 500
-
-
 
 # Function to manually load camera settings from a 
 @app.route('/api/load-camera-settings', methods=['GET'])

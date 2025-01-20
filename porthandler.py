@@ -2,11 +2,9 @@ import serial
 import serial.tools.list_ports
 import logging
 
-psu = None
-lampcontroller = None
-printer = None
+turntable = None
 
-def connect_to_device(device_name, identification_command, expected_response):
+def connect_to_serial_device(device_name, identification_command, expected_response):
     ports = list(serial.tools.list_ports.comports())
     if not ports:
         logging.error(f"No COM ports found for {device_name}.")
@@ -30,76 +28,64 @@ def connect_to_device(device_name, identification_command, expected_response):
     logging.error(f"Failed to connect to {device_name}. No matching ports found.")
     return None
 
-def disconnect_device(device_name):
-    global psu, lampcontroller, printer
+def disconnect_serial_device(device_name):
+    global turntable
     logging.info(f"Disconnecting {device_name}")
-    if device_name == 'psu' and psu is not None:
-        psu.close()
-        psu = None
-        logging.info("PSU disconnected successfully.")
-    elif device_name == 'lampcontroller' and lampcontroller is not None:
-        lampcontroller.close()
-        lampcontroller = None
-        logging.info("Lampcontroller disconnected successfully.")
-    elif device_name == 'printer' and printer is not None:
-        printer.close()
-        printer = None
-        logging.info("Printer disconnected successfully.")
+    if device_name == 'turntable' and turntable is not None:
+        turntable.close()
+        turntable = None
+        logging.info("Turntable disconnected successfully.")
+
     else:
         logging.error(f"Invalid device name or device not connected: {device_name}")
         raise Exception(f"Invalid device name or device not connected: {device_name}")
 
-def connect_to_psu():
-    global psu
-    identification_command = "*IDN?"
-    expected_response = "OWON,"
-    psu = connect_to_device("PSU", identification_command, expected_response)
-    return psu
-
-def connect_to_lampcontroller():
-    global lampcontroller
+def connect_to_turntable():
+    global turntable
     identification_command = "IDN?"
-    expected_response = "RPZERO"
-    lampcontroller = connect_to_device("Lampcontroller", identification_command, expected_response)
-    return lampcontroller
+    expected_response = "TTBL"
+    turntable = connect_to_serial_device("Turntable", identification_command, expected_response)
+    return turntable
 
-def connect_to_printer():
-    global printer
-    identification_command = "M115"
-    expected_response = "FIRMWARE_NAME:Marlin"
-    printer = connect_to_device("printer", identification_command, expected_response)
-    return printer
+def get_turntable():
+    global turntable
+    if turntable is None:
+        turntable = connect_to_turntable()
+        if not turntable:
+            raise Exception("Turntable device not found")
+    return turntable
 
-def get_psu():
-    global psu
-    if psu is None:
-        psu = connect_to_psu()
-        if not psu:
-            raise Exception("PSU not found")
-    return psu
+def write_turntable(command):
+    """
+    Sends a command to the turntable.
 
-def get_lampcontroller():
-    global lampcontroller
-    if lampcontroller is None:
-        lampcontroller = connect_to_lampcontroller()
-        if not lampcontroller:
-            raise Exception("Lampcontroller not found")
-    return lampcontroller
+    Args:
+        command (str or tuple): The command to send, either as a string or tuple.
 
-def get_printer():
-    global printer
-    if not printer:
-        logging.error("Printer not connected.")
-        return None
-    return printer
+    Raises:
+        ValueError: If the command format is invalid.
+        Exception: If the device is not connected.
+    """
+    global turntable
 
-def write(device, data):
-    if isinstance(data, tuple):
-        command = "{},{}".format(*data)
-    else:
-        command = data + "\n"
+    if turntable is None or not turntable.is_open:
+        raise Exception("Turntable is not connected or available.")
 
-    if isinstance(device, serial.Serial):
-        device.write(command.encode())
-    else:
-        print("Invalid device type")
+    try:
+        # Format command based on type
+        if isinstance(command, tuple):
+            formatted_command = "{},{}\n".format(*command)
+        elif isinstance(command, str):
+            formatted_command = f"{command}\n"
+        else:
+            raise ValueError("Invalid command format. Expected a string or tuple.")
+
+        # Send command to serial device
+        turntable.write(formatted_command.encode())
+        turntable.flush()
+
+        logging.info(f"Command sent to turntable: {formatted_command.strip()}")
+
+    except Exception as e:
+        logging.error(f"Error writing to turntable: {str(e)}")
+        raise  # Rethrow the exception for higher-level handling
