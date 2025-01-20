@@ -1,121 +1,20 @@
 :host {
   display: block;
-  padding: 20px;
-  color: #c9d1d9;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  padding-left: 0px;
+  padding-top: 12px;
+  padding-bottom: 6px;
   font-family: 'Arial', sans-serif;
 }
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 2px rgb(10,10,10);
-}
-
-.form-group {
-  display: grid;
-  grid-template-columns: 100px 1fr; /* Adjust the width of the label column */
-  align-items: center;
-  gap: 10px;
-}
-
-label {
-  font-size: 14px;
-  color: #9e9e9e;
-  margin-bottom: 0;
-}
-
-input[type="text"] {
-  padding: 4px;
-  border: 1px solid #2c2c2c;
-  border-radius: 4px;
-  background-color: #2e2e2e;
-  color: #ffffff;
-  width: 100%; /* Take the full width of the grid column */
-}
-
-input[type="text"]:focus {
-  border-color: rgb(42, 98, 140);
-  outline: none;
-}
-
-.directory-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.directory-input {
-  display: flex;
-  flex-grow: 1;
-}
-
-.directory-text {
-  flex-grow: 1;
-  padding: 8px;
-  border: 1px solid #2c2c2c;
-  border-radius: 4px 0 0 4px;
-  background-color: #2e2e2e;
-  color: #ffffff;
-}
-
-.directory-button {
-  padding: 8px 10px;
-  border-radius: 0 4px 4px 0;
-  background-color: rgb(42, 98, 140);
-  border: none;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.directory-button:hover {
-  background-color: rgb(20, 69, 107);
-}
-
-.directory-button i {
-  font-size: 16px;
-  color: white;  /* Ensures the icon is visible */
-}
-
-.buttons {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.button {
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  background-color: rgb(42, 98, 140);
-  color: white;
-  cursor: pointer;
-  flex: 1;
-}
-
-.button:hover {
-  background-color: rgb(20, 69, 107);
-}
-
-/* Compact Table Layout */
 .camera-settings-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 0;
 }
 
 .camera-settings-table th,
 .camera-settings-table td {
   text-align: center;
   padding: 4px 6px;
-  border: 1px solid #444;
-  background-color: #222;
   color: #fff;
   font-size: 12px;
 }
@@ -131,72 +30,20 @@ input[type="text"]:focus {
   color: #fff;
 }
 
-/* 🔵 Camera Control Buttons */
-.camera-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-}
-
-.camera-buttons button {
-  background-color: #555;
-  display: flex;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 0px 0px;
-  font-size: 14px;
-  transition: background-color 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 🔵 Connect Button - Connected State */
-.camera-buttons button.connect-button.connected {
-  background-color: #2a628c;
-}
-
-/* 🔵 Stream Button - Streaming State */
-.camera-buttons button.stream-button.streaming {
-  background-color: #2a628c;
-}
-
-/* 🔵 Button Hover */
-.camera-buttons button:hover {
-  background-color: #777;
-}
-
-
-/* 🟢 Status Indicator */
-.status-indicator {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background-color: grey;
-  transition: background-color 0.3s, box-shadow 0.3s;
-}
-
-.status-indicator.connected {
-  background-color: rgb(42, 98, 140);
-}
-
-.status-indicator.streaming {
-  background-color: rgb(42, 98, 140);
-  box-shadow: 0 0 8px 2px rgba(42, 98, 140, 0.8);
-}
-
-
-/* ✅ Ensure Buttons Are Aligned Horizontally */
+/* Ensure Buttons Are Aligned Horizontally */
 td {
   vertical-align: middle;
   text-align: center;
 }
 
-/* 🟦 Arrange Buttons Horizontally */
+.button-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px; /* Space between buttons */
+}
+
+/* Arrange Buttons Horizontally */
 td button {
   display: inline-flex;
   align-items: center;
@@ -211,24 +58,17 @@ td button {
   transition: background-color 0.3s ease;
 }
 
-/* 🔵 Connected Button State */
-.connect-button.connected {
-  background-color: #2a628c;
-}
-
-/* 🟢 Streaming Button State */
-.stream-button.streaming {
-  background-color: #2a628c;
-}
-
-/* ✨ Hover Effect */
+/* Hover Effect */
 td button:hover {
   background-color: #777;
 }
 
-.button-group {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 5px; /* Space between buttons */
+/* Connected Button State */
+.connect-button.connected {
+  background-color: #2a628c;
+}
+
+/* Streaming Button State */
+.stream-button.streaming {
+  background-color: #2a628c;
 }
