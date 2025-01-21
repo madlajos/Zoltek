@@ -36,26 +36,30 @@ export class ImageViewerComponent implements AfterViewInit {
       ? this.mainVideoContainer.nativeElement 
       : this.sideVideoContainer.nativeElement;
   
-    const streamUrl = `http://localhost:5000/start-video-stream?type=${cameraType}&nocache=${new Date().getTime()}`;
+    const streamUrl = `http://localhost:5000/start-video-stream?type=${cameraType}`;
+  
+    let img = videoContainer.querySelector('img');
   
     if ((cameraType === 'main' && this.isMainStreaming) || (cameraType === 'side' && this.isSideStreaming)) {
       console.log(`📷 Displaying ${cameraType} stream in UI.`);
   
-      const img = document.createElement('img');
-      img.src = streamUrl;
-      img.alt = `${cameraType} camera stream`;
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
+      if (!img) {
+        img = document.createElement('img');
+        img.alt = `${cameraType} camera stream`;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        videoContainer.appendChild(img);
+      }
+  
+      img.src = streamUrl; // Just update the source instead of replacing the whole element
   
       img.onload = () => console.log(`✅ ${cameraType} stream loaded.`);
       img.onerror = (err) => console.error(`❌ Failed to load ${cameraType} stream.`, err);
   
-      videoContainer.innerHTML = '';
-      videoContainer.appendChild(img);
     } else {
       console.warn(`⚠️ ${cameraType} stream stopped. Clearing view.`);
-      videoContainer.innerHTML = '';
+      if (img) img.remove();  // Only remove if the element exists
     }
-  }  
+  }
 }

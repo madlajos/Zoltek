@@ -334,6 +334,8 @@ def start_video_stream():
     camera_type = request.args.get('type')
     scale_factor = float(request.args.get('scale', 0.25))
 
+    app.logger.info(f"Received request to start {camera_type} stream with scale factor {scale_factor}")
+
     if camera_type not in cameras:
         app.logger.error(f"Invalid camera type: {camera_type}")
         return jsonify({"error": "Invalid camera type specified"}), 400
@@ -345,32 +347,34 @@ def start_video_stream():
         return jsonify({"error": f"{camera_type.capitalize()} camera not connected"}), 400
 
     with grab_locks[camera_type]:
-        # ✅ Check if the stream is already running
         if stream_running.get(camera_type, False):
             app.logger.info(f"{camera_type.capitalize()} stream is already running.")
             return jsonify({"message": "Stream already running."}), 200
 
-        # ✅ Start grabbing if not already grabbing
         if not camera.IsGrabbing():
+            app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
             camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-            app.logger.info(f"{camera_type.capitalize()} camera started grabbing.")
 
-        # ✅ Start a new thread only if it doesn't exist or is not alive
+        # Start the stream if the thread isn't alive
         if not stream_threads.get(camera_type) or not stream_threads[camera_type].is_alive():
+            app.logger.info(f"Starting new thread for {camera_type}")
             stream_running[camera_type] = True
-            stream_threads[camera_type] = threading.Thread(target=stream_video, args=(camera_type, scale_factor))
+            stream_threads[camera_type] = threading.Thread(target=generate_frames, args=(camera_type, scale_factor))
             stream_threads[camera_type].start()
-            app.logger.info(f"{camera_type.capitalize()} stream thread started.")
         else:
-            app.logger.info(f"{camera_type.capitalize()} stream thread is already running.")
+            app.logger.info(f"{camera_type.capitalize()} stream thread already running.")
 
+    app.logger.info(f"{camera_type.capitalize()} video stream started successfully.")
     return Response(generate_frames(camera_type, scale_factor),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 
 @app.route('/stop-video-stream', methods=['POST'])
 def stop_video_stream():
     camera_type = request.args.get('type')
+
+    app.logger.info(f"Received stop request for {camera_type}")
 
     if camera_type not in cameras:
         app.logger.error(f"Invalid camera type: {camera_type}")
@@ -384,29 +388,24 @@ def stop_video_stream():
             return jsonify({"message": "Stream already stopped."}), 200
 
         try:
-            # ✅ Stop the stream flag
             stream_running[camera_type] = False
 
-            # ✅ Stop camera grabbing safely
             if camera.IsGrabbing():
                 camera.StopGrabbing()
                 app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
 
-            # ✅ Properly join the thread if it exists
             if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
                 stream_threads[camera_type].join(timeout=2)
                 app.logger.info(f"{camera_type.capitalize()} stream thread joined and stopped.")
 
-            # ✅ Clear the thread reference
             stream_threads[camera_type] = None
-
             return jsonify({"message": f"{camera_type.capitalize()} stream stopped."}), 200
         except Exception as e:
             app.logger.error(f"Failed to stop {camera_type} stream: {e}")
             return jsonify({'error': f'Failed to stop stream: {str(e)}'}), 500
 
 
-def generate_frames(camera_type, scale_factor = 0.25):
+def generate_frames(camera_type, scale_factor=0.25):
     app.logger.info(f"Generating frames for {camera_type} with scale factor {scale_factor}")
     camera = cameras.get(camera_type)
 
@@ -415,27 +414,31 @@ def generate_frames(camera_type, scale_factor = 0.25):
         return
 
     if not camera.IsGrabbing():
+        app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
         camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-        app.logger.info(f"{camera_type.capitalize()} camera started grabbing.")
 
     try:
         while stream_running[camera_type]:
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grab_result.GrabSucceeded():
-                image = grab_result.Array
+            with grab_locks[camera_type]:  # Ensure exclusive access
+                grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
-                if scale_factor != 1.0:
-                    width = int(image.shape[1] * scale_factor)
-                    height = int(image.shape[0] * scale_factor)
-                    image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
+                if grab_result.GrabSucceeded():
+                    image = grab_result.Array
 
-                _, frame = cv2.imencode('.jpg', image)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-            grab_result.Release()
+                    if scale_factor != 1.0:
+                        width = int(image.shape[1] * scale_factor)
+                        height = int(image.shape[0] * scale_factor)
+                        image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
+
+                    _, frame = cv2.imencode('.jpg', image)
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+
+                grab_result.Release()
     except Exception as e:
         app.logger.error(f"Error in {camera_type} video stream: {e}")
     finally:
+        stream_running[camera_type] = False
         app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
 
 
