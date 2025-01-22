@@ -201,35 +201,6 @@ export class CameraControlComponent implements OnInit {
     );
   }
   
-  //Placeholder
-  loadSettings(cameraType: 'main' | 'side'): void {
-    this.http.get(`${this.BASE_URL}/load-camera-settings?type=${cameraType}`).subscribe((settings: any) => {
-      if (cameraType === 'main') {
-        this.mainCameraSettings = settings.camera_params;
-      } else {
-        this.sideCameraSettings = settings.camera_params;
-      }
-    });
-  }
-
-
-
-  selectSaveDirectory(): void {
-    this.http.get('http://localhost:5000/select-folder').subscribe(
-      (response: any) => {
-        if (response.folder) {
-          this.saveDirectory = response.folder;
-          this.sharedService.setSaveDirectory(response.folder);
-        } else {
-          console.error('No folder selected');
-        }
-      },
-      error => {
-        console.error('Failed to select folder:', error);
-      }
-    );
-  }
-
   applySetting(setting: string, cameraType: 'main' | 'side'): void {
     const value = cameraType === 'main' ? this.mainCameraSettings[setting] : this.sideCameraSettings[setting];
     console.log(`Applying setting ${setting}: ${value}`);

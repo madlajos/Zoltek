@@ -16,6 +16,7 @@ from pypylon import pylon
 from cameracontrol import apply_camera_settings, set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
 import porthandler
 import imageprocessing
+from settings_manager import load_settings, save_settings, get_settings, set_settings
 
 app = Flask(__name__)
 app.secret_key = 'Zoltek'
@@ -30,12 +31,6 @@ camera = None
 camera_properties = {'main': None, 'side': None}
 folder_selected=[]
 handler = Handler('default_directory_path')
-
-SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'settings.json')
-with open(SETTINGS_PATH) as f:
-    settings = json.load(f)
-
-camera_params = settings['camera_params']
 
 
 MAIN_CAMERA_ID = '40569959'
@@ -66,57 +61,6 @@ if not app.debug:
     app.logger.addHandler(console_handler)
 
 app.logger.setLevel(logging.DEBUG)
-
-# Function used to automatically load settings upon startup
-def load_settings():
-    global settings
-    SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'settings.json')
-    
-    try:
-        with open(SETTINGS_PATH, 'r') as file:
-            settings = json.load(file)
-            app.logger.info(f"Default settings loaded from {SETTINGS_PATH}")
-            
-            # 🟢 Print the loaded settings for verification
-            app.logger.info(f"Loaded Settings Content: {json.dumps(settings, indent=4)}")
-
-            # Apply settings to cameras if connected
-            for camera_type in ['main', 'side']:
-                if cameras.get(camera_type) and cameras[camera_type].IsOpen():
-                    apply_camera_settings(camera_type, cameras, camera_properties, settings)
-                    app.logger.info(f"Settings applied to {camera_type} camera.")
-                else:
-                    app.logger.warning(f"{camera_type.capitalize()} camera is not connected. Settings will be applied upon connection.")
-
-    except FileNotFoundError:
-        app.logger.error(f"Settings file not found at {SETTINGS_PATH}")
-        settings = {}
-
-    except json.JSONDecodeError:
-        app.logger.error("Invalid JSON format in settings file.")
-        settings = {}
-
-    except Exception as e:
-        app.logger.error(f"Failed to load settings: {e}")
-        settings = {}
-
-
-
-
-# Function used to automatically save settings whenever they are edited
-def save_settings():
-    global settings
-    try:
-        with open(SETTINGS_PATH, 'w') as f:
-            json.dump(settings, f, indent=4)
-        app.logger.info("Settings saved successfully.")
-    except Exception as e:
-        app.logger.error(f"Failed to save settings: {e}")
-
-
-
-
-
 
 
 ### Serial Device Functions ###
@@ -452,7 +396,6 @@ def connect_camera():
     try:
         app.logger.info(f"Attempting to connect {camera_type} camera.")
         app.logger.info(f"Cameras dictionary: {cameras}")
-        app.logger.info(f"Camera params: {camera_params}")
 
         factory = pylon.TlFactory.GetInstance()
         devices = factory.EnumerateDevices()
@@ -489,8 +432,8 @@ def connect_camera():
         # Initialize camera properties
         camera_properties[camera_type] = get_camera_properties(cameras[camera_type])
 
-        # ✅ Pass the 'settings' argument here
-        apply_camera_settings(camera_type, cameras, camera_properties, settings)
+        settings_data = get_settings()
+        apply_camera_settings(camera_type, cameras, camera_properties, settings_data)
 
         app.logger.info(f"{camera_type.capitalize()} camera connected successfully.")
         return jsonify({
@@ -560,8 +503,6 @@ def check_camera_status():
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
-    global settings
-
     try:
         data = request.json
         camera_type = data.get('camera_type')
@@ -579,10 +520,9 @@ def update_camera_settings():
             camera_type
         )
 
-        # ✅ Update and save settings.json
-        settings['camera_params'][camera_type][setting_name] = updated_value
-        with open(SETTINGS_PATH, 'w') as f:
-            json.dump(settings, f, indent=4)
+        settings_data = get_settings()
+        settings_data['camera_params'][camera_type][setting_name] = updated_value
+        save_settings()
 
         app.logger.info(f"{camera_type.capitalize()} camera setting {setting_name} updated and saved to settings.json")
 
@@ -628,48 +568,16 @@ def save_camera_settings():
         app.logger.exception("Failed to save camera settings")
         return jsonify({'error': str(e)}), 500
 
-# Function to manually load camera settings from a 
-@app.route('/api/load-camera-settings', methods=['GET'])
-def load_camera_settings():
-    global settings
-
-    try:
-        # ✅ Manual loading (file dialog) - Triggered from the UI
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        file_path = filedialog.askopenfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
-        root.destroy()
-
-        if file_path:
-            with open(file_path, 'r') as f:
-                settings = json.load(f)
-
-            app.logger.info(f"Settings manually loaded from {file_path}")
-
-            # ✅ Save to default path after manual loading
-            with open(SETTINGS_PATH, 'w') as f:
-                json.dump(settings, f, indent=4)
-            app.logger.info("Settings saved to default settings.json")
-
-            return jsonify(settings), 200
-        else:
-            app.logger.warning("No file selected for loading settings.")
-            return jsonify({'error': 'No file selected'}), 400
-
-    except Exception as e:
-        app.logger.exception("Failed to load camera settings")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/get-camera-settings', methods=['GET'])
 def get_camera_settings():
     camera_type = request.args.get('type')
-    app.logger.info(f"⚠️  API Call: /api/get-camera-settings for {camera_type}")
+    app.logger.info(f"API Call: /api/get-camera-settings for {camera_type}")
 
     if camera_type not in ['main', 'side']:
         return jsonify({"error": "Invalid camera type"}), 400
 
-    camera_settings = settings.get('camera_params', {}).get(camera_type, {})
+    settings_data = get_settings()
+    camera_settings = settings_data.get('camera_params', {}).get(camera_type, {})
 
     if not camera_settings:
         app.logger.warning(f"No settings found for {camera_type} camera.")
@@ -771,44 +679,6 @@ def initialize_settings():
             settings_loaded = True  # Prevent multiple loads
         except Exception as e:
             app.logger.error(f"Failed to load settings on startup: {e}")
-
-
-@app.route('/capture-and-send-expo', methods=['POST'])
-def capture_and_send():
-    global printer, handler, lamp, psu, folder_selected
-    number = request.json.get('number')  # Get the exposure time from the request
-    print("Exposure time received:", number)
-
-    try:
-        number = int(number)  # Convert to integer (assuming it's in microseconds)
-    except (TypeError, ValueError):
-        return jsonify({'error': 'Exposure time must be an integer'}), 400
-
-    try:
-        # Initialize the Basler camera system
-        factory = pylon.TlFactory.GetInstance()
-        devices = factory.EnumerateDevices()
-
-        if not devices:
-            return jsonify({'error': 'No Basler cameras detected'}), 500
-
-        camera_id = parse_args()
-        camera = get_camera(camera_id)
-        camera.Open()
-
-        setup_camera(camera, camera_params)
-        camera.ExposureTime.SetValue(number)  # Set exposure time
-
-        camera.Close()
-
-        return jsonify({'success': True}), 200
-
-    except Exception as e:
-        logging.error(f"Error setting exposure time: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
-
 
 if __name__ == '__main__':      
     load_settings()
