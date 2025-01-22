@@ -17,7 +17,6 @@ export class AppComponent implements OnInit {
     title = 'Untitled';  
     @ViewChild('videoPlayer') videoPlayer!: any;
     videoUrl: string | null = null;
-    imageUrl: string = 'assets/images/sima.png';
     selectedImage: string | null = null;
     embeddedURL: string | null = null;
     imageList: string[] = [];

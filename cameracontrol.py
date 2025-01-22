@@ -68,9 +68,9 @@ def get_camera(camera_id: str) -> pylon.InstantCamera:
     if not devices:
         raise ValueError('No cameras connected.')
 
-    logging.info("Connected devices:")
+    app.logger.info("Connected devices:")
     for device in devices:
-        logging.info(f"Device Model: {device.GetModelName()}, Serial Number: {device.GetSerialNumber()}")
+        app.logger.info(f"Device Model: {device.GetModelName()}, Serial Number: {device.GetSerialNumber()}")
 
     # Search for the requested camera ID
     for device in devices:
@@ -91,20 +91,20 @@ def setup_camera(camera: pylon.InstantCamera, camera_params: dict):
     camera.Open()
     try:
         camera.Width.SetValue(round(camera_params['Width']))
-        logging.info(f"Set Image Width to {round(camera_params['Width'])}")
+        app.logger.info(f"Set Image Width to {round(camera_params['Width'])}")
 
         camera.Height.SetValue(round(camera_params['Height']))
-        logging.info(f"Set Image Height to {round(camera_params['Height'])}")
+        app.logger.info(f"Set Image Height to {round(camera_params['Height'])}")
 
         camera.AcquisitionFrameRateEnable.SetValue(True)
         camera.AcquisitionFrameRate.SetValue(round(camera_params['FrameRate']))
-        logging.info(f"Set AcquisitionFrameRate to {round(camera_params['FrameRate'])}")
+        app.logger.info(f"Set AcquisitionFrameRate to {round(camera_params['FrameRate'])}")
 
         camera.ExposureTime.SetValue(round(camera_params['ExposureTime']))
-        logging.info(f"Set ExposureTime to {round(camera_params['ExposureTime'])}")
+        app.logger.info(f"Set ExposureTime to {round(camera_params['ExposureTime'])}")
 
         camera.Gain.SetValue(round(camera_params['Gain']))
-        logging.info(f"Set Gain to {round(camera_params['Gain'])}")
+        app.logger.info(f"Set Gain to {round(camera_params['Gain'])}")
 
     except Exception as e:
         logging.error(f"Error setting camera parameters: {e}")
@@ -134,9 +134,9 @@ def start_streaming(camera: pylon.InstantCamera):
 def stop_streaming(camera: pylon.InstantCamera):
     if camera.IsGrabbing():
         camera.StopGrabbing()
-        logging.info(f"Stopped streaming for camera: {camera.GetDeviceInfo().GetSerialNumber()}")
+        app.logger.info(f"Stopped streaming for camera: {camera.GetDeviceInfo().GetSerialNumber()}")
     else:
-        logging.info(f"Camera {camera.GetDeviceInfo().GetSerialNumber()} is not currently streaming.")
+        app.logger.info(f"Camera {camera.GetDeviceInfo().GetSerialNumber()} is not currently streaming.")
 
 class Handler:
     def __init__(self, folder_selected):
@@ -231,7 +231,7 @@ def apply_camera_settings(camera_type, cameras, camera_properties, settings):
                     camera_properties[camera_type],
                     camera_type                  
                 )
-            logging.info(f"{camera_type.capitalize()} camera settings applied: {camera_settings}")
+            app.logger.info(f"{camera_type.capitalize()} camera settings applied: {camera_settings}")
         except Exception as e:
             logging.error(f"Failed to apply settings to {camera_type} camera: {e}")
     else:
@@ -250,12 +250,12 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
 
             if camera.IsGrabbing():
                 camera.StopGrabbing()
-                logging.info(f"{camera_type.capitalize()} stream stopped to apply {param_name} change.")
+                app.logger.info(f"{camera_type.capitalize()} stream stopped to apply {param_name} change.")
 
             # ✅ Wait for the streaming thread to fully stop
             if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
                 stream_threads[camera_type].join(timeout=2)
-                logging.info(f"{camera_type.capitalize()} stream thread joined.")
+                app.logger.info(f"{camera_type.capitalize()} stream thread joined.")
 
             stream_threads[camera_type] = None
             time.sleep(0.5)  # Short pause to ensure the camera is ready
@@ -263,7 +263,7 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
         # ✅ Apply the new setting
         if not camera.IsOpen():
             camera.Open()
-            logging.info(f"{camera_type.capitalize()} camera reopened to apply {param_name}.")
+            app.logger.info(f"{camera_type.capitalize()} camera reopened to apply {param_name}.")
 
         if param_name == 'Width':
             camera.Width.SetValue(valid_value)
@@ -283,14 +283,14 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
         elif param_name == 'Gamma':
             camera.Gamma.SetValue(valid_value)
 
-        logging.info(f"✅ {camera_type.capitalize()} camera {param_name} set to {valid_value}")
+        app.logger.info(f"✅ {camera_type.capitalize()} camera {param_name} set to {valid_value}")
 
         # ✅ Restart the stream if it was running before
         if param_name in ['Width', 'Height'] and was_streaming:
             stream_running[camera_type] = True
             stream_threads[camera_type] = threading.Thread(target=stream_video, args=(camera_type, 1.0))
             stream_threads[camera_type].start()
-            logging.info(f"🔄 {camera_type.capitalize()} stream restarted after {param_name} change.")
+            app.logger.info(f"🔄 {camera_type.capitalize()} stream restarted after {param_name} change.")
 
     except Exception as e:
         logging.error(f"❌ Failed to set {param_name} for {camera_type} camera: {e}")
@@ -309,7 +309,7 @@ def notify_stream_status(camera_type: str, is_streaming: bool):
             'is_streaming': is_streaming
         })
         if response.status_code == 200:
-            logging.info(f"Stream status for {camera_type} updated to {is_streaming}")
+            app.logger.info(f"Stream status for {camera_type} updated to {is_streaming}")
         else:
             logging.warning(f"Failed to update stream status for {camera_type}")
     except Exception as e:

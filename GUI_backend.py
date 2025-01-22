@@ -50,7 +50,7 @@ if not app.debug:
     file_handler = RotatingFileHandler('flask.log', maxBytes=10240, backupCount=10)
     file_handler.setFormatter(logging.Formatter(
         '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(app.logger)
     app.logger.addHandler(file_handler)
 
     # Set up logging to console
@@ -111,9 +111,9 @@ def connect_serial_device(device_name):
 @app.route('/api/disconnect-to-<device_name>', methods=['POST'])
 def disconnect_serial_device(device_name):
     try:
-        logging.info(f"Attempting to disconnect from {device_name}")
+        app.logger.info(f"Attempting to disconnect from {device_name}")
         porthandler.disconnect_serial_device(device_name)
-        logging.info(f"Successfully disconnected from {device_name}")
+        app.logger.info(f"Successfully disconnected from {device_name}")
         return jsonify('ok')
     except Exception as e:
         logging.exception(f"Exception occurred while disconnecting from {device_name}")
@@ -311,42 +311,24 @@ def start_video_stream():
     return Response(generate_frames(camera_type, scale_factor),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
-
 @app.route('/stop-video-stream', methods=['POST'])
 def stop_video_stream():
     camera_type = request.args.get('type')
-
     app.logger.info(f"Received stop request for {camera_type}")
 
-    if camera_type not in cameras:
-        app.logger.error(f"Invalid camera type: {camera_type}")
-        return jsonify({"error": "Invalid camera type specified"}), 400
-
-    camera = cameras.get(camera_type)
-
-    with grab_locks[camera_type]:
-        if not stream_running.get(camera_type, False):
-            app.logger.info(f"{camera_type.capitalize()} stream is not running.")
-            return jsonify({"message": "Stream already stopped."}), 200
-
-        try:
-            stream_running[camera_type] = False
-
-            if camera.IsGrabbing():
-                camera.StopGrabbing()
-                app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
-
-            if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
-                stream_threads[camera_type].join(timeout=2)
-                app.logger.info(f"{camera_type.capitalize()} stream thread joined and stopped.")
-
-            stream_threads[camera_type] = None
-            return jsonify({"message": f"{camera_type.capitalize()} stream stopped."}), 200
-        except Exception as e:
-            app.logger.error(f"Failed to stop {camera_type} stream: {e}")
-            return jsonify({'error': f'Failed to stop stream: {str(e)}'}), 500
-
+    try:
+        message = stop_camera_stream(camera_type)
+        return jsonify({"message": message}), 200
+    except ValueError as ve:
+        # E.g., invalid camera type
+        app.logger.error(str(ve))
+        return jsonify({"error": str(ve)}), 400
+    except RuntimeError as re:
+        app.logger.error(str(re))
+        return jsonify({"error": str(re)}), 500
+    except Exception as e:
+        app.logger.exception(f"Unexpected exception while stopping {camera_type} stream.")
+        return jsonify({"error": str(e)}), 500
 
 def generate_frames(camera_type, scale_factor=0.25):
     app.logger.info(f"Generating frames for {camera_type} with scale factor {scale_factor}")
@@ -455,35 +437,35 @@ def disconnect_camera():
         return jsonify({"status": "already disconnected"}), 200
 
     try:
-        # ✅ Call the existing stop stream endpoint before disconnecting
-        with app.test_client() as client:
-            response = client.post(f'/stop-video-stream?type={camera_type}')
-            if response.status_code == 200:
-                app.logger.info(f"{camera_type.capitalize()} stream stopped before disconnecting.")
-            else:
-                app.logger.warning(f"Failed to stop {camera_type} stream before disconnecting.")
-
-        # Proceed to stop grabbing and close the camera
-        camera = cameras[camera_type]
-
-        if camera.IsGrabbing():
-            camera.StopGrabbing()
-            app.logger.info(f"{camera_type.capitalize()} camera grabbing stopped.")
-
-        if camera.IsOpen():
-            camera.Close()
-            app.logger.info(f"{camera_type.capitalize()} camera closed.")
-
-        # Clean up camera references
-        cameras[camera_type] = None
-        camera_properties[camera_type] = None
-
-        app.logger.info(f"{camera_type.capitalize()} camera disconnected successfully.")
-        return jsonify({"status": "disconnected"}), 200
-
+        stop_camera_stream(camera_type)
+        app.logger.info(f"{camera_type.capitalize()} stream stopped before disconnecting.")
+    except ValueError:
+        app.logger.warning(f"Failed to stop {camera_type} stream: Invalid camera type.")
+        # Decide how you want to handle this. If invalid camera type is fatal, return here:
+        return jsonify({"error": "Invalid camera type"}), 400
+    except RuntimeError as re:
+        app.logger.warning(f"Error stopping {camera_type} stream: {str(re)}")
+        # Maybe we continue to shut down the camera anyway
     except Exception as e:
         app.logger.error(f"Failed to disconnect {camera_type} camera: {e}")
         return jsonify({"error": str(e)}), 500
+
+    camera = cameras.get(camera_type, None)
+    if camera and camera.IsGrabbing():
+        camera.StopGrabbing()
+        app.logger.info(f"{camera_type.capitalize()} camera grabbing stopped.")
+
+    if camera and camera.IsOpen():
+        camera.Close()
+        app.logger.info(f"{camera_type.capitalize()} camera closed.")
+
+    # Clean up references
+    cameras[camera_type] = None
+    camera_properties[camera_type] = None  # Make sure camera_properties is in scope
+    app.logger.info(f"{camera_type.capitalize()} camera disconnected successfully.")
+
+    return jsonify({"status": "disconnected"}), 200
+
     
 @app.route('/api/status/camera', methods=['GET'])
 def check_camera_status():
@@ -495,7 +477,6 @@ def check_camera_status():
 
     camera = cameras.get(camera_type)
 
-    # ✅ Check if the camera is initialized and open
     if camera is not None and camera.IsOpen():
         return jsonify({"connected": True}), 200
     else:
@@ -535,7 +516,6 @@ def update_camera_settings():
         app.logger.exception("Failed to update camera settings")
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/video-stream', methods=['GET'])
 def video_stream():
     camera_type = request.args.get('type')
@@ -546,27 +526,6 @@ def video_stream():
 
     app.logger.info(f"{camera_type.capitalize()} camera stream started successfully")
     return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
-@app.route('/api/save-camera-settings', methods=['POST'])
-def save_camera_settings():
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)  # Ensure the window stays on top
-        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
-        root.destroy()
-
-        if file_path:
-            settings = request.json
-            with open(file_path, 'w') as f:
-                json.dump(settings, f)
-            return jsonify({'message': 'Settings saved successfully'}), 200
-        else:
-            return jsonify({'error': 'No file selected'}), 400
-    except Exception as e:
-        app.logger.exception("Failed to save camera settings")
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/get-camera-settings', methods=['GET'])
 def get_camera_settings():
@@ -636,39 +595,42 @@ def save_image():
     except Exception as e:
         app.logger.exception("Failed to save image")
         return jsonify({'error': str(e)}), 500
-
-@app.route('/images/<path:filename>')
-def serve_image(filename):
-    try:
-        directory = handler.folder_selected
-        return send_from_directory(directory, filename)
-    except Exception as e:
-        app.logger.exception("Failed to serve image")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/capture-image', methods=['POST'])
-def connect_cap():
-    global printer, handler, lamp, psu, folder_selected
-
-    try:
-        factory = pylon.TlFactory.GetInstance()
-        devices = factory.EnumerateDevices()
-
-        if not devices:
-            return jsonify({'error': 'No camera detected'}), 500
-
-        camera_id = parse_args()
-        camera = get_camera(camera_id)
-
-        handler.set_save_next_frame()  # Call set_save_next_frame method to set the flag
-
-        return jsonify('ok')  # Return JSON response
-
-    except Exception as e:
-        logging.error(f"Failed to connect to camera: {e}")
-        return jsonify({'error': 'Failed to connect to camera'}), 500
     
+
+def stop_camera_stream(camera_type):
+    """
+    Stops the stream for the specified camera_type in Python,
+    without returning a Flask response.
+    Raises exceptions or returns info as needed.
+    """
+    if camera_type not in cameras:
+        raise ValueError(f"Invalid camera type: {camera_type}")
+
+    camera = cameras.get(camera_type)
+
+    with grab_locks[camera_type]:
+        if not stream_running.get(camera_type, False):
+            # Nothing to do
+            return "Stream already stopped."
+        
+        try:
+            stream_running[camera_type] = False
+
+            if camera and camera.IsGrabbing():
+                camera.StopGrabbing()
+                app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
+
+            # If you’re also joining the thread, do it here:
+            if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
+                stream_threads[camera_type].join(timeout=2)
+                app.logger.info(f"{camera_type.capitalize()} stream thread joined and stopped.")
+
+            stream_threads[camera_type] = None
+            return f"{camera_type.capitalize()} stream stopped."
+        except Exception as e:
+            # Let the caller handle this exception or re-raise
+            raise RuntimeError(f"Failed to stop {camera_type} stream: {str(e)}")
+
 @app.before_request
 def initialize_settings():
     global settings_loaded
@@ -683,3 +645,4 @@ def initialize_settings():
 if __name__ == '__main__':      
     load_settings()
     app.run()
+
