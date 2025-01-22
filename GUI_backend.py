@@ -1,72 +1,35 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
-from flask import Flask, render_template, send_file
+from flask import Flask, send_file
 from flask_cors import CORS
 from flask import session, request
-from glob import glob
-from flask_socketio import SocketIO, emit
-from PIL import Image
-import io
-import base64
-import subprocess
 import tkinter as tk
 from tkinter import filedialog, Tk
-import argparse
-import glob
 import os
 import json
-import datetime
-import binascii
-import shutil
 import cv2
 import logging
 import threading
 from logging.handlers import RotatingFileHandler
 from flask_debugtoolbar import DebugToolbarExtension
-import datetime
-from globals import app, cameras, stream_running, stream_threads, grab_locks
-
-# Enable camera emulation
-import os
-import serial
-import cv2
-import numpy as np
-import sys
-from typing import Optional
-from queue import Queue
+from globals import cameras, stream_running, stream_threads, grab_locks, turntable_position
 from pypylon import pylon
-from cameracontrol import stream_video, apply_camera_settings, set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
+from cameracontrol import apply_camera_settings, set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
 import porthandler
-import time
-import turntablecontrols
+import imageprocessing
 
 app = Flask(__name__)
-app.secret_key = 'TabletScanner'
+app.secret_key = 'Zoltek'
 logging.basicConfig(level=logging.DEBUG)
 CORS(app)
 app.debug = True
 toolbar = DebugToolbarExtension(app)
 
-opencv_display_format = 'BGR8'
-
 file_path = ''
-common_filenames=[]
 image=[]
-display=[]
-
-CORS(app)
-# Global variable to store the current frame being displayed
-display = None
 camera = None
-streaming = False
-was_streaming = False
-main_camera = None
-side_camera = None
 camera_properties = {'main': None, 'side': None}
-properties = {} # Camera properties. to be renamed
 folder_selected=[]
 handler = Handler('default_directory_path')
-printer=[]
-psu=[]
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'settings.json')
 with open(SETTINGS_PATH) as f:
@@ -77,8 +40,6 @@ camera_params = settings['camera_params']
 
 MAIN_CAMERA_ID = '40569959'
 SIDE_CAMERA_ID = '40569958'
-
-SCALE_FACTOR = 0.25
 
 settings_loaded = False
 turntable_position = None
@@ -105,8 +66,6 @@ if not app.debug:
     app.logger.addHandler(console_handler)
 
 app.logger.setLevel(logging.DEBUG)
-
-
 
 # Function used to automatically load settings upon startup
 def load_settings():
@@ -223,27 +182,67 @@ def check_serial_connections():
         'turntableConnected': turntable_connected
     })
     
-    
-    
-    
-    
-    
-    
-    
-    
+     
 
 ### Turntable Functions ###
-##TODO: Add normal functionality
-@app.route('/home_turntable', methods=['POST'])
-def home_turntable():
-    global turntable_position
-
+@app.route('/home_turntable_with_image', methods=['POST'])
+def home_turntable_with_image():
     try:
-        porthandler.write_turntable("HOME")  # Send homing command to Arduino
-        turntable_position = 0  # Set to 0 after homing
-        return jsonify({'message': 'Turntable homed successfully!', 'current_position': turntable_position})
+        app.logger.info("Homing process initiated.")
+        camera_type = 'main'
+        
+        with grab_locks[camera_type]:
+            camera = cameras.get('main')
+
+            if camera is None or not camera.IsGrabbing():
+                app.logger.error("Main camera is not connected or grabbing.")
+                return jsonify({"error": "Main camera is not connected or grabbing."}), 400
+
+            # Temporarily stop stream
+            app.logger.info("Stopping main camera stream for homing.")
+            stream_running[camera_type] = False
+
+            # Grab an image from the camera
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+
+            if grab_result.GrabSucceeded():
+                app.logger.info("Image grabbed successfully.")
+                image = grab_result.Array
+                grab_result.Release()
+
+                # Restart streaming
+                stream_running[camera_type] = True
+                threading.Thread(target=generate_frames, args=(camera_type,)).start()
+                app.logger.info("Main camera stream restarted.")
+
+                # Process the image to determine necessary rotation
+                rotation_needed = imageprocessing.home_turntable_with_image(image)
+                
+                command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
+                
+                app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
+
+                # Send rotation command to the turntable
+                porthandler.write_turntable(command)
+                app.logger.info("Rotation command sent to turntable.")
+
+                # Set position to 0 after homing
+                globals.turntable_position = 0  
+                app.logger.info("Homing completed successfully.")
+
+                return jsonify({
+                    "message": "Homing successful",
+                    "rotation": rotation_needed,
+                    "current_position": globals.turntable_position
+                })
+            else:
+                grab_result.Release()
+                app.logger.error("Failed to grab image from camera.")
+                return jsonify({"error": "Failed to grab image from camera."}), 500
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Exception during homing: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     
 @app.route('/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
@@ -809,26 +808,6 @@ def capture_and_send():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/get-images')
-def get_images():
-    global printer, handler, lamp, psu, folder_selected
-
-    if not folder_selected:
-        return jsonify({'error': 'No folder path provided'}), 400
-
-    if not os.path.exists(folder_selected):
-        return jsonify({'error': 'Folder does not exist'}), 404
-
-    # Get all image files in the folder
-    image_files = sorted(glob.glob(os.path.join(folder_selected, '*.jpg')), key=os.path.getmtime, reverse=True)
-    image_files = [path.replace('\\', '/') for path in image_files]
-
-    # Get the latest three image filenames
-    out_files = image_files[0]
-
-    return send_file(out_files, mimetype='image/jpg')
-
-IMAGE_DIRECTORY = os.path.join(os.getcwd(), 'static')
 
 
 if __name__ == '__main__':      

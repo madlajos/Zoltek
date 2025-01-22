@@ -100,15 +100,13 @@ moveTurntableAbsolute(position: number | string): void {
 }
 
 
-//TODO: Add normal funcionality
 homeTurntable(): void {
-  this.http.post(`${this.BASE_URL}/home_turntable`, {}).subscribe(
+  this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).subscribe(
     (response: any) => {
-      console.log('Turntable homed successfully!', response);
-      this.turntablePosition = 0;  // Set position to 0 after homing
-      this.isHomed = true;  // Enable tracking after homing
+      console.log('Homing successful:', response);
+      this.turntablePosition = response.current_position;
     },
-    (error: any) => {
+    (error) => {
       console.error('Failed to home turntable!', error);
     }
   );

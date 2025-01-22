@@ -1,10 +1,8 @@
-# globals.py
-from flask import Flask
 import threading
+from flask import Flask
+turntable_position = 0
 
 app = Flask(__name__)
-
-turntable_position = 0
 
 cameras = {
     'main': None,
