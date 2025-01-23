@@ -16,9 +16,9 @@
             "OffsetX": 0,
             "OffsetY": 0,
             "ExposureTime": 20000.0,
-            "Gain": 10,
+            "Gain": 0.0,
             "Gamma": 1,
-            "FrameRate": 40.0
+            "FrameRate": 20.0
         }
     }
 }

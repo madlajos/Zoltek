@@ -1,11 +1,9 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask import Flask, send_file
 from flask_cors import CORS
-from flask import session, request
-import tkinter as tk
+from flask import request
 from tkinter import filedialog, Tk
 import os
-import json
 import cv2
 import logging
 import threading
@@ -31,7 +29,6 @@ camera = None
 camera_properties = {'main': None, 'side': None}
 folder_selected=[]
 handler = Handler('default_directory_path')
-
 
 MAIN_CAMERA_ID = '40569959'
 SIDE_CAMERA_ID = '40569958'
@@ -134,19 +131,15 @@ def home_turntable_with_image():
     try:
         app.logger.info("Homing process initiated.")
         camera_type = 'main'
-        
+
         with grab_locks[camera_type]:
-            camera = cameras.get('main')
+            camera = cameras.get(camera_type)
 
-            if camera is None or not camera.IsGrabbing():
-                app.logger.error("Main camera is not connected or grabbing.")
-                return jsonify({"error": "Main camera is not connected or grabbing."}), 400
+            if camera is None or not camera.IsOpen():
+                app.logger.error("Main camera is not connected or open.")
+                return jsonify({"error": "Main camera is not connected or open."}), 400
 
-            # Temporarily stop stream
-            app.logger.info("Stopping main camera stream for homing.")
-            stream_running[camera_type] = False
-
-            # Grab an image from the camera
+            # Grab a single image without stopping the stream
             grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
             if grab_result.GrabSucceeded():
@@ -154,14 +147,8 @@ def home_turntable_with_image():
                 image = grab_result.Array
                 grab_result.Release()
 
-                # Restart streaming
-                stream_running[camera_type] = True
-                threading.Thread(target=generate_frames, args=(camera_type,)).start()
-                app.logger.info("Main camera stream restarted.")
-
-                # Process the image to determine necessary rotation
+                # Process the image
                 rotation_needed = imageprocessing.home_turntable_with_image(image)
-                
                 command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
                 
                 app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
@@ -187,6 +174,7 @@ def home_turntable_with_image():
     except Exception as e:
         app.logger.error(f"Exception during homing: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
     
 @app.route('/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
@@ -344,12 +332,11 @@ def generate_frames(camera_type, scale_factor=0.25):
 
     try:
         while stream_running[camera_type]:
-            with grab_locks[camera_type]:  # Ensure exclusive access
+            with grab_locks[camera_type]:
                 grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
                 if grab_result.GrabSucceeded():
                     image = grab_result.Array
-
                     if scale_factor != 1.0:
                         width = int(image.shape[1] * scale_factor)
                         height = int(image.shape[0] * scale_factor)
@@ -358,7 +345,7 @@ def generate_frames(camera_type, scale_factor=0.25):
                     _, frame = cv2.imencode('.jpg', image)
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-
+                
                 grab_result.Release()
     except Exception as e:
         app.logger.error(f"Error in {camera_type} video stream: {e}")
@@ -371,12 +358,16 @@ def generate_frames(camera_type, scale_factor=0.25):
 def connect_camera():
     camera_type = request.args.get('type')
 
-    if camera_type not in ['main', 'side']:
+    # Check if camera type is valid before proceeding
+    if camera_type not in CAMERA_IDS:
         app.logger.error(f"Invalid camera type: {camera_type}")
         return jsonify({"error": "Invalid camera type specified"}), 400
 
+    # Assign the target serial number safely
+    target_serial = CAMERA_IDS.get(camera_type)
+    
     try:
-        app.logger.info(f"Attempting to connect {camera_type} camera.")
+        app.logger.info(f"Attempting to connect {camera_type} camera with serial {target_serial}.")
         app.logger.info(f"Cameras dictionary: {cameras}")
 
         factory = pylon.TlFactory.GetInstance()
@@ -386,9 +377,12 @@ def connect_camera():
             app.logger.error("No cameras detected.")
             return jsonify({"error": "No cameras connected"}), 400
 
-        # Select the correct camera based on serial number
-        target_serial = MAIN_CAMERA_ID if camera_type == 'main' else SIDE_CAMERA_ID
-        selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
+        # Locate the correct camera by its serial number
+        selected_device = None
+        for device in devices:
+            if device.GetSerialNumber() == target_serial:
+                selected_device = device
+                break
 
         if not selected_device:
             app.logger.error(f"{camera_type.capitalize()} camera with serial {target_serial} not found.")

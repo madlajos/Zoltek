@@ -31,10 +31,10 @@ void loop() {
     if (command == "IDN?") {
       Serial.println("TTBL");
     }
-    // Handle movement commands like "50,1" (CW) or "50,0" (CCW)
+    // Handle movement commands like "50.1,1" (CW) or "50.1,0" (CCW)
     else if (command.indexOf(',') != -1) {
       int commaIndex = command.indexOf(',');
-      int degreeMove = command.substring(0, commaIndex).toInt();
+      float degreeMove = command.substring(0, commaIndex).toFloat();
       int direction = command.substring(commaIndex + 1).toInt();
 
       if (degreeMove > 0 && (direction == 0 || direction == 1)) {
@@ -51,29 +51,22 @@ void loop() {
   }
 }
 
-// Function to check if the command format is valid (e.g., "20CW", "45CCW")
-bool isValidMoveCommand(String cmd) {
-  if (cmd.length() < 3) return false;
-  String direction = cmd.substring(cmd.length() - 2);
-  return (direction == "CW" || direction == "CCW") && isDigit(cmd[0]);
-}
-
 // Function to move turntable by a relative degree amount
-void moveTurntable(int degrees, bool clockwise) {
+void moveTurntable(float degrees, bool clockwise) {
   long steps_to_move = mapDegreesToSteps(degrees);
 
   rotateMotor(steps_to_move, clockwise);
   Serial.print("Moved ");
-  Serial.print(degrees);
+  Serial.print(degrees, 1);  // Print with 1 decimal place for clarity
   Serial.print(clockwise ? " CW" : " CCW");
   Serial.println(" degrees.");
 }
 
-
 // Function to convert degrees to steps
-long mapDegreesToSteps(int degrees) {
-  return (long)degrees * steps_per_revolution / 360;
+long mapDegreesToSteps(float degrees) {
+  return (long)(degrees * steps_per_revolution / 360.0);
 }
+
 // Function to rotate the motor with acceleration/deceleration
 void rotateMotor(long steps, bool clockwise) {
   digitalWrite(DIR_PIN, clockwise ? HIGH : LOW);
