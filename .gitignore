@@ -6,3 +6,7 @@ package.json
 Angular/package.json
 app.log
 flask.log
+flask.log.1
+flask.log.2
+flask.log
+flask.log.*

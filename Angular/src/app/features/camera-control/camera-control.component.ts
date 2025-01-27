@@ -91,25 +91,52 @@ export class CameraControlComponent implements OnInit {
     this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe(
       (response: any) => {
         if (cameraType === 'main') {
+          // Always set "isMainConnected"
           this.isMainConnected = response.connected;
-          this.isMainStreaming = response.streaming;
+          this.sharedService.setCameraConnectionStatus('main', response.connected);
+  
+          // If not connected, forcibly set stream to false
+          if (!response.connected) {
+            this.isMainStreaming = false;
+            this.sharedService.setCameraStreamStatus('main', false);
+          } else {
+            // Conditionally sync streaming: only go from false -> true
+            const frontEndStreaming = this.isMainStreaming;
+            const serverStreaming = response.streaming;
+            if (serverStreaming && !frontEndStreaming) {
+              this.isMainStreaming = true;
+              this.sharedService.setCameraStreamStatus('main', true);
+            }
+            // If server says "false" but front end is "true", skip overwriting
+          }
         } else {
+          // 'side' camera logic
           this.isSideConnected = response.connected;
-          this.isSideStreaming = response.streaming;
+          this.sharedService.setCameraConnectionStatus('side', response.connected);
+  
+          if (!response.connected) {
+            // If physically disconnected or not enumerated
+            this.isSideStreaming = false;
+            this.sharedService.setCameraStreamStatus('side', false);
+          } else {
+            const frontEndStreaming = this.isSideStreaming;
+            const serverStreaming = response.streaming;
+            if (serverStreaming && !frontEndStreaming) {
+              this.isSideStreaming = true;
+              this.sharedService.setCameraStreamStatus('side', true);
+            }
+          }
         }
   
-        // Also update the SharedService
-        this.sharedService.setCameraConnectionStatus(cameraType, response.connected);
-        this.sharedService.setCameraStreamStatus(cameraType, response.streaming);
-  
         console.log(
-          `${cameraType.toUpperCase()} status - Connected: ${response.connected}, ` + 
-          `Streaming: ${response.streaming}`
+          `${cameraType.toUpperCase()} status - ` +
+          `Connected: ${response.connected}, Streaming: ${response.streaming}`
         );
       },
       error => console.error(`Error checking ${cameraType} camera status:`, error)
     );
   }
+  
 
   checkCameraConnection(cameraType: 'main' | 'side'): void {
     this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe(
@@ -166,14 +193,29 @@ export class CameraControlComponent implements OnInit {
   }
 
   toggleStream(cameraType: 'main' | 'side'): void {
-    if ((cameraType === 'main' && this.isMainStreaming) || (cameraType === 'side' && this.isSideStreaming)) {
+    if ((cameraType === 'main' && this.isMainStreaming) ||
+        (cameraType === 'side' && this.isSideStreaming)) {
+      // If currently streaming, stop
       this.stopVideoStream(cameraType);
     } else {
+      // Otherwise, start
       this.startVideoStream(cameraType);
     }
   }
 
   startVideoStream(cameraType: 'main' | 'side'): void {
+    // Remove the infinite "blob" GET call.
+    // Instead, simply update the UI streaming flag in the shared service:
+    this.sharedService.setCameraStreamStatus(cameraType, true);
+    console.log(`${cameraType.toUpperCase()} stream set to true in SharedService (UI only).`);
+    
+    // (Optional) If your backend needs a "start" signal,
+    // you could do a short POST to e.g. /start-camera, but
+    // DO NOT request the MJPEG as a blob.
+  }
+
+
+  /* startVideoStream(cameraType: 'main' | 'side'): void {
     const streamUrl = `${this.BASE_URL}/start-video-stream?type=${cameraType}&nocache=${new Date().getTime()}`;
     
     this.http.get(streamUrl, { responseType: 'blob' }).subscribe(
@@ -183,7 +225,7 @@ export class CameraControlComponent implements OnInit {
       },
       error => console.error(`Failed to start ${cameraType} stream:`, error)
     );
-  }
+  } */
 
   stopVideoStream(cameraType: 'main' | 'side'): void {
     this.http.post(`${this.BASE_URL}/stop-video-stream?type=${cameraType}`, {}).subscribe(
@@ -196,17 +238,17 @@ export class CameraControlComponent implements OnInit {
   }
 
   loadCameraSettings(cameraType: 'main' | 'side'): void {
-    this.http.get(`${this.BASE_URL}/get-camera-settings?type=${cameraType}`).subscribe((settings: any) => {
-      if (cameraType === 'main') {
-        this.mainCameraSettings = settings;
-        console.log('Loaded Main Camera Settings:', this.mainCameraSettings);
-      } else {
-        this.sideCameraSettings = settings;
-        console.log('Loaded Side Camera Settings:', this.sideCameraSettings);
-      }
-    }, error => {
-      console.error(`Error loading ${cameraType} camera settings:`, error);
-    });
+    this.http.get(`${this.BASE_URL}/get-camera-settings?type=${cameraType}`).subscribe(
+      (settings: any) => {
+        if (cameraType === 'main') {
+          this.mainCameraSettings = settings;
+        } else {
+          this.sideCameraSettings = settings;
+        }
+        console.log(`[${cameraType}] Loaded settings:`, settings);
+      },
+      error => console.error(`Error loading ${cameraType} camera settings:`, error)
+    );
   }
   
   

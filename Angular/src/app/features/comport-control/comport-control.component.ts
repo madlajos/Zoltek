@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { of } from 'rxjs';
-import { catchError, concatMap, delay, tap } from 'rxjs/operators';
+import { of, interval } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
 
 interface Device {
   name: string;
@@ -15,77 +15,121 @@ interface Device {
   styleUrls: ['./comport-control.component.css']
 })
 export class ComportControlComponent implements OnInit {
+
   devices: Device[] = [
-    { name: 'Turntable', status: 'Disconnected', action: 'Connect' }
+    { name: 'Turntable', status: 'Checking...', action: 'Connect' }
   ];
 
   private readonly BASE_URL = 'http://localhost:5000/api';
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    //this.checkStatusAndConnectDevices();
+    this.initializeDevices();
+    
+    interval(5000).pipe(
+      switchMap(() => this.checkStatus()),
+      catchError(error => {
+        console.error("Error in polling:", error);
+        return of(null);
+      })
+    ).subscribe();
   }
 
-  checkStatusAndConnectDevices(): void {
-    this.devices.reduce((previous, device) => {
-      return previous.pipe(
-        delay(1000),
-        concatMap(() => this.http.get<{ connected: boolean; port: string }>(`${this.BASE_URL}/status/${device.name.toLowerCase()}`).pipe(
-          tap((status: any) => {
-            if (status.connected) {
-              device.status = `Connected (${status.port})`;
+  initializeDevices(): void {
+    this.devices.forEach(device => {
+      this.http
+        .get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/${device.name.toLowerCase()}`)
+        .pipe(
+          tap((res) => {
+            if (res.connected) {
+              device.status = `Connected (${res.port || 'COM'})`;
               device.action = 'Disconnect';
             } else {
-              device.status = 'Disconnected';
-              device.action = 'Connect';
-              this.toggleConnection(device);
+              device.status = 'Attempting to connect...';
+              this.connectDevice(device);
             }
           }),
-          catchError(error => {
-            console.error(`Error fetching status for ${device.name}:`, error);
+          catchError((error) => {
+            console.error(`Error checking status for ${device.name}:`, error);
             device.status = 'Error';
             device.action = 'Connect';
             return of(null);
           })
-        ))
-      );
-    }, of(null)).subscribe();
+        )
+        .subscribe();
+    });
+  }
+
+  checkStatus() {
+    return this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/turntable`).pipe(
+      tap((res) => {
+        let device = this.devices.find(d => d.name === 'Turntable');
+        if (device) {
+          if (res.connected) {
+            device.status = `Connected (${res.port || 'COM'})`;
+            device.action = 'Disconnect';
+          } else {
+            device.status = 'Disconnected';
+            device.action = 'Connect';
+          }
+        }
+      }),
+      catchError(error => {
+        console.error('Error fetching status:', error);
+        let device = this.devices.find(d => d.name === 'Turntable');
+        if (device) {
+          device.status = 'Error';
+          device.action = 'Connect';
+        }
+        return of(null);
+      })
+    );
   }
 
   toggleConnection(device: Device): void {
-    const action = device.action.toLowerCase();
-    console.log(`${action.charAt(0).toUpperCase() + action.slice(1)}ing ${device.name}...`);
-    this.http.post(`${this.BASE_URL}/${action}-to-${device.name.toLowerCase()}`, {})
-      .pipe(
-        tap(() => {
-          console.log(`${device.name} ${action}ed successfully.`);
-          this.checkStatus();  // Update status after the connection action completes
-        }),
-        catchError(error => {
-          console.error(`Error ${action}ing ${device.name}:`, error);
-          device.status = 'Error';
-          return of(null); // Return a null observable to handle the error
-        })
-      ).subscribe();
+    if (device.status.startsWith('Connected')) {
+      this.disconnectDevice(device);
+    } else {
+      this.connectDevice(device);
+    }
   }
 
-  checkStatus(): void {
-    this.devices.forEach(device => {
-      console.log(`Checking status for ${device.name}...`);
-      this.http.get(`${this.BASE_URL}/status/${device.name.toLowerCase()}`).pipe(
-        tap((status: any) => {
-          console.log(`Received status for ${device.name}:`, status);
-          device.status = status.connected ? `Connected (${status.port})` : 'Disconnected';
-          device.action = status.connected ? 'Disconnect' : 'Connect';
+  connectDevice(device: Device): void {
+    console.log(`Connecting to ${device.name}...`);
+    device.status = 'Connecting...';
+    this.http
+      .post(`${this.BASE_URL}/connect-to-${device.name.toLowerCase()}`, {})
+      .pipe(
+        tap(() => {
+          console.log(`${device.name} connected successfully.`);
+          this.checkStatus(); // Refresh status to show actual port
         }),
-        catchError(error => {
-          console.error(`Error fetching status for ${device.name}:`, error);
+        catchError((error) => {
+          console.error(`Error connecting ${device.name}:`, error);
           device.status = 'Error';
-          device.action = 'Connect';
-          return of(null); // Return an observable with a null value in case of error
+          return of(null);
         })
-      ).subscribe();
-    });
+      )
+      .subscribe();
+  }
+
+  disconnectDevice(device: Device): void {
+    console.log(`Disconnecting from ${device.name}...`);
+    device.status = 'Disconnecting...';
+    this.http
+      .post(`${this.BASE_URL}/disconnect-to-${device.name.toLowerCase()}`, {})
+      .pipe(
+        tap(() => {
+          console.log(`${device.name} disconnected successfully.`);
+          this.checkStatus();  // Refresh status after disconnect
+        }),
+        catchError((error) => {
+          console.error(`Error disconnecting ${device.name}:`, error);
+          device.status = 'Error';
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 }

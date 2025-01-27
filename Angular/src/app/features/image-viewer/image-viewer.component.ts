@@ -32,11 +32,12 @@ export class ImageViewerComponent implements AfterViewInit {
   }
 
   updateStreamDisplay(cameraType: 'main' | 'side'): void {
-    const videoContainer = cameraType === 'main' 
-      ? this.mainVideoContainer.nativeElement 
+    const videoContainer = cameraType === 'main'
+      ? this.mainVideoContainer.nativeElement
       : this.sideVideoContainer.nativeElement;
   
-    const streamUrl = `http://localhost:5000/start-video-stream?type=${cameraType}`;
+    // If you want to scale down the image, just add &scale=0.25 or similar
+    const streamUrl = `http://localhost:5000/start-video-stream?type=${cameraType}&scale=0.25&ts=${Date.now()}`;
   
     let img = videoContainer.querySelector('img');
   
@@ -52,14 +53,14 @@ export class ImageViewerComponent implements AfterViewInit {
         videoContainer.appendChild(img);
       }
   
-      img.src = streamUrl; // Just update the source instead of replacing the whole element
-  
+      img.src = streamUrl;  // This is the key: the <img> loads the MJPEG response
       img.onload = () => console.log(`✅ ${cameraType} stream loaded.`);
       img.onerror = (err) => console.error(`❌ Failed to load ${cameraType} stream.`, err);
   
     } else {
+      // If the user or the system toggled streaming off, remove the <img>
       console.warn(`⚠️ ${cameraType} stream stopped. Clearing view.`);
-      if (img) img.remove();  // Only remove if the element exists
+      if (img) img.remove();
     }
   }
 }

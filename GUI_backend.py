@@ -36,33 +36,30 @@ CAMERA_IDS = {
     'side': SIDE_CAMERA_ID
 }
 
-
+latest_frames = {
+    'main': None,
+    'side': None
+}
 ### Serial Device Functions ###
 # Define the route for checking device status
-@app.route('/api/connect-to-<device_name>', methods=['POST'])
-def connect_serial_device(device_name):
+@app.route('/api/connect-to-turntable', methods=['POST'])
+def connect_turntable():
     try:
-        app.logger.info(f"Attempting to connect to {device_name}")
-        device = None
-        if device_name == 'turntable':
-            device = porthandler.connect_to_turntable()
-            app.logger.debug(f"Turntable connection attempt result: {device}")
-        else:
-            app.logger.error(f"Invalid device name: {device_name}")
-            return jsonify({'error': 'Invalid device name'}), 400
+        app.logger.info("Attempting to connect to Turntable")
+        if porthandler.turntable and porthandler.turntable.is_open:
+            app.logger.info("Turntable already connected.")
+            return jsonify({'message': 'Turntable already connected'}), 200
 
-        if device is not None:
-            # Update global state
-            if device_name == 'turntable':
-                porthandler.turntable = device
-
-            app.logger.info(f"Successfully connected to {device_name}")
-            return jsonify('ok')
+        device = porthandler.connect_to_turntable()
+        if device:
+            porthandler.turntable = device
+            app.logger.info("Successfully connected to Turntable")
+            return jsonify({'message': 'Turntable connected', 'port': device.port}), 200
         else:
-            app.logger.error(f"Failed to connect to {device_name}: No COM ports or matching device not found")
-            return jsonify({'error': f'Failed to connect to {device_name}. No COM ports available or matching device not found'}), 404
+            app.logger.error("Failed to connect to Turntable: No response or incorrect ID")
+            return jsonify({'error': 'Failed to connect to Turntable'}), 404
     except Exception as e:
-        app.logger.exception(f"Exception occurred while connecting to {device_name}")
+        app.logger.exception("Exception occurred while connecting to Turntable")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/disconnect-to-<device_name>', methods=['POST'])
@@ -220,20 +217,42 @@ def select_folder():
 
 @app.route('/start-video-stream', methods=['GET'])
 def start_video_stream():
-    camera_type = request.args.get('type')
-    scale_factor = float(request.args.get('scale', 0.25))
+    """
+    Returns a live MJPEG response from generate_frames(camera_type).
+    This is the *only* place we call generate_frames, to avoid double-streaming.
+    """
+    try:
+        camera_type = request.args.get('type')
+        scale_factor = float(request.args.get('scale', 0.25))
 
-    # Check if stream is already running
-    if stream_running.get(camera_type, False):
-        app.logger.info(f"{camera_type.capitalize()} stream is already running.")
-        return Response(generate_frames(camera_type, scale_factor),
-                        mimetype='multipart/x-mixed-replace; boundary=frame')
+        if not camera_type or camera_type not in cameras:
+            app.logger.error(f"Invalid or missing camera type: {camera_type}")
+            return jsonify({"error": "Invalid or missing camera type"}), 400
 
-    # Start the camera stream if not already running
-    result = start_camera_stream_internal(camera_type, scale_factor)
-    
-    if "error" in result:
-        return jsonify(result), 400
+         # Ensure the camera is connected
+        res = connect_camera_internal(camera_type)
+        if "error" in res:
+            app.logger.error(f"Camera connection failed: {res['error']}")
+            return jsonify(res), 400
+
+        with grab_locks[camera_type]:
+            if not stream_running.get(camera_type, False):
+                stream_running[camera_type] = True
+                app.logger.info(f"stream_running[{camera_type}] set to True in start_video_stream")
+
+        app.logger.info(f"Starting video stream for {camera_type}")
+        return Response(
+            generate_frames(camera_type, scale_factor),
+            mimetype='multipart/x-mixed-replace; boundary=frame'
+        )
+
+    except ValueError as ve:
+        app.logger.error(f"Invalid input: {ve}")
+        return jsonify({"error": "Invalid input parameters"}), 400
+
+    except Exception as e:
+        app.logger.exception("Unexpected error in start-video-stream")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/stop-video-stream', methods=['POST'])
@@ -287,10 +306,22 @@ def generate_frames(camera_type, scale_factor=0.25):
                            b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
                 
                 grab_result.Release()
+        
     except Exception as e:
         app.logger.error(f"Error in {camera_type} video stream: {e}")
+
+        if "Device has been removed" in str(e):
+            stream_running[camera_type] = False
+            if camera and camera.IsOpen():
+                try:
+                    camera.StopGrabbing()
+                    camera.Close()
+                except Exception as close_err:
+                    app.logger.error(f"Failed to close {camera_type} after unplug: {close_err}")
+            cameras[camera_type] = None  # Now future status checks see `None => not connected`
+    
     finally:
-        stream_running[camera_type] = False
+        # stream_running[camera_type] = False
         app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
 
 
@@ -356,6 +387,32 @@ def get_camera_status():
     is_connected = camera is not None and camera.IsOpen()
     is_streaming = stream_running.get(camera_type, False)
 
+    # ✅ 1) Double-check if device is truly present in the enumerated device list.
+    factory = pylon.TlFactory.GetInstance()
+    devices = factory.EnumerateDevices()
+    found_serials = [dev.GetSerialNumber() for dev in devices]
+
+    # Suppose you store the camera's serial in some global map, e.g. CAMERA_IDS[camera_type].
+    expected_serial = CAMERA_IDS.get(camera_type)
+
+    # If expected serial is NOT in the enumerated list, the device is physically missing
+    if expected_serial not in found_serials:
+        app.logger.warning(
+           f"Camera {camera_type} with serial {expected_serial} not enumerated. " 
+           "Assuming physically disconnected."
+        )
+        # Mark as disconnected in memory
+        if camera and camera.IsOpen():
+            try:
+                camera.StopGrabbing()
+                camera.Close()
+            except Exception as e:
+                app.logger.error(f"Error closing camera {camera_type} after removal: {e}")
+        cameras[camera_type] = None
+        stream_running[camera_type] = False
+        is_connected = False
+        is_streaming = False
+
     return jsonify({
         "connected": is_connected,
         "streaming": is_streaming
@@ -371,11 +428,12 @@ def get_serial_device_status(device_name):
         logging.error("Invalid device name")
         return jsonify({'error': 'Invalid device name'}), 400
 
-    if device is not None:
+    # Check if the turntable is still connected and responsive
+    if device is not None and porthandler.is_turntable_connected():
         logging.debug(f"{device_name} is connected on port {device.port}")
         return jsonify({'connected': True, 'port': device.port})
     else:
-        logging.debug(f"{device_name} is not connected")
+        logging.warning(f"{device_name} appears to be disconnected.")
         return jsonify({'connected': False})
 
 @app.route('/api/update-camera-settings', methods=['POST'])
@@ -594,8 +652,22 @@ def initialize_cameras():
                 app.logger.error(f"Failed to connect {camera_type} camera: {result.get('error')}")
         except Exception as e:
             app.logger.error(f"Error during {camera_type} camera initialization: {e}")
-
+            
+def initialize_serial_devices():
+    """Initialize serial devices at startup."""
+    app.logger.info("Initializing serial devices...")
+    try:
+        device = porthandler.connect_to_turntable()
+        if device:
+            porthandler.turntable = device
+            app.logger.info(f"Turntable connected automatically on startup.")
+        else:
+            app.logger.error("Failed to auto-connect turntable on startup.")
+    except Exception as e:
+        app.logger.error(f"Error initializing serial devices: {e}")
+        
 if __name__ == '__main__':      
     load_settings()
     initialize_cameras()
+    initialize_serial_devices()
     app.run(debug=True, use_reloader=False)
