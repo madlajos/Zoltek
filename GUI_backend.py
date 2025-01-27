@@ -1,68 +1,44 @@
-from flask import Flask, jsonify, request, send_from_directory, Response
-from flask import Flask, send_file
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
-from flask import request
 from tkinter import filedialog, Tk
 import os
 import cv2
 import logging
-import threading
 from logging.handlers import RotatingFileHandler
-from flask_debugtoolbar import DebugToolbarExtension
 from globals import cameras, stream_running, stream_threads, grab_locks, turntable_position
 from pypylon import pylon
-from cameracontrol import apply_camera_settings, set_centered_offset, validate_and_set_camera_param, get_camera_properties, parse_args, get_camera, setup_camera, Handler
+from cameracontrol import (apply_camera_settings, set_centered_offset, 
+                           validate_and_set_camera_param, get_camera_properties, Handler)
 import porthandler
 import imageprocessing
-from settings_manager import load_settings, save_settings, get_settings, set_settings
+from settings_manager import load_settings, save_settings, get_settings
 
 app = Flask(__name__)
 app.secret_key = 'Zoltek'
 logging.basicConfig(level=logging.DEBUG)
 CORS(app)
 app.debug = True
-toolbar = DebugToolbarExtension(app)
 
-file_path = ''
-image=[]
-camera = None
+file_handler = RotatingFileHandler('flask.log', maxBytes=10240, backupCount=10)
+app.logger.addHandler(file_handler)
+console_handler = logging.StreamHandler()
+app.logger.addHandler(console_handler)
+app.logger.setLevel(logging.DEBUG)
+
+# Might need to be removed
 camera_properties = {'main': None, 'side': None}
-folder_selected=[]
-handler = Handler('default_directory_path')
 
 MAIN_CAMERA_ID = '40569959'
 SIDE_CAMERA_ID = '40569958'
-
-turntable_position = None
 
 CAMERA_IDS = {
     'main': MAIN_CAMERA_ID,
     'side': SIDE_CAMERA_ID
 }
 
-# Configure logging
-if not app.debug:
-    # Set up logging to file
-    file_handler = RotatingFileHandler('flask.log', maxBytes=10240, backupCount=10)
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-    file_handler.setLevel(app.logger)
-    app.logger.addHandler(file_handler)
-
-    # Set up logging to console
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-    console_handler.setLevel(logging.DEBUG)
-    app.logger.addHandler(console_handler)
-
-app.logger.setLevel(logging.DEBUG)
-
 
 ### Serial Device Functions ###
 # Define the route for checking device status
-
-
 @app.route('/api/connect-to-<device_name>', methods=['POST'])
 def connect_serial_device(device_name):
     try:
@@ -107,8 +83,6 @@ def check_serial_connections():
         'turntableConnected': turntable_connected
     })
     
-     
-
 ### Turntable Functions ###
 @app.route('/home_turntable_with_image', methods=['POST'])
 def home_turntable_with_image():
