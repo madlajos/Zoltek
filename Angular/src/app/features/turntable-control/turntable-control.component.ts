@@ -39,7 +39,7 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
   }
 
   checkTurntableConnection(): void {
-    this.http.get<{ connected: boolean }>(`${this.BASE_URL}/api/status/turntable`).subscribe(
+    this.http.get<{ connected: boolean }>(`${this.BASE_URL}/api/status/serial/turntable`).subscribe(
       (response) => {
         const wasConnected = this.isConnected;
         this.isConnected = response.connected;

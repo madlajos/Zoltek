@@ -30,8 +30,7 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
 
     # Preprocessing with Canny edge detection
     def preprocess(image, scale_percent):
-        edges = cv2.Canny(image, 50, 150)  # Adjust thresholds for better edge detection
-        return cv2.resize(edges, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
+        return cv2.resize(image, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
 
     # Preprocess the target and template
     target_small = preprocess(target, scale_percent)
@@ -43,9 +42,7 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
         return cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
 
     rotated_templates = {
-        0: preprocess(template, scale_percent),  # Original template
-        90: preprocess(rotate_image(template, 90), scale_percent),
-        180: preprocess(rotate_image(template, 180), scale_percent),
+
         270: preprocess(rotate_image(template, 270), scale_percent),
     }
 
@@ -91,12 +88,13 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
     else:
         adjusted_angle = normalized_angle
 
-    print(adjusted_angle)
-    rotated_target = rotate_image(target, adjusted_angle)
+
 
 
 
     print(f"Best alignment angle: {final_angle:.1f} degrees")
+
+
 
 
 

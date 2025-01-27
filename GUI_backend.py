@@ -33,7 +33,6 @@ handler = Handler('default_directory_path')
 MAIN_CAMERA_ID = '40569959'
 SIDE_CAMERA_ID = '40569958'
 
-settings_loaded = False
 turntable_position = None
 
 CAMERA_IDS = {
@@ -62,22 +61,7 @@ app.logger.setLevel(logging.DEBUG)
 
 ### Serial Device Functions ###
 # Define the route for checking device status
-@app.route('/api/status/<device_name>', methods=['GET'])
-def get_serial_device_status(device_name):
-    logging.debug(f"Received status request for device: {device_name}")
-    device = None
-    if device_name == 'turntable':
-        device = porthandler.turntable
-    else:
-        logging.error("Invalid device name")
-        return jsonify({'error': 'Invalid device name'}), 400
 
-    if device is not None:
-        logging.debug(f"{device_name} is connected on port {device.port}")
-        return jsonify({'connected': True, 'port': device.port})
-    else:
-        logging.debug(f"{device_name} is not connected")
-        return jsonify({'connected': False})
 
 @app.route('/api/connect-to-<device_name>', methods=['POST'])
 def connect_serial_device(device_name):
@@ -265,39 +249,18 @@ def start_video_stream():
     camera_type = request.args.get('type')
     scale_factor = float(request.args.get('scale', 0.25))
 
-    app.logger.info(f"Received request to start {camera_type} stream with scale factor {scale_factor}")
+    # Check if stream is already running
+    if stream_running.get(camera_type, False):
+        app.logger.info(f"{camera_type.capitalize()} stream is already running.")
+        return Response(generate_frames(camera_type, scale_factor),
+                        mimetype='multipart/x-mixed-replace; boundary=frame')
 
-    if camera_type not in cameras:
-        app.logger.error(f"Invalid camera type: {camera_type}")
-        return jsonify({"error": "Invalid camera type specified"}), 400
+    # Start the camera stream if not already running
+    result = start_camera_stream_internal(camera_type, scale_factor)
+    
+    if "error" in result:
+        return jsonify(result), 400
 
-    camera = cameras.get(camera_type)
-
-    if camera is None or not camera.IsOpen():
-        app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
-        return jsonify({"error": f"{camera_type.capitalize()} camera not connected"}), 400
-
-    with grab_locks[camera_type]:
-        if stream_running.get(camera_type, False):
-            app.logger.info(f"{camera_type.capitalize()} stream is already running.")
-            return jsonify({"message": "Stream already running."}), 200
-
-        if not camera.IsGrabbing():
-            app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
-            camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-
-        # Start the stream if the thread isn't alive
-        if not stream_threads.get(camera_type) or not stream_threads[camera_type].is_alive():
-            app.logger.info(f"Starting new thread for {camera_type}")
-            stream_running[camera_type] = True
-            stream_threads[camera_type] = threading.Thread(target=generate_frames, args=(camera_type, scale_factor))
-            stream_threads[camera_type].start()
-        else:
-            app.logger.info(f"{camera_type.capitalize()} stream thread already running.")
-
-    app.logger.info(f"{camera_type.capitalize()} video stream started successfully.")
-    return Response(generate_frames(camera_type, scale_factor),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/stop-video-stream', methods=['POST'])
 def stop_video_stream():
@@ -337,6 +300,9 @@ def generate_frames(camera_type, scale_factor=0.25):
 
                 if grab_result.GrabSucceeded():
                     image = grab_result.Array
+                    
+                    image = cv2.flip(image, 1)
+                    image = cv2.flip(image, 0)
                     if scale_factor != 1.0:
                         width = int(image.shape[1] * scale_factor)
                         height = int(image.shape[0] * scale_factor)
@@ -357,70 +323,13 @@ def generate_frames(camera_type, scale_factor=0.25):
 @app.route('/connect-camera', methods=['POST'])
 def connect_camera():
     camera_type = request.args.get('type')
-
-    # Check if camera type is valid before proceeding
     if camera_type not in CAMERA_IDS:
-        app.logger.error(f"Invalid camera type: {camera_type}")
         return jsonify({"error": "Invalid camera type specified"}), 400
 
-    # Assign the target serial number safely
-    target_serial = CAMERA_IDS.get(camera_type)
-    
-    try:
-        app.logger.info(f"Attempting to connect {camera_type} camera with serial {target_serial}.")
-        app.logger.info(f"Cameras dictionary: {cameras}")
-
-        factory = pylon.TlFactory.GetInstance()
-        devices = factory.EnumerateDevices()
-
-        if not devices:
-            app.logger.error("No cameras detected.")
-            return jsonify({"error": "No cameras connected"}), 400
-
-        # Locate the correct camera by its serial number
-        selected_device = None
-        for device in devices:
-            if device.GetSerialNumber() == target_serial:
-                selected_device = device
-                break
-
-        if not selected_device:
-            app.logger.error(f"{camera_type.capitalize()} camera with serial {target_serial} not found.")
-            return jsonify({"error": f"{camera_type.capitalize()} camera not connected"}), 400
-
-        # Avoid reconnecting if the camera is already connected
-        if cameras.get(camera_type) and cameras[camera_type].IsOpen():
-            app.logger.info(f"{camera_type.capitalize()} camera is already connected.")
-            return jsonify({
-                "connected": True,
-                "name": selected_device.GetModelName(),
-                "serial": selected_device.GetSerialNumber()
-            }), 200
-
-        # Connect the selected device
-        cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
-        cameras[camera_type].Open()
-
-        if not cameras[camera_type].IsOpen():
-            app.logger.error(f"Failed to open {camera_type} camera after connection.")
-            return jsonify({"error": f"{camera_type.capitalize()} camera failed to open"}), 500
-
-        # Initialize camera properties
-        camera_properties[camera_type] = get_camera_properties(cameras[camera_type])
-
-        settings_data = get_settings()
-        apply_camera_settings(camera_type, cameras, camera_properties, settings_data)
-
-        app.logger.info(f"{camera_type.capitalize()} camera connected successfully.")
-        return jsonify({
-            "connected": True,
-            "name": selected_device.GetModelName(),
-            "serial": selected_device.GetSerialNumber()
-        }), 200
-
-    except Exception as e:
-        app.logger.error(f"Failed to connect {camera_type} camera: {e}")
-        return jsonify({"error": str(e)}), 500
+    result = connect_camera_internal(camera_type)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result), 200
 
 @app.route('/disconnect-camera', methods=['POST'])
 def disconnect_camera():
@@ -462,7 +371,7 @@ def disconnect_camera():
 
     
 @app.route('/api/status/camera', methods=['GET'])
-def check_camera_status():
+def get_camera_status():
     camera_type = request.args.get('type')
 
     if camera_type not in cameras:
@@ -470,11 +379,30 @@ def check_camera_status():
         return jsonify({"error": "Invalid camera type specified"}), 400
 
     camera = cameras.get(camera_type)
+    is_connected = camera is not None and camera.IsOpen()
+    is_streaming = stream_running.get(camera_type, False)
 
-    if camera is not None and camera.IsOpen():
-        return jsonify({"connected": True}), 200
+    return jsonify({
+        "connected": is_connected,
+        "streaming": is_streaming
+    }), 200
+    
+@app.route('/api/status/serial/<device_name>', methods=['GET'])
+def get_serial_device_status(device_name):
+    logging.debug(f"Received status request for device: {device_name}")
+    device = None
+    if device_name == 'turntable':
+        device = porthandler.turntable
     else:
-        return jsonify({"connected": False}), 200
+        logging.error("Invalid device name")
+        return jsonify({'error': 'Invalid device name'}), 400
+
+    if device is not None:
+        logging.debug(f"{device_name} is connected on port {device.port}")
+        return jsonify({'connected': True, 'port': device.port})
+    else:
+        logging.debug(f"{device_name} is not connected")
+        return jsonify({'connected': False})
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
@@ -592,11 +520,6 @@ def save_image():
     
 
 def stop_camera_stream(camera_type):
-    """
-    Stops the stream for the specified camera_type in Python,
-    without returning a Flask response.
-    Raises exceptions or returns info as needed.
-    """
     if camera_type not in cameras:
         raise ValueError(f"Invalid camera type: {camera_type}")
 
@@ -604,39 +527,101 @@ def stop_camera_stream(camera_type):
 
     with grab_locks[camera_type]:
         if not stream_running.get(camera_type, False):
-            # Nothing to do
             return "Stream already stopped."
-        
+
         try:
             stream_running[camera_type] = False
-
             if camera and camera.IsGrabbing():
                 camera.StopGrabbing()
                 app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
 
-            # If you’re also joining the thread, do it here:
             if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
                 stream_threads[camera_type].join(timeout=2)
-                app.logger.info(f"{camera_type.capitalize()} stream thread joined and stopped.")
+                app.logger.info(f"{camera_type.capitalize()} stream thread stopped.")
 
             stream_threads[camera_type] = None
             return f"{camera_type.capitalize()} stream stopped."
         except Exception as e:
-            # Let the caller handle this exception or re-raise
             raise RuntimeError(f"Failed to stop {camera_type} stream: {str(e)}")
+        
+def connect_camera_internal(camera_type):
+    target_serial = CAMERA_IDS.get(camera_type)
+    factory = pylon.TlFactory.GetInstance()
+    devices = factory.EnumerateDevices()
 
-@app.before_request
-def initialize_settings():
-    global settings_loaded
-    if not settings_loaded:
+    if not devices:
+        return {"error": "No cameras connected"}
+
+    selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
+
+    if not selected_device:
+        return {"error": f"Camera {camera_type} with serial {target_serial} not found"}
+
+    if cameras.get(camera_type) and cameras[camera_type].IsOpen():
+        return {
+            "connected": True,
+            "name": selected_device.GetModelName(),
+            "serial": selected_device.GetSerialNumber()
+        }
+
+    cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
+    cameras[camera_type].Open()
+
+    if not cameras[camera_type].IsOpen():
+        return {"error": f"Camera {camera_type} failed to open"}
+
+    camera_properties[camera_type] = get_camera_properties(cameras[camera_type])
+    settings_data = get_settings()
+    apply_camera_settings(camera_type, cameras, camera_properties, settings_data)
+
+    return {
+        "connected": True,
+        "name": selected_device.GetModelName(),
+        "serial": selected_device.GetSerialNumber()
+    }
+
+def start_camera_stream_internal(camera_type, scale_factor=0.25):
+    app.logger.info(f"Starting {camera_type} camera stream internally with scale factor {scale_factor}")
+
+    if camera_type not in cameras or cameras[camera_type] is None or not cameras[camera_type].IsOpen():
+        app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
+        return {"error": f"{camera_type.capitalize()} camera not connected"}
+
+    with grab_locks[camera_type]:
+        if stream_running.get(camera_type, False):
+            app.logger.info(f"{camera_type.capitalize()} stream is already running.")
+            return {"message": "Stream already running"}
+
+        if not cameras[camera_type].IsGrabbing():
+            app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
+            cameras[camera_type].StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+
+        if not stream_threads.get(camera_type) or not stream_threads[camera_type].is_alive():
+            app.logger.info(f"Starting new thread for {camera_type}")
+            stream_running[camera_type] = True
+        else:
+            app.logger.info(f"{camera_type.capitalize()} stream thread already running.")
+
+    return {"message": f"{camera_type.capitalize()} video stream started successfully."}
+        
+def initialize_cameras():
+    app.logger.info("Initializing cameras...")
+    for camera_type in CAMERA_IDS.keys():
+        if cameras.get(camera_type) and cameras[camera_type].IsOpen():
+            app.logger.info(f"{camera_type.capitalize()} camera is already connected. Skipping initialization.")
+            continue
+        
         try:
-            load_settings()  # Load settings from settings.json
-            app.logger.info("Settings loaded successfully.")
-            settings_loaded = True  # Prevent multiple loads
+            result = connect_camera_internal(camera_type)
+            if result.get('connected'):
+                app.logger.info(f"Successfully connected {camera_type} camera.")
+                start_camera_stream_internal(camera_type)
+            else:
+                app.logger.error(f"Failed to connect {camera_type} camera: {result.get('error')}")
         except Exception as e:
-            app.logger.error(f"Failed to load settings on startup: {e}")
+            app.logger.error(f"Error during {camera_type} camera initialization: {e}")
 
 if __name__ == '__main__':      
     load_settings()
-    app.run()
-
+    initialize_cameras()
+    app.run(debug=True, use_reloader=False)

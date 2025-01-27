@@ -218,12 +218,22 @@ def validate_param(param_name: str, param_value: float, properties: dict) -> flo
         raise KeyError(f"Property '{param_name}' not found in camera properties.")
     
 def apply_camera_settings(camera_type, cameras, camera_properties, settings):
-    camera_settings = settings.get('camera_settings', {}).get(camera_type, {})
+    app.logger.info(f"Loaded settings in apply_camera_settings: {settings}")
+
+    # Fix: Correct key access based on actual JSON structure
+    camera_settings = settings.get('camera_params', {}).get(camera_type, {})
+
+    if not camera_settings:
+        app.logger.warning(f"No settings found for {camera_type} in apply_camera_settings. Check the settings.json structure.")
+        return
+
+    app.logger.info(f"Applying settings to {camera_type}: {camera_settings}")
 
     camera = cameras.get(camera_type)
     if camera and camera.IsOpen():
         try:
             for setting_name, setting_value in camera_settings.items():
+                app.logger.info(f"Setting {setting_name} = {setting_value} on {camera_type} camera")
                 validate_and_set_camera_param(
                     camera,
                     setting_name,
@@ -231,20 +241,20 @@ def apply_camera_settings(camera_type, cameras, camera_properties, settings):
                     camera_properties[camera_type],
                     camera_type                  
                 )
-            app.logger.info(f"{camera_type.capitalize()} camera settings applied: {camera_settings}")
+            app.logger.info(f"{camera_type.capitalize()} camera settings applied successfully.")
         except Exception as e:
-            logging.error(f"Failed to apply settings to {camera_type} camera: {e}")
+            app.logger.error(f"Failed to apply settings to {camera_type} camera: {e}")
     else:
-        logging.warning(f"{camera_type.capitalize()} camera is not open. Cannot apply settings.")
+        app.logger.warning(f"{camera_type.capitalize()} camera is not open. Cannot apply settings.")
+
 
 
 def validate_and_set_camera_param(camera, param_name: str, param_value: float, properties: dict, camera_type: str):
     valid_value = validate_param(param_name, param_value, properties)
 
     try:
-        was_streaming = stream_running[camera_type]  # ✅ Check if stream was running
-
-        # ✅ Stop stream if changing Width or Height
+        was_streaming = stream_running[camera_type] 
+        
         if param_name in ['Width', 'Height'] and was_streaming:
             stream_running[camera_type] = False
 
@@ -252,7 +262,6 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
                 camera.StopGrabbing()
                 app.logger.info(f"{camera_type.capitalize()} stream stopped to apply {param_name} change.")
 
-            # ✅ Wait for the streaming thread to fully stop
             if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
                 stream_threads[camera_type].join(timeout=2)
                 app.logger.info(f"{camera_type.capitalize()} stream thread joined.")
@@ -260,7 +269,6 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
             stream_threads[camera_type] = None
             time.sleep(0.5)  # Short pause to ensure the camera is ready
 
-        # ✅ Apply the new setting
         if not camera.IsOpen():
             camera.Open()
             app.logger.info(f"{camera_type.capitalize()} camera reopened to apply {param_name}.")
@@ -283,9 +291,8 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
         elif param_name == 'Gamma':
             camera.Gamma.SetValue(valid_value)
 
-        app.logger.info(f"✅ {camera_type.capitalize()} camera {param_name} set to {valid_value}")
+        app.logger.info(f" {camera_type.capitalize()} camera {param_name} set to {valid_value}")
 
-        # ✅ Restart the stream if it was running before
         if param_name in ['Width', 'Height'] and was_streaming:
             stream_running[camera_type] = True
             stream_threads[camera_type] = threading.Thread(target=stream_video, args=(camera_type, 1.0))
@@ -293,15 +300,10 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
             app.logger.info(f"🔄 {camera_type.capitalize()} stream restarted after {param_name} change.")
 
     except Exception as e:
-        logging.error(f"❌ Failed to set {param_name} for {camera_type} camera: {e}")
+        logging.error(f" Failed to set {param_name} for {camera_type} camera: {e}")
 
     return valid_value
 
-
-
-
-
-# ✅ Notify frontend about stream status
 def notify_stream_status(camera_type: str, is_streaming: bool):
     try:
         response = requests.post(f'http://localhost:4200/api/stream-status', json={

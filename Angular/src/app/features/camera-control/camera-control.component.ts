@@ -55,32 +55,60 @@ export class CameraControlComponent implements OnInit {
       this.settingsLoaded = true;
     }
   
-    // Check camera connection status
-    this.checkCameraConnection('main');
-    this.checkCameraConnection('side');
+    // Initial checks
+    this.checkCameraStatus('main');
+    this.checkCameraStatus('side');
   
-    // Periodically check connection status for both cameras
+    // Periodically check both connection and stream status
     interval(5000).subscribe(() => {
-      this.checkCameraConnection('main');
-      this.checkCameraConnection('side');
+      this.checkCameraStatus('main');
+      this.checkCameraStatus('side');
     });
+
+    setTimeout(() => {
+      this.checkCameraStatus('main');
+      this.checkCameraStatus('side');
+    }, 3000);
   
     // Set the shared save directory
     this.sharedService.setSaveDirectory(this.saveDirectory);
   
-    // Subscribe to camera connection status
+    // Subscribe to camera connection and streaming status
     this.sharedService.cameraConnectionStatus$.subscribe(status => {
       this.isMainConnected = status.main;
       this.isSideConnected = status.side;
       console.log(`Main Connected: ${this.isMainConnected}, Side Connected: ${this.isSideConnected}`);
     });
   
-    // Subscribe to camera stream status
     this.sharedService.cameraStreamStatus$.subscribe(status => {
       this.isMainStreaming = status.main;
       this.isSideStreaming = status.side;
       console.log(`Main Streaming: ${this.isMainStreaming}, Side Streaming: ${this.isSideStreaming}`);
     });
+  }
+
+  checkCameraStatus(cameraType: 'main' | 'side'): void {
+    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe(
+      (response: any) => {
+        if (cameraType === 'main') {
+          this.isMainConnected = response.connected;
+          this.isMainStreaming = response.streaming;
+        } else {
+          this.isSideConnected = response.connected;
+          this.isSideStreaming = response.streaming;
+        }
+  
+        // Also update the SharedService
+        this.sharedService.setCameraConnectionStatus(cameraType, response.connected);
+        this.sharedService.setCameraStreamStatus(cameraType, response.streaming);
+  
+        console.log(
+          `${cameraType.toUpperCase()} status - Connected: ${response.connected}, ` + 
+          `Streaming: ${response.streaming}`
+        );
+      },
+      error => console.error(`Error checking ${cameraType} camera status:`, error)
+    );
   }
 
   checkCameraConnection(cameraType: 'main' | 'side'): void {
@@ -209,8 +237,7 @@ export class CameraControlComponent implements OnInit {
       camera_type: cameraType,
       setting_name: setting,
       setting_value: value
-    }).subscribe(
-      (response: any) => {
+    }).subscribe((response: any) => {
         console.log(`Setting applied successfully for ${cameraType} camera:`, response);
 
         const correctedValue = response.updated_value;

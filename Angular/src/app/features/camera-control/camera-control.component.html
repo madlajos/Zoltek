@@ -81,7 +81,8 @@
 
       <button type="button"
               (click)="sharedService.toggleStream('main')"
-              [ngClass]="{'stream-button': true, 'streaming': isMainStreaming}">
+              [ngClass]="{'stream-button': true, 'streaming': isMainStreaming}"
+              [disabled]="!isMainConnected">
         <mat-icon *ngIf="isMainStreaming; else playMainIcon">stop</mat-icon>
         <ng-template #playMainIcon><mat-icon>play_arrow</mat-icon></ng-template>
       </button>
@@ -99,11 +100,12 @@
       </button>
 
       <button type="button"
-              (click)="sharedService.toggleStream('side')"
-              [ngClass]="{'stream-button': true, 'streaming': isSideStreaming}">
-        <mat-icon *ngIf="isSideStreaming; else playSideIcon">stop</mat-icon>
-        <ng-template #playSideIcon><mat-icon>play_arrow</mat-icon></ng-template>
-      </button>
+        (click)="sharedService.toggleStream('side')"
+        [ngClass]="{'stream-button': true, 'streaming': isSideStreaming}"
+        [disabled]="!isSideConnected">
+  <mat-icon *ngIf="isSideStreaming; else playSideIcon">stop</mat-icon>
+  <ng-template #playSideIcon><mat-icon>play_arrow</mat-icon></ng-template>
+</button>
     </div>
   </td>
 </tr>
