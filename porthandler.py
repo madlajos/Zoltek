@@ -4,38 +4,58 @@ import logging
 
 turntable = None
 
-def connect_to_serial_device(device_name, identification_command, expected_response):
+def connect_to_serial_device(device_name, identification_command, expected_response, 
+                             vid=0x2341, pid=0x8036):
+    """
+    Attempt to connect to a serial device by scanning for a matching VID/PID.
+    Then verify the device by sending an identification command and comparing the response.
+    """
     global turntable
     ports = list(serial.tools.list_ports.comports())
     if not ports:
-        logging.error(f"No COM ports found for {device_name}.")
+        logging.error(f"No COM ports found at all while looking for {device_name}.")
+        return None
+    
+    # Filter ports by known vid/pid
+    matching_ports = [
+        port for port in ports
+        if (port.vid == vid and port.pid == pid)
+    ]
+    if not matching_ports:
+        logging.warning(f"No ports found with VID=0x{vid:04x} PID=0x{pid:04x} for {device_name}.")
         return None
 
-    for port in ports:
+    logging.info(f"Found {len(matching_ports)} candidate port(s) for {device_name} by VID/PID.")
+    
+    for port_info in matching_ports:
+        serial_port = None
         try:
-            logging.info(f"Trying port {port.device} for {device_name}")
-            serial_port = serial.Serial(port.device, baudrate=115200, timeout=1)
+            logging.info(f"Trying {port_info.device} for {device_name}.")
+            serial_port = serial.Serial(port_info.device, baudrate=115200, timeout=1)
 
-            serial_port.write(identification_command.encode() + b'\n')
+            # Send the ID command
+            serial_port.write((identification_command + '\n').encode())
             response = serial_port.readline().decode(errors='ignore').strip()
-            logging.info(f"Received response from {port.device}: '{response}'")
+            logging.info(f"Received response from {port_info.device}: '{response}'")
 
             if response == expected_response:
-                logging.info(f"Connected to {device_name} on port {port.device}")
-                turntable = serial_port  # Store active connection globally
-                return serial_port  # Return the connection
+                logging.info(f"Connected to {device_name} on port {port_info.device}")
+                turntable = serial_port  # store globally
+                return serial_port
 
-            logging.warning(f"Unexpected response '{response}' from {device_name} on {port.device}")
-
+            # If response is not what we expect, log and move on
+            logging.warning(f"Unexpected response '{response}' on {port_info.device}")
         except Exception as e:
-            logging.exception(f"Exception occurred while trying to connect to {device_name} on {port.device}: {e}")
-
+            logging.exception(
+                f"Exception occurred while trying to connect to {device_name} on {port_info.device}: {e}"
+            )
         finally:
-            if serial_port and serial_port.is_open and response != expected_response:
-                logging.info(f"Closing {port.device}, no successful ID match.")
+            # If not the correct device, close the port
+            if serial_port and serial_port.is_open and turntable != serial_port:
+                logging.info(f"Closing {port_info.device}, no successful ID match.")
                 serial_port.close()
 
-    logging.error(f"Failed to connect to {device_name}. No matching ports found.")
+    logging.error(f"Failed to connect to {device_name}. No matching ports responded correctly.")
     return None
 
 
@@ -63,9 +83,15 @@ def connect_to_turntable():
     
     identification_command = "IDN?"
     expected_response = "TTBL"
-    turntable = connect_to_serial_device("Turntable", identification_command, expected_response)
+    turntable = connect_to_serial_device(
+        device_name="Turntable", 
+        identification_command=identification_command, 
+        expected_response=expected_response,
+        vid=0x2341,
+        pid=0x8036
+    )
     if turntable is None:
-        raise Exception("Turntable device not found")
+        raise Exception("Turntable device not found or did not respond correctly.")
     return turntable
 
 def get_turntable():
