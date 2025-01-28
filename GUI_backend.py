@@ -3,9 +3,10 @@ from flask_cors import CORS
 from tkinter import filedialog, Tk
 import os
 import cv2
+import time
 import logging
 from logging.handlers import RotatingFileHandler
-from globals import cameras, stream_running, stream_threads, grab_locks, turntable_position
+import globals
 from pypylon import pylon
 from cameracontrol import (apply_camera_settings, set_centered_offset, 
                            validate_and_set_camera_param, get_camera_properties, Handler)
@@ -40,6 +41,7 @@ latest_frames = {
     'main': None,
     'side': None
 }
+
 ### Serial Device Functions ###
 # Define the route for checking device status
 @app.route('/api/connect-to-turntable', methods=['POST'])
@@ -81,14 +83,15 @@ def check_serial_connections():
     })
     
 ### Turntable Functions ###
+### Turntable Functions ###
 @app.route('/home_turntable_with_image', methods=['POST'])
 def home_turntable_with_image():
     try:
         app.logger.info("Homing process initiated.")
         camera_type = 'main'
 
-        with grab_locks[camera_type]:
-            camera = cameras.get(camera_type)
+        with globals.grab_locks[camera_type]:
+            camera = globals.cameras.get(camera_type)
 
             if camera is None or not camera.IsOpen():
                 app.logger.error("Main camera is not connected or open.")
@@ -112,9 +115,10 @@ def home_turntable_with_image():
                 porthandler.write_turntable(command)
                 app.logger.info("Rotation command sent to turntable.")
 
-                # Set position to 0 after homing
-                globals.turntable_position = 0  
-                app.logger.info("Homing completed successfully.")
+                # Set position to 0 and mark as homed
+                globals.turntable_position = 0
+                globals.turntable_homed = True  # Mark as homed
+                app.logger.info("Homing completed successfully. Position set to 0.")
 
                 return jsonify({
                     "message": "Homing successful",
@@ -127,34 +131,44 @@ def home_turntable_with_image():
                 return jsonify({"error": "Failed to grab image from camera."}), 500
 
     except Exception as e:
-        app.logger.error(f"Exception during homing: {str(e)}")
+        app.logger.exception(f"Error during homing: {e}")
         return jsonify({"error": str(e)}), 500
+
 
     
 @app.route('/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
-    global turntable_position
-    data = request.get_json()
-    move_by = data.get('degrees')
-
-    if move_by is None or not isinstance(move_by, (int, float)):
-        return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
-
-    direction = 'CW' if move_by > 0 else 'CCW'
-    command = f"{abs(move_by)},{1 if move_by > 0 else 0}"
-
     try:
+        data = request.get_json()
+        move_by = data.get('degrees')
+
+        if move_by is None or not isinstance(move_by, (int, float)):
+            app.logger.error("Invalid input: 'degrees' must be a number.")
+            return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
+
+        direction = 'CW' if move_by > 0 else 'CCW'
+        command = f"{abs(move_by)},{1 if move_by > 0 else 0}"
+        app.logger.info(f"Sending command to turntable: {command}")
+
+        # Send the command to the turntable
         porthandler.write_turntable(command)
 
-        if turntable_position is not None:
-            turntable_position = (turntable_position + move_by) % 360  # Update position only if homed
-        
+        # Update position only if the turntable is homed
+        if globals.turntable_homed:
+            app.logger.info(f"Updating position (before): {globals.turntable_position}")
+            globals.turntable_position = (globals.turntable_position - move_by) % 360
+            app.logger.info(f"Updated position (after): {globals.turntable_position}")
+        else:
+            app.logger.info("Turntable is not homed. Position remains '?'.")
+
         return jsonify({
             'message': f'Turntable moved {move_by} degrees {direction}',
-            'current_position': turntable_position if turntable_position is not None else '?'
+            'current_position': globals.turntable_position if globals.turntable_homed else '?'
         })
     except Exception as e:
+        app.logger.exception(f"Error in move_turntable_relative: {e}")
         return jsonify({'error': str(e)}), 500
+
     
 @app.route('/move_turntable_absolute', methods=['POST'])
 def move_turntable_absolute():
@@ -225,7 +239,7 @@ def start_video_stream():
         camera_type = request.args.get('type')
         scale_factor = float(request.args.get('scale', 0.25))
 
-        if not camera_type or camera_type not in cameras:
+        if not camera_type or camera_type not in globals.cameras:
             app.logger.error(f"Invalid or missing camera type: {camera_type}")
             return jsonify({"error": "Invalid or missing camera type"}), 400
 
@@ -235,9 +249,9 @@ def start_video_stream():
             app.logger.error(f"Camera connection failed: {res['error']}")
             return jsonify(res), 400
 
-        with grab_locks[camera_type]:
-            if not stream_running.get(camera_type, False):
-                stream_running[camera_type] = True
+        with globals.grab_locks[camera_type]:
+            if not globals.stream_running.get(camera_type, False):
+                globals.stream_running[camera_type] = True
                 app.logger.info(f"stream_running[{camera_type}] set to True in start_video_stream")
 
         app.logger.info(f"Starting video stream for {camera_type}")
@@ -276,7 +290,7 @@ def stop_video_stream():
 
 def generate_frames(camera_type, scale_factor=0.25):
     app.logger.info(f"Generating frames for {camera_type} with scale factor {scale_factor}")
-    camera = cameras.get(camera_type)
+    camera = globals.cameras.get(camera_type)
 
     if not camera:
         app.logger.error(f"{camera_type.capitalize()} camera is not connected.")
@@ -287,8 +301,8 @@ def generate_frames(camera_type, scale_factor=0.25):
         camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 
     try:
-        while stream_running[camera_type]:
-            with grab_locks[camera_type]:
+        while globals.stream_running[camera_type]:
+            with globals.grab_locks[camera_type]:
                 grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
                 if grab_result.GrabSucceeded():
@@ -311,14 +325,14 @@ def generate_frames(camera_type, scale_factor=0.25):
         app.logger.error(f"Error in {camera_type} video stream: {e}")
 
         if "Device has been removed" in str(e):
-            stream_running[camera_type] = False
+            globals.stream_running[camera_type] = False
             if camera and camera.IsOpen():
                 try:
                     camera.StopGrabbing()
                     camera.Close()
                 except Exception as close_err:
                     app.logger.error(f"Failed to close {camera_type} after unplug: {close_err}")
-            cameras[camera_type] = None  # Now future status checks see `None => not connected`
+            globals.cameras[camera_type] = None  # Now future status checks see `None => not connected`
     
     finally:
         # stream_running[camera_type] = False
@@ -340,7 +354,7 @@ def connect_camera():
 def disconnect_camera():
     camera_type = request.args.get('type')
 
-    if camera_type not in cameras or cameras[camera_type] is None:
+    if camera_type not in globals.cameras or globals.cameras[camera_type] is None:
         app.logger.warning(f"{camera_type.capitalize()} camera is already disconnected or not initialized")
         return jsonify({"status": "already disconnected"}), 200
 
@@ -358,7 +372,7 @@ def disconnect_camera():
         app.logger.error(f"Failed to disconnect {camera_type} camera: {e}")
         return jsonify({"error": str(e)}), 500
 
-    camera = cameras.get(camera_type, None)
+    camera = globals.cameras.get(camera_type, None)
     if camera and camera.IsGrabbing():
         camera.StopGrabbing()
         app.logger.info(f"{camera_type.capitalize()} camera grabbing stopped.")
@@ -368,7 +382,7 @@ def disconnect_camera():
         app.logger.info(f"{camera_type.capitalize()} camera closed.")
 
     # Clean up references
-    cameras[camera_type] = None
+    globals.cameras[camera_type] = None
     camera_properties[camera_type] = None  # Make sure camera_properties is in scope
     app.logger.info(f"{camera_type.capitalize()} camera disconnected successfully.")
 
@@ -379,13 +393,13 @@ def disconnect_camera():
 def get_camera_status():
     camera_type = request.args.get('type')
 
-    if camera_type not in cameras:
+    if camera_type not in globals.cameras:
         app.logger.error(f"Invalid camera type: {camera_type}")
         return jsonify({"error": "Invalid camera type specified"}), 400
 
-    camera = cameras.get(camera_type)
+    camera = globals.cameras.get(camera_type)
     is_connected = camera is not None and camera.IsOpen()
-    is_streaming = stream_running.get(camera_type, False)
+    is_streaming = globals.stream_running.get(camera_type, False)
 
     # ✅ 1) Double-check if device is truly present in the enumerated device list.
     factory = pylon.TlFactory.GetInstance()
@@ -408,8 +422,8 @@ def get_camera_status():
                 camera.Close()
             except Exception as e:
                 app.logger.error(f"Error closing camera {camera_type} after removal: {e}")
-        cameras[camera_type] = None
-        stream_running[camera_type] = False
+        globals.cameras[camera_type] = None
+        globals.stream_running[camera_type] = False
         is_connected = False
         is_streaming = False
 
@@ -448,7 +462,7 @@ def update_camera_settings():
 
         # Apply the setting to the camera
         updated_value = validate_and_set_camera_param(
-            cameras[camera_type],
+            globals.cameras[camera_type],
             setting_name,
             setting_value,
             camera_properties[camera_type],
@@ -474,7 +488,7 @@ def update_camera_settings():
 def video_stream():
     camera_type = request.args.get('type')
 
-    if camera_type not in cameras:
+    if camera_type not in globals.cameras:
         app.logger.error(f"Invalid camera type: {camera_type}")
         return jsonify({"error": "Invalid camera type specified"}), 400
 
@@ -552,26 +566,26 @@ def save_image():
     
 
 def stop_camera_stream(camera_type):
-    if camera_type not in cameras:
+    if camera_type not in globals.cameras:
         raise ValueError(f"Invalid camera type: {camera_type}")
 
-    camera = cameras.get(camera_type)
+    camera = globals.cameras.get(camera_type)
 
-    with grab_locks[camera_type]:
-        if not stream_running.get(camera_type, False):
+    with globals.grab_locks[camera_type]:
+        if not globals.stream_running.get(camera_type, False):
             return "Stream already stopped."
 
         try:
-            stream_running[camera_type] = False
+            globals.stream_running[camera_type] = False
             if camera and camera.IsGrabbing():
                 camera.StopGrabbing()
                 app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
 
-            if stream_threads.get(camera_type) and stream_threads[camera_type].is_alive():
-                stream_threads[camera_type].join(timeout=2)
+            if globals.stream_threads.get(camera_type) and globals.stream_threads[camera_type].is_alive():
+                globals.stream_threads[camera_type].join(timeout=2)
                 app.logger.info(f"{camera_type.capitalize()} stream thread stopped.")
 
-            stream_threads[camera_type] = None
+            globals.stream_threads[camera_type] = None
             return f"{camera_type.capitalize()} stream stopped."
         except Exception as e:
             raise RuntimeError(f"Failed to stop {camera_type} stream: {str(e)}")
@@ -589,22 +603,22 @@ def connect_camera_internal(camera_type):
     if not selected_device:
         return {"error": f"Camera {camera_type} with serial {target_serial} not found"}
 
-    if cameras.get(camera_type) and cameras[camera_type].IsOpen():
+    if globals.cameras.get(camera_type) and globals.cameras[camera_type].IsOpen():
         return {
             "connected": True,
             "name": selected_device.GetModelName(),
             "serial": selected_device.GetSerialNumber()
         }
 
-    cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
-    cameras[camera_type].Open()
+    globals.cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
+    globals.cameras[camera_type].Open()
 
-    if not cameras[camera_type].IsOpen():
+    if not globals.cameras[camera_type].IsOpen():
         return {"error": f"Camera {camera_type} failed to open"}
 
-    camera_properties[camera_type] = get_camera_properties(cameras[camera_type])
+    camera_properties[camera_type] = get_camera_properties(globals.cameras[camera_type])
     settings_data = get_settings()
-    apply_camera_settings(camera_type, cameras, camera_properties, settings_data)
+    apply_camera_settings(camera_type, globals.cameras, camera_properties, settings_data)
 
     return {
         "connected": True,
@@ -615,22 +629,22 @@ def connect_camera_internal(camera_type):
 def start_camera_stream_internal(camera_type, scale_factor=0.25):
     app.logger.info(f"Starting {camera_type} camera stream internally with scale factor {scale_factor}")
 
-    if camera_type not in cameras or cameras[camera_type] is None or not cameras[camera_type].IsOpen():
+    if camera_type not in globals.cameras or globals.cameras[camera_type] is None or not globals.cameras[camera_type].IsOpen():
         app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
         return {"error": f"{camera_type.capitalize()} camera not connected"}
 
-    with grab_locks[camera_type]:
-        if stream_running.get(camera_type, False):
+    with globals.grab_locks[camera_type]:
+        if globals.stream_running.get(camera_type, False):
             app.logger.info(f"{camera_type.capitalize()} stream is already running.")
             return {"message": "Stream already running"}
 
-        if not cameras[camera_type].IsGrabbing():
+        if not globals.cameras[camera_type].IsGrabbing():
             app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
-            cameras[camera_type].StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+            globals.cameras[camera_type].StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 
-        if not stream_threads.get(camera_type) or not stream_threads[camera_type].is_alive():
+        if not globals.stream_threads.get(camera_type) or not globals.stream_threads[camera_type].is_alive():
             app.logger.info(f"Starting new thread for {camera_type}")
-            stream_running[camera_type] = True
+            globals.stream_running[camera_type] = True
         else:
             app.logger.info(f"{camera_type.capitalize()} stream thread already running.")
 
@@ -639,7 +653,7 @@ def start_camera_stream_internal(camera_type, scale_factor=0.25):
 def initialize_cameras():
     app.logger.info("Initializing cameras...")
     for camera_type in CAMERA_IDS.keys():
-        if cameras.get(camera_type) and cameras[camera_type].IsOpen():
+        if globals.cameras.get(camera_type) and globals.cameras[camera_type].IsOpen():
             app.logger.info(f"{camera_type.capitalize()} camera is already connected. Skipping initialization.")
             continue
         

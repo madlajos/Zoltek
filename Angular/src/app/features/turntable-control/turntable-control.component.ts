@@ -71,7 +71,13 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
     this.http.post(`${this.BASE_URL}/move_turntable_relative`, payload).subscribe(
       (response: any) => {
         console.log('Turntable moved successfully!', response.message);
-        this.turntablePosition = response.current_position;  // Update position only after homing
+        
+        // Only update if it's NOT "?"
+        if (response.current_position !== '?') {
+          this.turntablePosition = response.current_position;
+        } else {
+          this.turntablePosition = '?'; 
+        }
       },
       (error: any) => {
         console.error('Failed to move turntable relative!', error);
@@ -118,6 +124,17 @@ homeTurntable(): void {
     console.log('Movement amount set to', this.movementAmount);
   }
 
+  formatPosition(pos: number | string): string {
+    if (pos === '?') {
+      return '?'; // Not homed
+    }
+    const numericValue = Number(pos);
+    if (isNaN(numericValue)) {
+      console.error('Invalid position value:', pos);
+      return '?';
+    }
+    return numericValue.toFixed(1) + '°';
+  }
 
   onFocus(): void {
     this.isEditingPosition = true;

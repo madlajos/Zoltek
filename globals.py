@@ -1,6 +1,7 @@
 import threading
 from flask import Flask
-turntable_position = 0
+turntable_position = "?"
+turntable_homed = False 
 
 app = Flask(__name__)
 
