@@ -4,7 +4,7 @@ import { ImageViewerComponent } from './features/image-viewer/image-viewer.compo
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 
 const routes: Routes = [
-  { path: '', component: ImageViewerComponent },  // Default route
+  { path: ''},  // Default route
   { path: 'camera-control', component: CameraControlComponent },  // Camera Control page
   { path: '**', redirectTo: '' }  // Redirect unknown routes to home
 ];

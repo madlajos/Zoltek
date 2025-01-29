@@ -1,38 +1,51 @@
-<mat-sidenav-container class="sidenav-container">
-  <!-- Sidebar -->
-  <mat-sidenav #sidenav mode="side" position="end" opened class="sidenav">
-    <mat-accordion multi="true">
+<!-- Top: Camera Row -->
+<div class="main-content">
+  <app-image-viewer></app-image-viewer>
+</div>
 
-      <mat-expansion-panel expanded="true">
-        <mat-expansion-panel-header>
-          <mat-panel-title>Turntable Control</mat-panel-title>
-        </mat-expansion-panel-header>
-        <app-turntable-control></app-turntable-control>
-      </mat-expansion-panel>
+<!-- Bottom: Settings Row -->
+<div class="settings-row">
+  <mat-sidenav-container class="sidenav-container">
+    
+    <!-- The Settings Sidenav on the right -->
+    <mat-sidenav #sidenav
+                 mode="side"
+                 position="end"
+                 opened
+                 class="sidenav">
+      <mat-accordion multi="true">
+        <mat-expansion-panel expanded="true">
+          <mat-expansion-panel-header>
+            <mat-panel-title>Turntable Control</mat-panel-title>
+          </mat-expansion-panel-header>
+          <app-turntable-control></app-turntable-control>
+        </mat-expansion-panel>
 
-      <mat-expansion-panel expanded="true">
-        <mat-expansion-panel-header>
-          <mat-panel-title>Camera Settings</mat-panel-title>
-        </mat-expansion-panel-header>
-        <app-camera-control></app-camera-control>
-      </mat-expansion-panel>
+        <mat-expansion-panel expanded="true">
+          <mat-expansion-panel-header>
+            <mat-panel-title>Camera Settings</mat-panel-title>
+          </mat-expansion-panel-header>
+          <app-camera-control></app-camera-control>
+        </mat-expansion-panel>
 
-      <mat-expansion-panel expanded="true">
-        <mat-expansion-panel-header>
-          <mat-panel-title>COM Settings</mat-panel-title>
-        </mat-expansion-panel-header>
-        <app-comport-control></app-comport-control>
-      </mat-expansion-panel>
-    </mat-accordion>
-  </mat-sidenav>
+        <mat-expansion-panel expanded="true">
+          <mat-expansion-panel-header>
+            <mat-panel-title>COM Settings</mat-panel-title>
+          </mat-expansion-panel-header>
+          <app-comport-control></app-comport-control>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </mat-sidenav>
 
-  <!-- Toggle Button for Sidebar -->
-  <button class="toggle-button" (click)="sidenav.toggle()">
-    <mat-icon>{{ sidenav.opened ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-  </button>
+    <!-- Toggle Button for Sidenav -->
+    <button class="toggle-button" (click)="sidenav.toggle()">
+      <mat-icon>{{ sidenav.opened ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
 
-  <!-- Main Content -->
-  <div class="main-content">
-    <router-outlet></router-outlet>
-  </div>
-</mat-sidenav-container>
+    <!-- Main Content (if needed) -->
+    <div class="main-content">
+      <router-outlet></router-outlet>
+    </div>
+
+  </mat-sidenav-container>
+</div>

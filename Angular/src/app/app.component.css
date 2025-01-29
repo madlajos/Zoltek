@@ -7,99 +7,38 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1,
-h2 {
-  color: rgb(195, 191, 191);
-  font-size: 20px;
-}
-
-h3,
-h4,
-h5,
-h6 {
-  margin: 8px 0;
-}
-
-p {
-  margin: 0;
-}
-
-.sidenav-container {
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-/* Sidebar styling */
-.sidenav {
-  width: 360px; /* Adjust width as needed */
-  background-color: #000; /* Black background color */
-  color: #fff; /* White text color */
-  font-size: 16px; /* Adjust text size as needed */
-  margin-right: 10px;
-}
-  
-/* Force main-content to stretch fully */
+/*** Main Content (Main UI) ***/
 .main-content {
   display: flex;
   justify-content: left;  /* Center the content */
   align-items: flex-start;
   width: 100%;
   margin: 0;
+  margin-top: 6px;
   box-sizing: border-box;
 }
+/*** Main Content (Main UI) ***/
 
-.video-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  margin-left: 100px;
+/*** SideNav ***/
+/* Sidebar styling */
+.sidenav {
+  width: 360px; /* Adjust width as needed */
+  background-color: #000; /* Black background color */
+  color: #fff; /* White text color */
+  font-size: 16px; /* Adjust text size as needed */
+  margin-right: 20px;
+  margin-top: 10px;
 }
 
-
-/* Style the expansion panel headers */
+/* Style the Sidenav headers */
 .mat-expansion-panel-header {
   background-color: rgb(46, 46, 46);
   color: #fff;
-  height: 36px;
-  line-height: 36px;
+  height: 30px;
+  line-height: 30px;
   padding: 2px 24px;
   margin: 0;
   transition: background-color 0.3s;
-}
-
-.mat-expansion-panel-header .mat-expansion-indicator {
-  color: #fff; /* Ensure the arrow is visible */
-  margin: 0; /* Remove any margin around the indicator */
-  padding: 0; /* Remove any padding around the indicator */
-}
-
-.mat-accordion .mat-expansion-panel {
-  margin: 0px; /* Remove margin between panels */
-}
-
-.mat-expansion-panel-body {
-  padding: 100px; /* Remove padding to ensure content aligns correctly */
-  padding-bottom: 100px; /* Add padding to the bottom to create space between components */
-}
-
-.mat-expansion-panel-content {
-  padding-top: 12px; /* Add vertical padding above the content */
-  padding-bottom: 12px; /* Add vertical padding below the content */
-  margin: 10px; /* Remove any margin that may cause offset */
-}
-  
-.content-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  max-width: 800px;
 }
 
 /* Hover effect for both closed and open panel headers */
@@ -108,30 +47,26 @@ p {
   background-color: #444; /* Darker grey for hover effect */
 }
 
-html, body {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;  /* Prevents scrollbars from appearing */
-}
-
 .mat-sidenav-container {
   height: 100vh;
-  overflow: hidden;  /* Prevents scrollbars from appearing in the sidenav container */
 }
 
+/* Remove margin between panels */
+.mat-accordion .mat-expansion-panel {
+  margin: 0px; 
+}
+/*** SideNav ***/
 
-/* Toggle Button */
+/*** Toggle Button ***/
 .toggle-button {
   position: absolute;
-  top: 50%;
-  right: 360px; /* Align next to the sidebar */
+  top: 30%;
+  right: 20px; /* Align next to the sidebar */
   transform: translateY(-50%);
+  transform: translateX(10%);
   background-color: #444;
   border: none;
-  border-radius: 0 5px 5px 0;
-  padding: 10px;
+  border-radius: 5px 0 0 5px;
   cursor: pointer;
   transition: right 0.3s ease;
   z-index: 10;
@@ -140,8 +75,4 @@ html, body {
 .toggle-button mat-icon {
   color: #fff;
 }
-
-/* Adjust position when sidebar is closed */
-.mat-drawer-closed + .toggle-button {
-  right: 0; /* Move the button to the edge */
-}
+/*** Toggle Button ***/

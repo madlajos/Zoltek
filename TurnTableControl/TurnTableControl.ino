@@ -7,7 +7,7 @@
 // Movement Configuration
 const long steps_per_revolution = 10000;  // 10,000 steps for full 360-degree rotation
 const int max_pulse_delay_us = 1000;      // Slowest pulse delay
-const int min_pulse_delay_us = 200;       // Fastest pulse delay
+const int min_pulse_delay_us = 400;       // Fastest pulse delay
 const int accel_steps = 100;              // Number of steps for acceleration/deceleration
 
 // Command Queue
