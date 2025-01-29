@@ -76,3 +76,15 @@
   color: #fff;
 }
 /*** Toggle Button ***/
+
+
+/*** Control Panel ***/
+.control-panel-container {
+  margin-top: 20px;
+  width: 800px;
+  height: 94%;
+  align-items: flex-end;
+  padding-left: 2px;
+}
+
+/*** Control Panel ***/

@@ -1,18 +1,19 @@
-<!-- Top: Camera Row -->
+<!-- Camera Row -->
 <div class="main-content">
   <app-image-viewer></app-image-viewer>
 </div>
 
-<!-- Bottom: Settings Row -->
+<!-- Bottom Row -->
 <div class="settings-row">
   <mat-sidenav-container class="sidenav-container">
     
-    <!-- The Settings Sidenav on the right -->
-    <mat-sidenav #sidenav
-                 mode="side"
-                 position="end"
-                 opened
-                 class="sidenav">
+    <!-- Left: Control Panel -->
+    <div class="control-panel-container">
+      <app-control-panel></app-control-panel>
+    </div>
+
+    <!-- Right: Settings Panel -->
+    <mat-sidenav #sidenav mode="side" position="end" opened class="sidenav">
       <mat-accordion multi="true">
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
@@ -41,11 +42,6 @@
     <button class="toggle-button" (click)="sidenav.toggle()">
       <mat-icon>{{ sidenav.opened ? 'chevron_right' : 'chevron_left' }}</mat-icon>
     </button>
-
-    <!-- Main Content (if needed) -->
-    <div class="main-content">
-      <router-outlet></router-outlet>
-    </div>
 
   </mat-sidenav-container>
 </div>

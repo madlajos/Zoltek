@@ -1,0 +1,33 @@
+<div class="control-panel">
+  <div class="control-panel-header">Kezelőpult</div>
+
+  <!-- New container to align buttons to the top-right -->
+  <div class="button-container">
+    <!-- Relay Toggle Button (Portrait) -->
+    <button (click)="toggleRelay()" [ngClass]="relayState ? 'relay-on' : 'relay-off'" class="relay-button">
+      {{ relayState ? 'Relay ON' : 'Relay OFF' }}
+    </button>
+
+    <div class="side-buttons">
+      <!-- First Landscape Button -->
+      <button class="side-button">First Button</button>
+      <!-- Second Landscape Button -->
+      <button class="side-button">Second Button</button>
+    </div>
+  </div>
+
+  <!-- Rest of the form remains unchanged -->
+  <div class="control-panel-content">
+    <label for="nozzle-id">Dűzni Azonosító:</label>
+    <input type="text" id="nozzle-id" class="input-box" />
+
+    <label for="operator-id">Operátor Azonosító:</label>
+    <input type="text" id="operator-id" class="input-box" />
+
+    <label for="measurement">Mérés folyamatban:</label>
+    <progress id="measurement" value="3" max="18"></progress>
+
+    <!-- Signature input -->
+    <canvas id="signature-pad" class="signature-pad"></canvas>
+  </div>
+</div>

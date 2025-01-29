@@ -201,7 +201,26 @@ def move_turntable_absolute():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/toggle-relay', methods=['POST'])
+def toggle_relay():
+    try:
+        data = request.get_json()
+        state = data.get('state')  # Expect 1 (ON) or 0 (OFF)
 
+        if state not in [0, 1]:
+            return jsonify({"error": "Invalid state value"}), 400
+
+        command = f"RELAY,{state}"
+        app.logger.info(f"Sending command to turntable: {command}")
+
+        # Send the command to the Arduino
+        porthandler.write_turntable(command)
+
+        return jsonify({"message": f"Relay {'ON' if state else 'OFF'}"}), 200
+
+    except Exception as e:
+        app.logger.exception("Error in toggling relay")
+        return jsonify({"error": str(e)}), 500
 
 
 

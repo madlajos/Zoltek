@@ -1,0 +1,98 @@
+.control-panel {
+    background-color: #333;
+    color: #fff;
+    width: 100%;
+    height: 50%;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative; /* Needed for absolute positioning */
+  }
+  
+  .control-panel-header {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .control-panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .input-box {
+    width: 100%;
+    padding: 5px;
+    background-color: #555;
+    border: 1px solid #777;
+    color: white;
+    border-radius: 5px;
+  }
+  
+  .signature-pad {
+    border: 1px solid #fff;
+    background-color: #222;
+    width: 100%;
+    height: 80px;
+  }
+  
+/* Position buttons in the top-right */
+.button-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Relay Button - Portrait */
+.relay-button {
+  width: 60px;  /* Narrow width */
+  height: 100px; /* Tall button */
+  font-size: 14px;
+  writing-mode: vertical-rl; /* Rotate text vertically */
+  text-orientation: mixed;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+/* Relay button ON/OFF colors */
+.relay-on {
+  background-color: #4CAF50; /* Green */
+  color: white;
+}
+
+.relay-off {
+  background-color: #D32F2F; /* Red */
+  color: white;
+}
+
+/* Side buttons (stacked) */
+.side-buttons {
+  display: flex;
+  flex-direction: column;
+  height: 100px; /* Same height as relay button */
+}
+
+.side-button {
+  flex: 1; /* Equal height distribution */
+  width: 100px; /* Wider for horizontal layout */
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+  background-color: #555;
+  color: white;
+}
+
+.side-button:hover {
+  background-color: #777;
+}

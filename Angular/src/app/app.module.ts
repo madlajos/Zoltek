@@ -21,6 +21,7 @@ import { ComportControlComponent } from './features/comport-control/comport-cont
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
 import { SharedService } from './shared.service';
+import { ControlPanelComponent } from './features/control-panel/control-panel.component';
 
 @NgModule({
   declarations: [
@@ -30,6 +31,7 @@ import { SharedService } from './shared.service';
     ComportControlComponent,
     CameraControlComponent,
     ImageViewerComponent,
+    ControlPanelComponent,
   ],
   imports: [
     MatCommonModule,
