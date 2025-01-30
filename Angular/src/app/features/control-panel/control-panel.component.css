@@ -47,52 +47,106 @@
   right: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 /* Relay Button - Portrait */
 .relay-button {
-  width: 60px;  /* Narrow width */
-  height: 100px; /* Tall button */
-  font-size: 14px;
-  writing-mode: vertical-rl; /* Rotate text vertically */
-  text-orientation: mixed;
-  border: none;
+  width: 80px;  
+  height: 100px; 
+  border: 2px solid transparent; /* Default no outline */
   border-radius: 5px;
   cursor: pointer;
-  transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #333; /* Default */
+  transition: all 0.1s ease-in-out; /* Smooth transition for depth effect */
 }
 
-/* Relay button ON/OFF colors */
+/* Relay Button Hover - Add Custom Border */
+.relay-button:hover {
+  border: 2px solid rgb(141, 141, 141); /* Grey outline */
+}
+
+.relay-off:hover {
+  background-color: rgb(100, 100, 100); /* Darker grey when hovering while OFF */
+}
+
+.relay-on:hover {
+  background-color: #235b88; /* Darker blue when hovering while ON */
+}
+
+/* Lamp Button Images */
+.relay-button img {
+  width: 54px;  /* Adjust size */
+  height: 71px;
+}
+
+/* Relay ON - Always Show Outline */
 .relay-on {
-  background-color: #4CAF50; /* Green */
-  color: white;
+  background-color: #2a628c; /* Blue when ON */
+  border: 2px solid rgb(141, 141, 141); /* Always visible outline */
+  box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.4); /* Creates the pressed-in effect */
+  transform: translateY(2px); /* Moves it slightly down */
 }
 
+/* Relay OFF */
 .relay-off {
-  background-color: #D32F2F; /* Red */
-  color: white;
+  background-color: #555; /* Default Grey */
 }
 
+/* Simulate Pressed Button Effect */
+.relay-button:active {
+  box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.6);
+  transform: translateY(3px); /* Move further down when clicked */
+}
+
+
+/* ---------------------------------------------------- */
 /* Side buttons (stacked) */
 .side-buttons {
   display: flex;
   flex-direction: column;
+  justify-content: space-between; /* Aligns top and bottom */
   height: 100px; /* Same height as relay button */
+  gap: 6px; /* Space between buttons */
+  box-sizing: border-box;
 }
 
+/* Side Buttons */
 .side-button {
-  flex: 1; /* Equal height distribution */
-  width: 100px; /* Wider for horizontal layout */
+  flex: 1;
+  width: 100px; 
   font-size: 14px;
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  transition: background 0.3s;
-  background-color: #555;
+  transition: all 0.1s ease-in-out;
+  background-color: rgb(85, 85, 85);
   color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 2px solid transparent;
 }
 
+/* Button Images */
+.side-button img {
+  width: 70px; /* Resize icons */
+  height: 19px;
+}
+
+/* Hover Effect */
 .side-button:hover {
-  background-color: #777;
+  background-color: rgb(100, 100, 100);
+  border: 2px solid rgb(141, 141, 141); /* Grey outline */
+}
+
+/* Simulate Pressed-In Effect for Side Buttons */
+.side-button:active {
+  background-color: #2a628c; /* Darker when clicked */
+  box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.6);
+  transform: translateY(3px); /* Move slightly down */
 }

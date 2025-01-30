@@ -5,14 +5,18 @@
   <div class="button-container">
     <!-- Relay Toggle Button (Portrait) -->
     <button (click)="toggleRelay()" [ngClass]="relayState ? 'relay-on' : 'relay-off'" class="relay-button">
-      {{ relayState ? 'Relay ON' : 'Relay OFF' }}
+      <img [src]="relayState ? 'assets/images/lamp_on.png' : 'assets/images/lamp_off.png'" alt="Lamp State">
     </button>
 
     <div class="side-buttons">
-      <!-- First Landscape Button -->
-      <button class="side-button">First Button</button>
-      <!-- Second Landscape Button -->
-      <button class="side-button">Second Button</button>
+      <!-- First Landscape Button (Rotate Up) -->
+      <button class="side-button" (click)="rotateUp()">
+        <img src="assets/images/rotate_up.png" alt="Rotate Up">
+      </button>
+      <!-- Second Landscape Button (Rotate Down) -->
+      <button class="side-button" (click)="rotateDown()">
+        <img src="assets/images/rotate_down.png" alt="Rotate Down">
+      </button>
     </div>
   </div>
 

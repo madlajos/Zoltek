@@ -201,7 +201,7 @@ def move_turntable_absolute():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/toggle-relay', methods=['POST'])
+@app.route('/toggle-relay', methods=['POST'])
 def toggle_relay():
     try:
         data = request.get_json()
