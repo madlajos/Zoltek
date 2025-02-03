@@ -12,6 +12,7 @@ from cameracontrol import (apply_camera_settings, set_centered_offset,
                            validate_and_set_camera_param, get_camera_properties, Handler)
 import porthandler
 import imageprocessing
+import threading
 from settings_manager import load_settings, save_settings, get_settings
 
 app = Flask(__name__)
@@ -62,6 +63,25 @@ def connect_turntable():
             return jsonify({'error': 'Failed to connect to Turntable'}), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Turntable")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/connect-to-barcode', methods=['POST'])
+def connect_barcode_scanner():
+    try:
+        app.logger.info("Attempting to connect to Barcode Scanner")
+        if porthandler.barcode_scanner and porthandler.barcode_scanner.is_open:
+            app.logger.info("Barcode Scanner already connected.")
+            return jsonify({'message': 'Barcode Scanner already connected'}), 200
+
+        device = porthandler.connect_to_barcode_scanner()
+        if device:
+            app.logger.info("Successfully connected to Barcode Scanner")
+            return jsonify({'message': 'Barcode Scanner connected', 'port': device.port}), 200
+        else:
+            app.logger.error("Failed to connect Barcode Scanner: Device not found")
+            return jsonify({'error': 'Failed to connect Barcode Scanner'}), 404
+    except Exception as e:
+        app.logger.exception("Exception occurred while connecting to Barcode Scanner")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/disconnect-to-<device_name>', methods=['POST'])
@@ -455,14 +475,15 @@ def get_camera_status():
 def get_serial_device_status(device_name):
     logging.debug(f"Received status request for device: {device_name}")
     device = None
-    if device_name == 'turntable':
+    if device_name.lower() == 'turntable':
         device = porthandler.turntable
+    elif device_name.lower() in ['barcode', 'barcodescanner']:
+        device = porthandler.barcode_scanner
     else:
         logging.error("Invalid device name")
         return jsonify({'error': 'Invalid device name'}), 400
 
-    # Check if the turntable is still connected and responsive
-    if device is not None and porthandler.is_turntable_connected():
+    if device is not None and device.is_open:
         logging.debug(f"{device_name} is connected on port {device.port}")
         return jsonify({'connected': True, 'port': device.port})
     else:
@@ -583,6 +604,13 @@ def save_image():
         app.logger.exception("Failed to save image")
         return jsonify({'error': str(e)}), 500
     
+@app.route('/api/get-barcode', methods=['GET'])
+def get_barcode():
+    # Retrieve the latest scanned barcode and then clear it.
+    barcode = globals.latest_barcode
+    globals.latest_barcode = ""  # clear after reading
+    return jsonify({'barcode': barcode})    
+    
 
 def stop_camera_stream(camera_type):
     if camera_type not in globals.cameras:
@@ -690,14 +718,48 @@ def initialize_serial_devices():
     """Initialize serial devices at startup."""
     app.logger.info("Initializing serial devices...")
     try:
+        # Connect turntable as before.
         device = porthandler.connect_to_turntable()
         if device:
             porthandler.turntable = device
-            app.logger.info(f"Turntable connected automatically on startup.")
+            app.logger.info("Turntable connected automatically on startup.")
         else:
             app.logger.error("Failed to auto-connect turntable on startup.")
     except Exception as e:
-        app.logger.error(f"Error initializing serial devices: {e}")
+        app.logger.error(f"Error initializing turntable: {e}")
+
+    try:
+        # Connect barcode scanner similarly.
+        device = porthandler.connect_to_barcode_scanner()
+        if device:
+            app.logger.info("Barcode scanner connected automatically on startup.")
+        else:
+            app.logger.error("Failed to auto-connect barcode scanner on startup.")
+    except Exception as e:
+        app.logger.error(f"Error initializing barcode scanner: {e}")
+
+    # Start the barcode listener thread if not already running.
+    threading.Thread(target=barcode_scanner_listener, daemon=True).start()
+
+        
+        
+def barcode_scanner_listener():
+    """Continuously read barcode scanner data and update globals.latest_barcode."""
+    while True:
+        # Check if the barcode scanner is connected and open.
+        if porthandler.barcode_scanner and porthandler.barcode_scanner.is_open:
+            try:
+                # readline() will block until data is available or timeout occurs.
+                line = porthandler.barcode_scanner.readline().decode(errors='ignore').strip()
+                if line:
+                    globals.latest_barcode = line
+                    # Optionally log the barcode read.
+                    app.logger.info(f"Barcode scanned: {line}")
+            except Exception as e:
+                app.logger.error(f"Error reading barcode scanner: {e}")
+        # Poll every 100ms.
+        time.sleep(0.1)        
+
         
 if __name__ == '__main__':      
     load_settings()

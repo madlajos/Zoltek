@@ -1,29 +1,25 @@
 <div class="control-panel">
   <div class="control-panel-header">Kezelőpult</div>
 
-  <!-- New container to align buttons to the top-right -->
+  <!-- Button container remains unchanged -->
   <div class="button-container">
-    <!-- Relay Toggle Button (Portrait) -->
     <button (click)="toggleRelay()" [ngClass]="relayState ? 'relay-on' : 'relay-off'" class="relay-button">
       <img [src]="relayState ? 'assets/images/lamp_on.png' : 'assets/images/lamp_off.png'" alt="Lamp State">
     </button>
-
     <div class="side-buttons">
-      <!-- First Landscape Button (Rotate Up) -->
       <button class="side-button" (click)="rotateUp()">
         <img src="assets/images/rotate_up.png" alt="Rotate Up">
       </button>
-      <!-- Second Landscape Button (Rotate Down) -->
       <button class="side-button" (click)="rotateDown()">
         <img src="assets/images/rotate_down.png" alt="Rotate Down">
       </button>
     </div>
   </div>
 
-  <!-- Rest of the form remains unchanged -->
+  <!-- Update the input for nozzle ID with ngModel binding -->
   <div class="control-panel-content">
     <label for="nozzle-id">Dűzni Azonosító:</label>
-    <input type="text" id="nozzle-id" class="input-box" />
+    <input type="text" id="nozzle-id" class="input-box" [(ngModel)]="nozzleId" disabled />
 
     <label for="operator-id">Operátor Azonosító:</label>
     <input type="text" id="operator-id" class="input-box" />
@@ -31,7 +27,6 @@
     <label for="measurement">Mérés folyamatban:</label>
     <progress id="measurement" value="3" max="18"></progress>
 
-    <!-- Signature input -->
     <canvas id="signature-pad" class="signature-pad"></canvas>
   </div>
 </div>

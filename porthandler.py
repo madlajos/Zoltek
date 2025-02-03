@@ -2,21 +2,23 @@ import serial
 import serial.tools.list_ports
 import logging
 
+# Global serial device variables
 turntable = None
+barcode_scanner = None
 
-def connect_to_serial_device(device_name, identification_command, expected_response, 
-                             vid=0x2341, pid=0x8036):
+def connect_to_serial_device(device_name, identification_command, expected_response, vid, pid):
     """
     Attempt to connect to a serial device by scanning for a matching VID/PID.
-    Then verify the device by sending an identification command and comparing the response.
+    Optionally, send an identification command and compare the response.
+    Returns:
+        serial.Serial instance if successful, or None.
     """
-    global turntable
     ports = list(serial.tools.list_ports.comports())
     if not ports:
-        logging.error(f"No COM ports found at all while looking for {device_name}.")
+        logging.error(f"No COM ports found while looking for {device_name}.")
         return None
-    
-    # Filter ports by known vid/pid
+
+    # Filter ports by matching VID/PID.
     matching_ports = [
         port for port in ports
         if (port.vid == vid and port.pid == pid)
@@ -33,36 +35,87 @@ def connect_to_serial_device(device_name, identification_command, expected_respo
             logging.info(f"Trying {port_info.device} for {device_name}.")
             serial_port = serial.Serial(port_info.device, baudrate=115200, timeout=1)
 
-            # Send the ID command
-            serial_port.write((identification_command + '\n').encode())
-            response = serial_port.readline().decode(errors='ignore').strip()
-            logging.info(f"Received response from {port_info.device}: '{response}'")
+            if identification_command:
+                # Send the identification command.
+                serial_port.write((identification_command + '\n').encode())
+                response = serial_port.readline().decode(errors='ignore').strip()
+                logging.info(f"Received response from {port_info.device}: '{response}'")
 
-            if response == expected_response:
-                logging.info(f"Connected to {device_name} on port {port_info.device}")
-                turntable = serial_port  # store globally
-                return serial_port
+                if response != expected_response:
+                    logging.warning(f"Unexpected response '{response}' on {port_info.device}")
+                    serial_port.close()
+                    continue  # Try next candidate
+            # If no identification command is required, we assume the connection is valid.
+            logging.info(f"Connected to {device_name} on port {port_info.device}")
+            return serial_port
 
-            # If response is not what we expect, log and move on
-            logging.warning(f"Unexpected response '{response}' on {port_info.device}")
         except Exception as e:
             logging.exception(
-                f"Exception occurred while trying to connect to {device_name} on {port_info.device}: {e}"
+                f"Exception while trying to connect to {device_name} on {port_info.device}: {e}"
             )
-        finally:
-            # If not the correct device, close the port
-            if serial_port and serial_port.is_open and turntable != serial_port:
-                logging.info(f"Closing {port_info.device}, no successful ID match.")
+            if serial_port and serial_port.is_open:
                 serial_port.close()
 
     logging.error(f"Failed to connect to {device_name}. No matching ports responded correctly.")
     return None
 
 
-def disconnect_serial_device(device_name):
+def connect_to_turntable():
+    """
+    Connects to the turntable using its known identification command and VID/PID.
+    """
     global turntable
+    if turntable and turntable.is_open:
+        logging.info("Turntable is already connected.")
+        return turntable
+
+    identification_command = "IDN?"
+    expected_response = "TTBL"
+    # For the turntable, VID/PID are hard-coded.
+    turntable = connect_to_serial_device(
+        device_name="Turntable",
+        identification_command=identification_command,
+        expected_response=expected_response,
+        vid=0x2341,  # Example VID for turntable
+        pid=0x8036   # Example PID for turntable
+    )
+    if turntable is None:
+        raise Exception("Turntable device not found or did not respond correctly.")
+    return turntable
+
+
+def connect_to_barcode_scanner():
+    """
+    Connects to the barcode scanner (QD2100) using its VID/PID.
+    No identification handshake is performed, so pass empty strings.
+    """
+    global barcode_scanner
+    if barcode_scanner and barcode_scanner.is_open:
+        logging.info("Barcode scanner is already connected.")
+        return barcode_scanner
+
+    # For the barcode scanner, no identification command is needed.
+    identification_command = ""
+    expected_response = ""
+    barcode_scanner = connect_to_serial_device(
+        device_name="BarcodeScanner",
+        identification_command=identification_command,
+        expected_response=expected_response,
+        vid=0x05F9,  # Barcode scanner VID (from USB\VID_05F9...)
+        pid=0x4204   # Barcode scanner PID (from PID_4204...)
+    )
+    if barcode_scanner is None:
+        raise Exception("Barcode scanner device not found or did not respond correctly.")
+    return barcode_scanner
+
+
+def disconnect_serial_device(device_name):
+    """
+    Disconnect the specified device ('turntable' or 'barcode').
+    """
+    global turntable, barcode_scanner
     logging.info(f"Disconnecting {device_name}")
-    if device_name == 'turntable' and turntable is not None:
+    if device_name.lower() == 'turntable' and turntable is not None:
         try:
             if turntable.is_open:
                 turntable.close()
@@ -71,59 +124,40 @@ def disconnect_serial_device(device_name):
         except Exception as e:
             logging.error(f"Error while disconnecting turntable: {e}")
             raise Exception(f"Failed to disconnect {device_name}: {e}")
+    elif device_name.lower() in ['barcode', 'barcodescanner']:
+        if barcode_scanner is not None:
+            try:
+                if barcode_scanner.is_open:
+                    barcode_scanner.close()
+                barcode_scanner = None
+                logging.info("Barcode scanner disconnected successfully.")
+            except Exception as e:
+                logging.error(f"Error while disconnecting barcode scanner: {e}")
+                raise Exception(f"Failed to disconnect {device_name}: {e}")
+        else:
+            logging.error(f"Barcode scanner not connected.")
+            raise Exception(f"Barcode scanner not connected.")
     else:
         logging.error(f"Invalid device name or device not connected: {device_name}")
         raise Exception(f"Invalid device name or device not connected: {device_name}")
 
-def connect_to_turntable():
-    global turntable
-    if turntable and turntable.is_open:
-        logging.info("Turntable is already connected.")
-        return turntable
-    
-    identification_command = "IDN?"
-    expected_response = "TTBL"
-    turntable = connect_to_serial_device(
-        device_name="Turntable", 
-        identification_command=identification_command, 
-        expected_response=expected_response,
-        vid=0x2341,
-        pid=0x8036
-    )
-    if turntable is None:
-        raise Exception("Turntable device not found or did not respond correctly.")
-    return turntable
-
-def get_turntable():
-    global turntable
-    if turntable is None:
-        turntable = connect_to_turntable()
-        if not turntable:
-            raise Exception("Turntable device not found")
-    return turntable
 
 def is_turntable_connected():
     """
     Checks if the turntable is still connected and responsive.
-
-    Returns:
-        bool: True if the device is still connected and responsive, False otherwise.
     """
     global turntable
-
     if turntable is None or not turntable.is_open:
         logging.warning("Turntable connection is closed.")
         return False
 
     try:
-        # Attempt a simple command to verify device responsiveness
         turntable.write(b'IDN?\n')
         response = turntable.readline().decode(errors='ignore').strip()
         logging.debug(f"Turntable response: {response}")
 
         if response:
             return True
-
     except (serial.SerialException, serial.SerialTimeoutException) as e:
         logging.error(f"Turntable disconnected or unresponsive: {e}")
         turntable.close()
@@ -135,24 +169,38 @@ def is_turntable_connected():
     turntable = None
     return False
 
+
+def is_barcode_scanner_connected():
+    """
+    Checks if the barcode scanner is still connected.
+    For the scanner, since there is no identification handshake,
+    we simply verify that the port is open.
+    """
+    global barcode_scanner
+    if barcode_scanner is None or not barcode_scanner.is_open:
+        logging.warning("Barcode scanner connection is closed.")
+        return False
+
+    try:
+        # Optionally, you could try reading a small chunk or sending a NOP command.
+        # Here, we simply check the port status.
+        return True
+    except Exception as e:
+        logging.error(f"Barcode scanner error: {e}")
+        barcode_scanner.close()
+        barcode_scanner = None
+        return False
+
+
 def write_turntable(command):
     """
     Sends a command to the turntable.
-
-    Args:
-        command (str or tuple): The command to send, either as a string or tuple.
-
-    Raises:
-        ValueError: If the command format is invalid.
-        Exception: If the device is not connected.
     """
     global turntable
-
     if turntable is None or not turntable.is_open:
         raise Exception("Turntable is not connected or available.")
 
     try:
-        # Format command based on type
         if isinstance(command, tuple):
             formatted_command = "{},{}\n".format(*command)
         elif isinstance(command, str):
@@ -160,12 +208,32 @@ def write_turntable(command):
         else:
             raise ValueError("Invalid command format. Expected a string or tuple.")
 
-        # Send command to serial device
         turntable.write(formatted_command.encode())
         turntable.flush()
-
         logging.info(f"Command sent to turntable: {formatted_command.strip()}")
-
     except Exception as e:
         logging.error(f"Error writing to turntable: {str(e)}")
-        raise  # Rethrow the exception for higher-level handling
+        raise
+
+
+def write_barcode_scanner(data):
+    """
+    Sends data to the barcode scanner if needed.
+    Typically, barcode scanners stream data automatically when a barcode is scanned.
+    This function is provided if you later need to send configuration commands.
+    """
+    global barcode_scanner
+    if barcode_scanner is None or not barcode_scanner.is_open:
+        raise Exception("Barcode scanner is not connected or available.")
+
+    try:
+        if isinstance(data, str):
+            formatted_data = f"{data}\n"
+        else:
+            formatted_data = str(data) + "\n"
+        barcode_scanner.write(formatted_data.encode())
+        barcode_scanner.flush()
+        logging.info(f"Data sent to barcode scanner: {formatted_data.strip()}")
+    except Exception as e:
+        logging.error(f"Error writing to barcode scanner: {str(e)}")
+        raise

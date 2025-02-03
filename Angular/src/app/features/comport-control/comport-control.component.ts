@@ -4,7 +4,8 @@ import { of, interval } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
 
 interface Device {
-  name: string;
+  name: string;    // Display name
+  apiName: string; // Used in API endpoints (e.g., 'turntable' or 'barcode')
   status: string;
   action: string;
 }
@@ -17,7 +18,8 @@ interface Device {
 export class ComportControlComponent implements OnInit {
 
   devices: Device[] = [
-    { name: 'Turntable', status: 'Checking...', action: 'Connect' }
+    { name: 'Turntable', apiName: 'turntable', status: 'Checking...', action: 'Connect' },
+    { name: 'Barcode Scanner', apiName: 'barcode', status: 'Checking...', action: 'Connect' }
   ];
 
   private readonly BASE_URL = 'http://localhost:5000/api';
@@ -39,10 +41,10 @@ export class ComportControlComponent implements OnInit {
   initializeDevices(): void {
     this.devices.forEach(device => {
       this.http
-        .get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/${device.name.toLowerCase()}`)
+        .get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/${device.apiName}`)
         .pipe(
           tap((res) => {
-            if (res.connected) {
+            if (res && res.connected) {
               device.status = `Connected (${res.port || 'COM'})`;
               device.action = 'Disconnect';
             } else {
@@ -62,27 +64,30 @@ export class ComportControlComponent implements OnInit {
   }
 
   checkStatus() {
-    return this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/turntable`).pipe(
-      tap((res) => {
-        let device = this.devices.find(d => d.name === 'Turntable');
-        if (device) {
-          if (res.connected) {
-            device.status = `Connected (${res.port || 'COM'})`;
-            device.action = 'Disconnect';
-          } else {
-            device.status = 'Disconnected';
-            device.action = 'Connect';
-          }
-        }
-      }),
-      catchError(error => {
-        console.error('Error fetching status:', error);
-        let device = this.devices.find(d => d.name === 'Turntable');
-        if (device) {
-          device.status = 'Error';
-          device.action = 'Connect';
-        }
-        return of(null);
+    // Poll status for all devices
+    return of(null).pipe(
+      tap(() => {
+        this.devices.forEach(device => {
+          this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/${device.apiName}`)
+            .pipe(
+              tap((res) => {
+                if (res && res.connected) {
+                  device.status = `Connected (${res.port || 'COM'})`;
+                  device.action = 'Disconnect';
+                } else {
+                  device.status = 'Disconnected';
+                  device.action = 'Connect';
+                }
+              }),
+              catchError(error => {
+                console.error(`Error fetching status for ${device.name}:`, error);
+                device.status = 'Error';
+                device.action = 'Connect';
+                return of(null);
+              })
+            )
+            .subscribe();
+        });
       })
     );
   }
@@ -99,7 +104,7 @@ export class ComportControlComponent implements OnInit {
     console.log(`Connecting to ${device.name}...`);
     device.status = 'Connecting...';
     this.http
-      .post(`${this.BASE_URL}/connect-to-${device.name.toLowerCase()}`, {})
+      .post(`${this.BASE_URL}/connect-to-${device.apiName}`, {})
       .pipe(
         tap(() => {
           console.log(`${device.name} connected successfully.`);
@@ -118,7 +123,7 @@ export class ComportControlComponent implements OnInit {
     console.log(`Disconnecting from ${device.name}...`);
     device.status = 'Disconnecting...';
     this.http
-      .post(`${this.BASE_URL}/disconnect-to-${device.name.toLowerCase()}`, {})
+      .post(`${this.BASE_URL}/disconnect-to-${device.apiName}`, {})
       .pipe(
         tap(() => {
           console.log(`${device.name} disconnected successfully.`);

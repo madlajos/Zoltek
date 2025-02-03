@@ -2,6 +2,7 @@ import threading
 from flask import Flask
 turntable_position = "?"
 turntable_homed = False 
+latest_barcode = ""
 
 app = Flask(__name__)
 
