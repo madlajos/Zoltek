@@ -34,6 +34,9 @@ unsigned long lastPhaseTime = 0;
 // Relay State
 bool relayState = false;
 
+// Global variable to accumulate fractional step errors.
+float leftoverFraction = 0.0;
+
 // -----------------------------------------------------------------------------
 // Setup
 // -----------------------------------------------------------------------------
@@ -168,11 +171,11 @@ void handleMotorMovement() {
     currentStep++;
 
     if (currentStep < accelEnd) {
-      pulseDelayUs = max_pulse_delay_us - 
+      pulseDelayUs = max_pulse_delay_us -
                      ((max_pulse_delay_us - min_pulse_delay_us) * currentStep / accel_steps);
     } else if (currentStep >= decelStart) {
       long decelStepsDone = currentStep - decelStart;
-      pulseDelayUs = min_pulse_delay_us + 
+      pulseDelayUs = min_pulse_delay_us +
                      ((max_pulse_delay_us - min_pulse_delay_us) * decelStepsDone / accel_steps);
     } else {
       pulseDelayUs = min_pulse_delay_us;
@@ -200,8 +203,16 @@ void handleRelayCommand(const String &command) {
 }
 
 // -----------------------------------------------------------------------------
-// Convert Degrees to Steps
+// Convert Degrees to Steps with Fractional Accumulation
 // -----------------------------------------------------------------------------
 long mapDegreesToSteps(float degrees) {
-  return (long)(degrees * steps_per_revolution / 360.0);
+  // Compute the exact number of steps as a floating point value.
+  float exactSteps = degrees * steps_per_revolution / 360.0;
+  // Add any leftover fraction from previous conversions.
+  exactSteps += leftoverFraction;
+  // Extract the whole number of steps.
+  long wholeSteps = (long)exactSteps;
+  // Store the fractional remainder.
+  leftoverFraction = exactSteps - wholeSteps;
+  return wholeSteps;
 }
