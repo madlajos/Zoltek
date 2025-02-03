@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { interval, of } from 'rxjs';
-import { catchError, switchMap, tap } from 'rxjs/operators';
+// other imports...
 
 @Component({
   selector: 'app-control-panel',
@@ -10,20 +9,38 @@ import { catchError, switchMap, tap } from 'rxjs/operators';
 })
 export class ControlPanelComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000';
-  relayState: boolean = false;  // false = OFF, true = ON
-  nozzleId: string = "";        // This will hold the scanned barcode
+  
+  relayState: boolean = false;
+  nozzleId: string = "";
+  
+  // Measurement cycle properties (simulate 6/18 for now)
+  currentMeasurement: number = 6;
+  totalMeasurements: number = 18;
+
+  // New property: measurement active state
+  measurementActive: boolean = false;
+
+  get progressPercentage(): number {
+    return (this.currentMeasurement / this.totalMeasurements) * 100;
+  }
+
+  // Array for result blocks
+  results: { label: string, value: number }[] = [
+    { label: 'Result 1', value: 0 },
+    { label: 'Result 2', value: 0 },
+    { label: 'Result 3', value: 0 }
+  ];
 
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    this.initializeBarcodePolling();
+    // Any initialization code if needed.
   }
 
   // Toggle Relay Function (unchanged)
   toggleRelay(): void {
     this.relayState = !this.relayState;
     const payload = { state: this.relayState ? 1 : 0 };
-
     this.http.post(`${this.BASE_URL}/toggle-relay`, payload).subscribe(
       (response: any) => {
         console.log(`Relay ${this.relayState ? 'ON' : 'OFF'}`, response);
@@ -35,7 +52,7 @@ export class ControlPanelComponent implements OnInit {
     );
   }
 
-  // Rotate functions (unchanged)
+  // Rotate Up/Down Functions (unchanged)
   rotateUp(): void {
     const payload = { degrees: 20 };
     this.http.post(`${this.BASE_URL}/move_turntable_relative`, payload).subscribe(
@@ -60,24 +77,37 @@ export class ControlPanelComponent implements OnInit {
     );
   }
 
-  // Poll the backend for barcode data every second.
-  initializeBarcodePolling(): void {
-    interval(1000).pipe(
-      switchMap(() => 
-        this.http.get<{ barcode: string }>(`${this.BASE_URL}/api/get-barcode`)
-          .pipe(
-            catchError(error => {
-              console.error("Error polling barcode:", error);
-              return of({ barcode: "" });
-            })
-          )
-      ),
-      tap(response => {
-        if (response && response.barcode) {
-          this.nozzleId = response.barcode;
-          console.log("Barcode received:", response.barcode);
-        }
-      })
-    ).subscribe();
+  // New measurement toggle function
+  toggleMeasurement(): void {
+    this.measurementActive = !this.measurementActive;
+    if (this.measurementActive) {
+      console.log("Measurement cycle started.");
+      // Insert logic to start measurement cycle here.
+    } else {
+      console.log("Measurement cycle stopped.");
+      // Insert logic to stop measurement cycle here.
+    }
+  }
+
+  startMeasurement(): void {
+    if (!this.measurementActive) {
+      this.measurementActive = true;
+      this.simulateProgress();
+    }
+  }
+
+  simulateProgress(): void {
+    let interval = setInterval(() => {
+      if (this.currentMeasurement < this.totalMeasurements) {
+        this.currentMeasurement++;
+  
+        // 🔥 Ensure Angular detects changes
+        console.log(`Progress: ${this.currentMeasurement}/${this.totalMeasurements}`);
+        
+      } else {
+        clearInterval(interval);
+        this.measurementActive = false; // Stop when complete
+      }
+    }, 500); // Adjust speed if needed
   }
 }

@@ -1,32 +1,66 @@
 <div class="control-panel">
   <div class="control-panel-header">Kezelőpult</div>
 
-  <!-- Button container remains unchanged -->
+  <!-- Top-Right Buttons remain unchanged -->
   <div class="button-container">
+    <!-- Relay Toggle Button -->
     <button (click)="toggleRelay()" [ngClass]="relayState ? 'relay-on' : 'relay-off'" class="relay-button">
       <img [src]="relayState ? 'assets/images/lamp_on.png' : 'assets/images/lamp_off.png'" alt="Lamp State">
     </button>
     <div class="side-buttons">
+      <!-- Rotate Up -->
       <button class="side-button" (click)="rotateUp()">
         <img src="assets/images/rotate_up.png" alt="Rotate Up">
       </button>
+      <!-- Rotate Down -->
       <button class="side-button" (click)="rotateDown()">
         <img src="assets/images/rotate_down.png" alt="Rotate Down">
       </button>
     </div>
   </div>
 
-  <!-- Update the input for nozzle ID with ngModel binding -->
+  <!-- Existing Textboxes -->
   <div class="control-panel-content">
     <label for="nozzle-id">Dűzni Azonosító:</label>
-    <input type="text" id="nozzle-id" class="input-box" [(ngModel)]="nozzleId" disabled />
+    <input type="text" id="nozzle-id" class="input-box" [(ngModel)]="nozzleId" readonly tabindex="-1" style="pointer-events: none;" />
 
     <label for="operator-id">Operátor Azonosító:</label>
     <input type="text" id="operator-id" class="input-box" />
+  </div>
 
-    <label for="measurement">Mérés folyamatban:</label>
-    <progress id="measurement" value="3" max="18"></progress>
+  <!-- New Measurement Elements (placed under the textboxes) -->
+  <!-- New Measurement Elements (placed under the textboxes) -->
+  <div class="measurement-controls">
+    <!-- Measurement Start/Stop Button using its own styling -->
+    <button (click)="toggleMeasurement()"
+            class="measurement-button"
+            [ngClass]="{'measurement-on': measurementActive, 'measurement-off': !measurementActive}">
+      {{ measurementActive ? 'Mérés leállítása' : 'Mérés indítása' }}
+    </button>
+  </div>
 
-    <canvas id="signature-pad" class="signature-pad"></canvas>
+  <!-- Progress Bar -->
+  <div class="progress-container">
+    <div class="progress-bar">
+      <div class="progress-fill"
+           [ngClass]="{'animated': measurementActive}"
+           [style.width]="progressPercentage + '%'">
+      </div>
+      <span class="progress-text">{{ currentMeasurement }}/{{ totalMeasurements }}</span>
+    </div>
+  </div>
+  
+
+  <!-- Results Blocks -->
+  <div class="results-container">
+    <div class="result-block" *ngFor="let result of results">
+      <div class="result-class">{{ result.label }}</div>
+      <div class="result-value">{{ result.value }}</div>
+    </div>
+  </div>
+
+  <!-- Company Logo -->
+  <div class="company-logo">
+    <img src="assets/images/logo.png" alt="Company Logo">
   </div>
 </div>
