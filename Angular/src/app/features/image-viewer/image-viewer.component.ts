@@ -25,7 +25,7 @@ export class ImageViewerComponent implements AfterViewInit {
       console.log(`Main Camera Streaming: ${this.isMainStreaming}`);
       console.log(`Side Camera Streaming: ${this.isSideStreaming}`);
 
-      // ✅ Update the stream display based on streaming status
+      // Update the stream display based on streaming status
       this.updateStreamDisplay('main');
       this.updateStreamDisplay('side');
     });
@@ -54,12 +54,12 @@ export class ImageViewerComponent implements AfterViewInit {
       }
   
       img.src = streamUrl;  // This is the key: the <img> loads the MJPEG response
-      img.onload = () => console.log(`✅ ${cameraType} stream loaded.`);
-      img.onerror = (err) => console.error(`❌ Failed to load ${cameraType} stream.`, err);
+      img.onload = () => console.log(`${cameraType} stream loaded.`);
+      img.onerror = (err) => console.error(`Failed to load ${cameraType} stream.`, err);
   
     } else {
       // If the user or the system toggled streaming off, remove the <img>
-      console.warn(`⚠️ ${cameraType} stream stopped. Clearing view.`);
+      console.warn(`${cameraType} stream stopped. Clearing view.`);
       if (img) img.remove();
     }
   }

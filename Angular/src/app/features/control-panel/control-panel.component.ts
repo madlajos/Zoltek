@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-// other imports...
+import { TurntableControlComponent } from '../turntable-control/turntable-control.component'; // Correct import
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-control-panel',
@@ -9,22 +10,22 @@ import { HttpClient } from '@angular/common/http';
 })
 export class ControlPanelComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000';
-  
+
   relayState: boolean = false;
   nozzleId: string = "";
-  
-  // Measurement cycle properties (simulate 6/18 for now)
-  currentMeasurement: number = 6;
-  totalMeasurements: number = 18;
-
-  // New property: measurement active state
   measurementActive: boolean = false;
+
+  currentMeasurement: number = 0;
+  totalMeasurements: number = 18;
+  turntablePosition: number | string = '?';
+
+  // Add ViewChild reference to access TurntableControlComponent
+  @ViewChild(TurntableControlComponent) turntableControl!: TurntableControlComponent;
 
   get progressPercentage(): number {
     return (this.currentMeasurement / this.totalMeasurements) * 100;
   }
 
-  // Array for result blocks
   results: { label: string, value: number }[] = [
     { label: 'Result 1', value: 0 },
     { label: 'Result 2', value: 0 },
@@ -35,6 +36,12 @@ export class ControlPanelComponent implements OnInit {
 
   ngOnInit(): void {
     // Any initialization code if needed.
+  }
+
+  ngAfterViewInit(): void {
+    if (!this.turntableControl) {
+      console.error("TurntableControlComponent is not available!");
+    }
   }
 
   // Toggle Relay Function (unchanged)
@@ -77,37 +84,70 @@ export class ControlPanelComponent implements OnInit {
     );
   }
 
-  // New measurement toggle function
+  homeTurntable(): void {
+    if (this.turntableControl) {
+      this.turntableControl.homeTurntable();
+      this.turntablePosition = this.turntableControl.turntablePosition; // Fetch position
+    } else {
+      console.error("TurntableControlComponent is not available.");
+    }
+  }
+
+
   toggleMeasurement(): void {
     this.measurementActive = !this.measurementActive;
+
     if (this.measurementActive) {
       console.log("Measurement cycle started.");
-      // Insert logic to start measurement cycle here.
+      this.startMeasurement();
     } else {
       console.log("Measurement cycle stopped.");
-      // Insert logic to stop measurement cycle here.
+      // TODO: Stop measurement logic here
     }
   }
 
-  startMeasurement(): void {
-    if (!this.measurementActive) {
-      this.measurementActive = true;
-      this.simulateProgress();
-    }
-  }
-
-  simulateProgress(): void {
-    let interval = setInterval(() => {
-      if (this.currentMeasurement < this.totalMeasurements) {
-        this.currentMeasurement++;
-  
-        // 🔥 Ensure Angular detects changes
-        console.log(`Progress: ${this.currentMeasurement}/${this.totalMeasurements}`);
+  analyzeImage(): void {
+    this.http.post(`${this.BASE_URL}/analyze_image`, {}).subscribe(
+      (response: any) => {
+        console.log("Image analysis successful:", response);
         
-      } else {
-        clearInterval(interval);
-        this.measurementActive = false; // Stop when complete
+        // Store results for UI update
+        if (response.dot_contours) {
+          this.results = response.dot_contours.map((dot: any) => ({
+            label: `Dot ${dot.id}`,
+            value: dot.area
+          }));
+        }
+  
+      },
+      (error) => {
+        console.error("Image analysis failed!", error);
       }
-    }, 500); // Adjust speed if needed
+    );
   }
+  
+  startMeasurement(): void {
+    console.log("Starting measurement cycle...");
+
+    // Step 1: Ensure relay is ON
+    if (!this.relayState) {
+        this.toggleRelay();
+    }
+
+    console.log("Relay is ON. Proceeding to homing step...");
+
+    // Step 2: Call homing API and wait for it to return
+    this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).subscribe(
+        (response: any) => {
+            console.log("Turntable homed successfully:", response);
+
+            // Step 3: Now capture an image and analyze it
+            this.analyzeImage();
+        },
+        (error) => {
+            console.error("Turntable homing failed!", error);
+        }
+    );
+}
+
 }

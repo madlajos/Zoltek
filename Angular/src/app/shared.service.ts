@@ -78,18 +78,18 @@ export class SharedService {
   startStream(cameraType: 'main' | 'side'): void {
     if (this.getCameraStreamStatus(cameraType)) {
       console.warn(`${cameraType} stream is already running. Preventing duplicate start.`);
-      return;  // ✅ Prevent multiple start requests
+      return;  //Prevent multiple start requests
     }
   
     console.log(`Starting ${cameraType} stream...`);
   
     this.http.get(`http://localhost:5000/start-video-stream?type=${cameraType}`).subscribe(
       () => {
-        console.log(`✅ ${cameraType} camera stream started.`);
+        console.log(`${cameraType} camera stream started.`);
         this.setCameraStreamStatus(cameraType, true);
       },
       error => {
-        console.error(`❌ Failed to start ${cameraType} camera stream:`, error);
+        console.error(`Failed to start ${cameraType} camera stream:`, error);
         this.setCameraStreamStatus(cameraType, false);
       }
     );
@@ -133,13 +133,13 @@ export class SharedService {
   }
 
   disconnectCamera(cameraType: 'main' | 'side'): void {
-    // ✅ Stop stream before disconnecting
+    // Stop stream before disconnecting
     this.stopStream(cameraType);
   
     this.http.post(`http://localhost:5000/disconnect-camera?type=${cameraType}`, {}).subscribe(
       () => {
         this.setCameraConnectionStatus(cameraType, false);
-        this.setCameraStreamStatus(cameraType, false);  // ✅ Reset stream status
+        this.setCameraStreamStatus(cameraType, false);  // Reset stream status
         console.log(`Disconnected ${cameraType} camera.`);
       },
       error => {

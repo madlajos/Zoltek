@@ -1,8 +1,8 @@
 // Pin Definitions (same as original, plus relay)
-#define STEP_PIN 6   // PUL+ connected to Arduino Pin 9
-#define DIR_PIN 7    // DIR+ connected to Arduino Pin 8
+#define STEP_PIN 0   // PUL+ connected to Arduino Pin 9
+#define DIR_PIN 1    // DIR+ connected to Arduino Pin 8
 #define ENA_PIN 0    // ENA+ connected to Arduino Pin 7 (optional)
-#define RELAY_PIN 2  // Relay control pin
+#define RELAY_PIN 4  // Relay control pin
 
 // Movement Configuration
 const long steps_per_revolution = 10000;  // 10,000 steps for full 360-degree rotation
@@ -153,8 +153,14 @@ void startNextCommand() {
 void handleMotorMovement() {
   if (currentStep >= totalSteps) {
     isMoving = false;
-    Serial.println("DONE");
+
+    // Ensure previous serial messages are flushed
     Serial.flush();
+    delay(50);  // Small delay to stabilize output
+
+    // Send "DONE" as a single clean message
+    Serial.println("DONE");
+    Serial.flush(); 
     return;
   }
 

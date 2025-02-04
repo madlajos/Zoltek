@@ -10,3 +10,4 @@ flask.log.1
 flask.log.2
 flask.log
 flask.log.*
+dot_areas_with_columns_circle.csv

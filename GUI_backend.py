@@ -110,6 +110,7 @@ def home_turntable_with_image():
         app.logger.info("Homing process initiated.")
         camera_type = 'main'
 
+        # Step 1: Grab the image QUICKLY and RELEASE the camera
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
 
@@ -117,7 +118,64 @@ def home_turntable_with_image():
                 app.logger.error("Main camera is not connected or open.")
                 return jsonify({"error": "Main camera is not connected or open."}), 400
 
-            # Grab a single image without stopping the stream
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+
+            if not grab_result.GrabSucceeded():
+                grab_result.Release()
+                app.logger.error("Failed to grab image from camera.")
+                return jsonify({"error": "Failed to grab image from camera."}), 500
+
+            app.logger.info("Image grabbed successfully.")
+            image = grab_result.Array
+            grab_result.Release()  # Release camera lock immediately
+
+        # Step 2: Process the image and calculate rotation
+        rotation_needed = imageprocessing.home_turntable_with_image(image)
+        command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
+        app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
+
+        # Step 3: Send rotation command & **wait for DONE**
+        movement_success = porthandler.write_turntable(command)
+
+        if not movement_success:
+            return jsonify({"error": "Turntable did not confirm movement completion"}), 500
+
+        app.logger.info("Rotation completed successfully.")
+
+        # Step 4: Update global position after homing
+        globals.turntable_position = 0
+        globals.turntable_homed = True
+        app.logger.info("Homing completed successfully. Position set to 0.")
+
+        # Step 5: Return success response (AFTER turntable confirms "DONE")
+        return jsonify({
+            "message": "Homing successful",
+            "rotation": rotation_needed,
+            "current_position": globals.turntable_position
+        })
+
+    except Exception as e:
+        app.logger.exception(f"Error during homing: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+### Image Analysis Function ###
+@app.route('/analyze_image', methods=['POST'])
+def analyze_image():
+    try:
+        app.logger.info("Image capture and analysis started.")
+        camera_type = 'main'
+
+        with globals.grab_locks[camera_type]:
+            camera = globals.cameras.get(camera_type)
+
+            if camera is None or not camera.IsOpen():
+                app.logger.error("Main camera is not connected or open.")
+                return jsonify({"error": "Main camera is not connected or open."}), 400
+
+            # Grab an image
             grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
             if grab_result.GrabSucceeded():
@@ -125,25 +183,20 @@ def home_turntable_with_image():
                 image = grab_result.Array
                 grab_result.Release()
 
-                # Process the image
-                rotation_needed = imageprocessing.home_turntable_with_image(image)
-                command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
-                
-                app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
+                # Process the image using center_eval()
+                dot_contours = imageprocessing.center_eval(image)
 
-                # Send rotation command to the turntable
-                porthandler.write_turntable(command)
-                app.logger.info("Rotation command sent to turntable.")
+                # Extract areas of detected dots
+                detected_dots = [
+                    {"id": i + 1, "x": dot[0], "y": dot[1], "column": dot[2], "area": dot[3]} 
+                    for i, dot in enumerate(dot_contours)
+                ]
 
-                # Set position to 0 and mark as homed
-                globals.turntable_position = 0
-                globals.turntable_homed = True  # Mark as homed
-                app.logger.info("Homing completed successfully. Position set to 0.")
+                app.logger.info(f"Image analysis complete. {len(detected_dots)} dots detected.")
 
                 return jsonify({
-                    "message": "Homing successful",
-                    "rotation": rotation_needed,
-                    "current_position": globals.turntable_position
+                    "message": "Image analysis successful",
+                    "dot_contours": detected_dots
                 })
             else:
                 grab_result.Release()
@@ -151,7 +204,7 @@ def home_turntable_with_image():
                 return jsonify({"error": "Failed to grab image from camera."}), 500
 
     except Exception as e:
-        app.logger.exception(f"Error during homing: {e}")
+        app.logger.exception(f"Error during image analysis: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -440,7 +493,7 @@ def get_camera_status():
     is_connected = camera is not None and camera.IsOpen()
     is_streaming = globals.stream_running.get(camera_type, False)
 
-    # ✅ 1) Double-check if device is truly present in the enumerated device list.
+    # 1) Double-check if device is truly present in the enumerated device list.
     factory = pylon.TlFactory.GetInstance()
     devices = factory.EnumerateDevices()
     found_serials = [dev.GetSerialNumber() for dev in devices]

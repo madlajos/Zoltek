@@ -4,6 +4,7 @@ import numpy as np
 import time  # Import time module for timing
 import os
 from concurrent.futures import ThreadPoolExecutor
+import pandas
 
 global result
 
@@ -118,183 +119,198 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
 
     return adjusted_angle
 
+def center_eval(image):
+    image = image
 
-def start(image):
-    """
-    Entry point to process the provided image.
-    """
-    original_image = image
-    cropped_image = image
-
-    # Construct the template path dynamically
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    template_path = os.path.join(script_dir, 'templ05_mod2.jpg')
+    template_path = os.path.join(script_dir, 'templ03.jpg')
+    template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
 
-    if original_image is None:
-        raise ValueError("The provided image is None. Ensure a valid image is passed.")
+    if image is None or template is None:
+        raise FileNotFoundError("Target or template image not found. Check the file paths.")
 
-    if not os.path.exists(template_path):
-        raise FileNotFoundError("Template file not found. Check the file path.")
+    # Step 1: Crop the input image
+    cropped_image = crop_second_two_thirds(image)
+    # Step 2: Match and extract the template region
+    matched_region = template_match_and_extract(template, cropped_image)
+    # Step 3: Detect the largest circle in the matched region and create a mask
+    annotated_image, mask = detect_largest_circle(matched_region)
+    # Apply the mask to extract only the largest circle region
+    extracted_region = cv2.bitwise_and(matched_region, matched_region, mask=mask)
+    # Step 4: Detect small dots and extract their contours and areas
+    dot_contours, annotated_dots = detect_small_dots_and_contours(extracted_region)
 
-    try:
-        result = process_image(original_image, template_path)
+    # Print the areas of the detected dots
+    for i, dot in enumerate(dot_contours):
+        print(f"Dot {i + 1}: X = {dot[0]}, Y = {dot[1]}, Column = {dot[2]}, Area = {dot[3]}")
 
-    except Exception as e:
-        print(f"An error occurred during processing: {e}")
-        
-    return result
-        
+    cv2.imwrite(os.path.join(script_dir, 'result.jpg'), annotated_dots)
 
-def crop_second_two_thirds(image_path):
+    return dot_contours
+
+def crop_second_two_thirds(image):
     """
     Crops the second 2/3 horizontally of an image and returns it.
     """
-    cropped_image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    original_image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if cropped_image is None or original_image is None:
-        raise FileNotFoundError(f"Image not found at {image_path}")
+    if image is None:
+        raise FileNotFoundError(f"Image not obtained from the center camera.")
+    if image is not None:
+        height, width = image.shape
+        crop_start = width // 2
+        cropped_image = image[:, :crop_start]
 
-    return original_image, cropped_image
+    return cropped_image
 
-def preprocess(image, scale_percent=100):
+
+
+
+def template_match_and_extract(template, cropped_image):
     """
-    Preprocesses the image by resizing it according to the scale percentage.
+    Performs template matching on the cropped image and extracts the matched region.
     """
-    if scale_percent != 100:
-        width = int(image.shape[1] * scale_percent / 100)
-        height = int(image.shape[0] * scale_percent / 100)
-        resized_image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
-        return resized_image
-    return image
 
-def rotate_image(image, angle):
-    """
-    Rotates the image by the specified angle (in degrees) around its center.
-    """
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, matrix, (w, h))
-    return rotated
-
-def template_match_with_all_rotations(cropped_image, rotated_templates):
-    """
-    Matches the best template (with all rotations) in the cropped image and
-    returns the matched region, its coordinates, and the rotation angle.
-    """
-    best_match = None
-    best_angle = None
-    best_val = -1
-    best_top_left = None
-    best_template_shape = None
-
-    for angle, rotated_template in rotated_templates.items():
-        if (rotated_template.shape[0] > cropped_image.shape[0] or
-            rotated_template.shape[1] > cropped_image.shape[1]):
-            continue
-
-        result = cv2.matchTemplate(cropped_image, rotated_template, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-
-        if max_val > best_val:
-            best_val = max_val
-            best_angle = angle
-            best_top_left = max_loc
-            best_template_shape = rotated_template.shape
-
-    if best_val < 0.05:
-        raise ValueError(f"Template match confidence too low (max_val: {best_val:.3f}). Template likely not found.")
-
-    template_height, template_width = best_template_shape
-    top_left = best_top_left
-    bottom_right = (top_left[0] + template_width, top_left[1] + template_height)
-
-    matched_region = cropped_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-
-    return matched_region, top_left, best_template_shape[1], best_template_shape[0], best_angle
-
-def template_match_with_polygon(cropped_image, template_path):
-    """
-    Matches a template in the cropped image and returns the matched region and its coordinates.
-    """
-    template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
-    if template is None:
-        raise FileNotFoundError(f"Template not found at {template_path}")
-
+    template_height, template_width = template.shape
     result = cv2.matchTemplate(cropped_image, template, cv2.TM_CCOEFF_NORMED)
     _, _, _, max_loc = cv2.minMaxLoc(result)
 
-    template_height, template_width = template.shape
     top_left = max_loc
-    bottom_right = (top_left[0] + template_width, top_left[1] + template_height)
+    matched_region = cropped_image[top_left[1]:top_left[1] + template_height,
+                                    top_left[0]:top_left[0] + template_width]
 
-    matched_region = cropped_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+    return matched_region
 
-    return matched_region, top_left, template_width, template_height
 
-def calculate_alignment_angle(image_shape, top_left, template_width, template_height, cropped_offset):
+
+
+
+def detect_largest_circle(image, num_outer_dots=64):
+        """
+        Detects concentric rings, calculates the mean radius of small dots,
+        and determines the largest circle dynamically based on known spacing rules.
+        Returns the mask of the largest circle.
+        """
+        # Threshold the image
+        _, template_thresh = cv2.threshold(image, 100, 255, cv2.THRESH_BINARY)
+
+        # Detect contours
+        contours, _ = cv2.findContours(template_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        annotated_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+        dots_data = []  # Store (x, y, radius) of all small dots
+        small_dot_radii = []  # Store the radius of small dots
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            (x, y), radius = cv2.minEnclosingCircle(contour)
+
+            # **Step 1: Identify Small Dots (Adjust the area threshold as needed)**
+            if area > 0:  # Assuming small dots have small area, adjust threshold if needed
+                dots_data.append((x, y, radius))
+                small_dot_radii.append(radius)  # Store the radius of small dots
+                cv2.circle(annotated_image, (int(x), int(y)), int(radius), (0, 255, 0), 1)  # Green for small dots
+
+        if not small_dot_radii:
+            print("No small dots detected.")
+            return annotated_image, np.zeros_like(image), None
+
+        # **Step 2: Compute Mean Radius of Small Dots**
+        mean_dot_radius = np.mean(small_dot_radii)
+        dot_diameter = 2 * mean_dot_radius
+        print(f"Mean Small Dot Radius: {mean_dot_radius:.2f} pixels, Dot Diameter: {dot_diameter:.2f} pixels")
+
+        # **Step 3: Compute Expected Ring Radius**
+        dot_spacing = 4.5 * dot_diameter
+        expected_ring_radius = (num_outer_dots * dot_spacing) / (2 * np.pi)
+        print(f"Expected Ring Radius: {expected_ring_radius:.2f} pixels")
+
+        # **Step 4: Detect Concentric Rings**
+        image_center = (image.shape[1] // 2, image.shape[0] // 2)
+        dots_with_dist = [(x, y, r, np.hypot(x - image_center[0], y - image_center[1])) for x, y, r in dots_data]
+        dots_with_dist.sort(key=lambda d: d[3])
+
+        # Group dots into concentric rings
+        ring_threshold = 3  # Adjust as needed
+        concentric_groups = []
+        current_group = []
+
+        for i, dot in enumerate(dots_with_dist):
+            if i == 0:
+                current_group.append(dot)
+            else:
+                if abs(dot[3] - dots_with_dist[i - 1][3]) < ring_threshold:
+                    current_group.append(dot)
+                else:
+                    concentric_groups.append(current_group)
+                    current_group = [dot]
+
+        if current_group:
+            concentric_groups.append(current_group)
+
+        # **Step 5: Find the Largest Ring**
+        largest_ring_index = None
+        largest_ring_radius = 0.0
+        ring_circles = []
+
+        for i, group in enumerate(concentric_groups):
+            pts = np.array([[dot[0], dot[1]] for dot in group], dtype=np.float32)
+            (cx, cy), group_radius = cv2.minEnclosingCircle(pts)
+            ring_circles.append(((cx, cy), group_radius))
+
+            if group_radius > largest_ring_radius:
+                largest_ring_radius = group_radius
+                largest_ring_index = i
+
+        # **Step 6: Use Expected Ring Radius Instead of Detected One**
+        mask = np.zeros_like(image, dtype=np.uint8)
+
+        if largest_ring_index is not None:
+            ring_center, _ = ring_circles[largest_ring_index]
+            ring_center = (int(ring_center[0]), int(ring_center[1]))
+
+            # **Use the calculated expected ring radius instead of the detected one**
+            ring_radius = int(expected_ring_radius)
+            print(f"Final Adjusted Largest Ring Radius: {ring_radius:.2f} pixels")
+
+            # Draw the final circle
+            cv2.circle(annotated_image, ring_center, ring_radius, (255, 0, 0), 1)
+
+            # Create a mask for the largest circle
+            cv2.circle(mask, ring_center, ring_radius, 255, -1)
+
+        return annotated_image, mask
+
+
+def detect_small_dots_and_contours(masked_region):
     """
-    Calculate the angle required to align the matched region so that the distances
-    from the top-right and bottom-right corners to the top and bottom edges are equal.
+    Detect small dots in the masked region, extract their contours, and calculate areas.
+    Returns a list of dot positions and areas in the format:
+    (X, Y, 0, Area)
     """
-    img_height, img_width = image_shape
-    top_left_original = (top_left[0] + cropped_offset, top_left[1])
+    # Threshold the masked region
+    _, thresh = cv2.threshold(masked_region, 40, 255, cv2.THRESH_BINARY)
 
-    top_right = (top_left_original[0] + template_width, top_left_original[1])
-    bottom_right = (top_left_original[0] + template_width, top_left_original[1] + template_height)
+    # Detect contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    top_right_distance = top_right[1]
-    bottom_right_distance = img_height - bottom_right[1]
+    # Store dot positions and areas
+    dot_area_column_mapping = []  # List to store dot data
+    annotated_dots = cv2.cvtColor(masked_region, cv2.COLOR_GRAY2BGR)
 
-    horizontal_distance = template_width
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area > 0:  # Only consider non-zero area contours
+            # Compute the center of the dot
+            M = cv2.moments(contour)
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
 
-    vertical_difference = bottom_right_distance - top_right_distance
-    angle = math.degrees(math.atan2(vertical_difference, horizontal_distance))
+                # Append to the structured list (X, Y, 0, Area)
+                dot_area_column_mapping.append((cX, cY, 0, area))
 
-    return -angle
-
-def process_image(image, template_path):
-    """
-    Processes the provided image using the template and returns the alignment angle.
-    """
-    try:
-        original_image = image
-        cropped_image = image
-
-        # Step 2: Create rotated templates for initial alignment
-        template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
-        if template is None:
-            raise FileNotFoundError(f"Template not found at {template_path}")
-
-        rotated_templates = {
-            0: preprocess(template),
-            5: preprocess(rotate_image(template, 5)),
-            10: preprocess(rotate_image(template, 10)),
-            -5: preprocess(rotate_image(template, -5)),
-            -10: preprocess(rotate_image(template, -10)),
-        }
-
-        matched_region, top_left, template_width, template_height, best_angle = template_match_with_all_rotations(
-            cropped_image, rotated_templates
-        )
-
-        reverse_angle = -best_angle
-        aligned_image = rotate_image(original_image, reverse_angle)
-
-        # Step 3: Perform polygon-based matching on the aligned image
-        matched_region, top_left, template_width, template_height = template_match_with_polygon(
-            aligned_image, template_path
-        )
-
-        cropped_offset = original_image.shape[1] // 3
-        alignment_angle = calculate_alignment_angle(
-            original_image.shape, top_left, template_width, template_height, cropped_offset
-        )
-        print(round(alignment_angle,2))
-        result = (round(alignment_angle,2))
-        
-        return result
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
+                # Draw the dot and annotate it
+                cv2.drawContours(annotated_dots, [contour], -1, (0, 255, 0), 2)
+                cv2.putText(annotated_dots, f"{area:.1f}", (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+    df = pandas.DataFrame(dot_area_column_mapping, columns=['X', 'Y', 'Column', 'Area'])
+    df.to_csv('dot_areas_with_columns_circle.csv', index=False)
+    return dot_area_column_mapping, annotated_dots

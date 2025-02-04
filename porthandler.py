@@ -1,6 +1,7 @@
 import serial
 import serial.tools.list_ports
 import logging
+import time
 
 # Global serial device variables
 turntable = None
@@ -76,8 +77,8 @@ def connect_to_turntable():
         device_name="Turntable",
         identification_command=identification_command,
         expected_response=expected_response,
-        vid=0x2341,  # Example VID for turntable
-        pid=0x8036   # Example PID for turntable
+        vid=0x2E8A,  # Example VID for turntable
+        pid=0x0003   # Example PID for turntable
     )
     if turntable is None:
         raise Exception("Turntable device not found or did not respond correctly.")
@@ -192,9 +193,11 @@ def is_barcode_scanner_connected():
         return False
 
 
-def write_turntable(command):
+
+
+def write_turntable(command, timeout=10):
     """
-    Sends a command to the turntable.
+    Sends a command to the turntable and waits for a clear 'DONE' confirmation.
     """
     global turntable
     if turntable is None or not turntable.is_open:
@@ -208,9 +211,33 @@ def write_turntable(command):
         else:
             raise ValueError("Invalid command format. Expected a string or tuple.")
 
+        # Flush buffer before sending a command
+        turntable.reset_input_buffer()
+
+        # Send the command
         turntable.write(formatted_command.encode())
         turntable.flush()
         logging.info(f"Command sent to turntable: {formatted_command.strip()}")
+
+        # Read responses until we receive "DONE"
+        start_time = time.time()
+        received_data = ""
+
+        while time.time() - start_time < timeout:
+            if turntable.in_waiting > 0:
+                chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
+                received_data += chunk
+                logging.info(f"Received from turntable: {chunk.strip()}")
+
+                # If "DONE" is anywhere in the received data, return success
+                if "DONE" in received_data:
+                    logging.info("Turntable movement completed successfully.")
+                    return True
+
+        # Timeout if "DONE" was never received
+        logging.warning("Timeout waiting for 'DONE' signal from turntable.")
+        return False
+
     except Exception as e:
         logging.error(f"Error writing to turntable: {str(e)}")
         raise
