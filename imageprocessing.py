@@ -119,11 +119,13 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
 
     return adjusted_angle
 
+
+
 def center_eval(image):
-    image = image
+    image = cv2.flip(image, 0)
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    template_path = os.path.join(script_dir, 'templ03.jpg')
+    template_path = os.path.join(script_dir, 'templ03_mod3.jpg')
     template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
 
     if image is None or template is None:
@@ -133,19 +135,17 @@ def center_eval(image):
     cropped_image = crop_second_two_thirds(image)
     # Step 2: Match and extract the template region
     matched_region = template_match_and_extract(template, cropped_image)
-    # Step 3: Detect the largest circle in the matched region and create a mask
-    annotated_image, mask = detect_largest_circle(matched_region)
-    # Apply the mask to extract only the largest circle region
-    extracted_region = cv2.bitwise_and(matched_region, matched_region, mask=mask)
+
     # Step 4: Detect small dots and extract their contours and areas
-    dot_contours, annotated_dots = detect_small_dots_and_contours(extracted_region)
+    dot_contours, annotated_dots = detect_small_dots_and_contours(matched_region)
 
     # Print the areas of the detected dots
     for i, dot in enumerate(dot_contours):
         print(f"Dot {i + 1}: X = {dot[0]}, Y = {dot[1]}, Column = {dot[2]}, Area = {dot[3]}")
 
     cv2.imwrite(os.path.join(script_dir, 'result.jpg'), annotated_dots)
-
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     return dot_contours
 
 def crop_second_two_thirds(image):
@@ -155,10 +155,12 @@ def crop_second_two_thirds(image):
     if image is None:
         raise FileNotFoundError(f"Image not obtained from the center camera.")
     if image is not None:
-        height, width = image.shape
-        crop_start = width // 2
-        cropped_image = image[:, :crop_start]
-
+       # height, width = image.shape
+        #crop_start = width // 2
+        #cropped_image = image[:, :crop_start]
+        cropped_image=image
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     return cropped_image
 
 
@@ -166,118 +168,49 @@ def crop_second_two_thirds(image):
 
 def template_match_and_extract(template, cropped_image):
     """
-    Performs template matching on the cropped image and extracts the matched region.
+    Performs template matching on the cropped image, extracts the best-matched region,
+    and applies the mask at the matched location.
     """
 
     template_height, template_width = template.shape
     result = cv2.matchTemplate(cropped_image, template, cv2.TM_CCOEFF_NORMED)
-    _, _, _, max_loc = cv2.minMaxLoc(result)
 
+    # Get the location of the best match
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+    print(f"Best match confidence: {max_val}")
+
+    # Extract the best-matched region
     top_left = max_loc
-    matched_region = cropped_image[top_left[1]:top_left[1] + template_height,
-                                    top_left[0]:top_left[0] + template_width]
+    bottom_right = (top_left[0] + template_width, top_left[1] + template_height)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    mask_path = os.path.join(script_dir, 'templ03_mod3.jpg')
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-    return matched_region
+    # Ensure the mask size matches the template
+    mask_resized = cv2.resize(mask, (template_width, template_height), interpolation=cv2.INTER_AREA)
+    adjustment1 = 5  # Try values like -1, -2 to see if it corrects the shift
+    adjustment2 = 5
+    corrected_top_left = (top_left[0] + adjustment1, top_left[1]+adjustment2)
+    corrected_bottom_right = (corrected_top_left[0] + template_width, corrected_top_left[1] + template_height)
+    # Create a blank mask of the same size as the cropped image
+    mask_layer = np.zeros_like(cropped_image, dtype=np.uint8)
+    mask_layer[corrected_top_left[1]:corrected_bottom_right[1],corrected_top_left[0]:corrected_bottom_right[0]] = mask_resized
 
 
 
 
 
-def detect_largest_circle(image, num_outer_dots=64):
-        """
-        Detects concentric rings, calculates the mean radius of small dots,
-        and determines the largest circle dynamically based on known spacing rules.
-        Returns the mask of the largest circle.
-        """
-        # Threshold the image
-        _, template_thresh = cv2.threshold(image, 100, 255, cv2.THRESH_BINARY)
+    # Apply the mask on the cropped image using bitwise operation
+    masked_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask_layer)
 
-        # Detect contours
-        contours, _ = cv2.findContours(template_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        annotated_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    # Save and show results
+    cv2.imwrite('matched_region.png', masked_image)
+    # cv2.imshow("Masked Region", masked_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-        dots_data = []  # Store (x, y, radius) of all small dots
-        small_dot_radii = []  # Store the radius of small dots
-
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            (x, y), radius = cv2.minEnclosingCircle(contour)
-
-            # **Step 1: Identify Small Dots (Adjust the area threshold as needed)**
-            if area > 0:  # Assuming small dots have small area, adjust threshold if needed
-                dots_data.append((x, y, radius))
-                small_dot_radii.append(radius)  # Store the radius of small dots
-                cv2.circle(annotated_image, (int(x), int(y)), int(radius), (0, 255, 0), 1)  # Green for small dots
-
-        if not small_dot_radii:
-            print("No small dots detected.")
-            return annotated_image, np.zeros_like(image), None
-
-        # **Step 2: Compute Mean Radius of Small Dots**
-        mean_dot_radius = np.mean(small_dot_radii)
-        dot_diameter = 2 * mean_dot_radius
-        print(f"Mean Small Dot Radius: {mean_dot_radius:.2f} pixels, Dot Diameter: {dot_diameter:.2f} pixels")
-
-        # **Step 3: Compute Expected Ring Radius**
-        dot_spacing = 4.5 * dot_diameter
-        expected_ring_radius = (num_outer_dots * dot_spacing) / (2 * np.pi)
-        print(f"Expected Ring Radius: {expected_ring_radius:.2f} pixels")
-
-        # **Step 4: Detect Concentric Rings**
-        image_center = (image.shape[1] // 2, image.shape[0] // 2)
-        dots_with_dist = [(x, y, r, np.hypot(x - image_center[0], y - image_center[1])) for x, y, r in dots_data]
-        dots_with_dist.sort(key=lambda d: d[3])
-
-        # Group dots into concentric rings
-        ring_threshold = 3  # Adjust as needed
-        concentric_groups = []
-        current_group = []
-
-        for i, dot in enumerate(dots_with_dist):
-            if i == 0:
-                current_group.append(dot)
-            else:
-                if abs(dot[3] - dots_with_dist[i - 1][3]) < ring_threshold:
-                    current_group.append(dot)
-                else:
-                    concentric_groups.append(current_group)
-                    current_group = [dot]
-
-        if current_group:
-            concentric_groups.append(current_group)
-
-        # **Step 5: Find the Largest Ring**
-        largest_ring_index = None
-        largest_ring_radius = 0.0
-        ring_circles = []
-
-        for i, group in enumerate(concentric_groups):
-            pts = np.array([[dot[0], dot[1]] for dot in group], dtype=np.float32)
-            (cx, cy), group_radius = cv2.minEnclosingCircle(pts)
-            ring_circles.append(((cx, cy), group_radius))
-
-            if group_radius > largest_ring_radius:
-                largest_ring_radius = group_radius
-                largest_ring_index = i
-
-        # **Step 6: Use Expected Ring Radius Instead of Detected One**
-        mask = np.zeros_like(image, dtype=np.uint8)
-
-        if largest_ring_index is not None:
-            ring_center, _ = ring_circles[largest_ring_index]
-            ring_center = (int(ring_center[0]), int(ring_center[1]))
-
-            # **Use the calculated expected ring radius instead of the detected one**
-            ring_radius = int(expected_ring_radius)
-            print(f"Final Adjusted Largest Ring Radius: {ring_radius:.2f} pixels")
-
-            # Draw the final circle
-            cv2.circle(annotated_image, ring_center, ring_radius, (255, 0, 0), 1)
-
-            # Create a mask for the largest circle
-            cv2.circle(mask, ring_center, ring_radius, 255, -1)
-
-        return annotated_image, mask
+    return masked_image
 
 
 def detect_small_dots_and_contours(masked_region):
@@ -287,7 +220,7 @@ def detect_small_dots_and_contours(masked_region):
     (X, Y, 0, Area)
     """
     # Threshold the masked region
-    _, thresh = cv2.threshold(masked_region, 40, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(masked_region, 130, 255, cv2.THRESH_BINARY)
 
     # Detect contours
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -309,8 +242,12 @@ def detect_small_dots_and_contours(masked_region):
                 dot_area_column_mapping.append((cX, cY, 0, area))
 
                 # Draw the dot and annotate it
-                cv2.drawContours(annotated_dots, [contour], -1, (0, 255, 0), 2)
+                cv2.drawContours(annotated_dots, [contour], -1, (0, 255, 0), 1)
                 cv2.putText(annotated_dots, f"{area:.1f}", (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
     df = pandas.DataFrame(dot_area_column_mapping, columns=['X', 'Y', 'Column', 'Area'])
-    df.to_csv('dot_areas_with_columns_circle.csv', index=False)
+    df.to_csv('dot_areas_with_columns.csv', index=False)
     return dot_area_column_mapping, annotated_dots
+
+
+
+

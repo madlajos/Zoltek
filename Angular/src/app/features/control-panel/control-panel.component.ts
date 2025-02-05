@@ -35,7 +35,9 @@ export class ControlPanelComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    // Any initialization code if needed.
+    setInterval(() => {
+      this.fetchBarcodeData();
+    }, 1000); // Fetch barcode every 1 second
   }
 
   ngAfterViewInit(): void {
@@ -122,6 +124,18 @@ export class ControlPanelComponent implements OnInit {
       },
       (error) => {
         console.error("Image analysis failed!", error);
+      }
+    );
+  }
+
+  fetchBarcodeData(): void {
+    this.http.get<{ barcode: string }>(`${this.BASE_URL}/api/get-barcode`).subscribe(
+      (response) => {
+        console.log("Barcode received from API:", response.barcode);
+        this.nozzleId = response.barcode; // Update UI
+      },
+      (error) => {
+        console.error("Failed to fetch barcode!", error);
       }
     );
   }

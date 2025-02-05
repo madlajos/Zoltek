@@ -43,13 +43,20 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
       (response) => {
         const wasConnected = this.isConnected;
         this.isConnected = response.connected;
+
+        if (!this.isConnected && wasConnected) {
+          console.warn("Turntable disconnected!");
+          alert("Turntable has been disconnected!");
+        } else if (this.isConnected && !wasConnected) {
+          console.info("Turntable reconnected.");
+        }
       },
       (error) => {
-        console.error('Failed to check printer connection status!', error);
+        console.error('Failed to check turntable connection status!', error);
         this.isConnected = false;
       }
     );
-  }
+}
 
   updateTurntablePosition(): void {
     if (this.isConnected) {

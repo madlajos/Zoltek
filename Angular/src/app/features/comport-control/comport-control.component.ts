@@ -64,7 +64,6 @@ export class ComportControlComponent implements OnInit {
   }
 
   checkStatus() {
-    // Poll status for all devices
     return of(null).pipe(
       tap(() => {
         this.devices.forEach(device => {
@@ -77,6 +76,7 @@ export class ComportControlComponent implements OnInit {
                 } else {
                   device.status = 'Disconnected';
                   device.action = 'Connect';
+                  console.warn(`${device.name} disconnected.`);
                 }
               }),
               catchError(error => {

@@ -6,6 +6,8 @@ latest_barcode = ""
 
 app = Flask(__name__)
 
+barcode_scanner = None
+
 cameras = {
     'main': None,
     'side': None

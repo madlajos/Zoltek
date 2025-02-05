@@ -2,10 +2,13 @@ import serial
 import serial.tools.list_ports
 import logging
 import time
+import threading
+import globals
 
 # Global serial device variables
 turntable = None
 barcode_scanner = None
+turntable_waiting_for_done = False
 
 def connect_to_serial_device(device_name, identification_command, expected_response, vid, pid):
     """
@@ -87,88 +90,109 @@ def connect_to_turntable():
 
 def connect_to_barcode_scanner():
     """
-    Connects to the barcode scanner (QD2100) using its VID/PID.
-    No identification handshake is performed, so pass empty strings.
+    Attempts to connect to the barcode scanner (QD2100) using its VID/PID.
+    If successful, assigns the scanner to `barcode_scanner` and starts the listener thread.
     """
     global barcode_scanner
-    if barcode_scanner and barcode_scanner.is_open:
-        logging.info("Barcode scanner is already connected.")
-        return barcode_scanner
 
-    # For the barcode scanner, no identification command is needed.
-    identification_command = ""
-    expected_response = ""
-    barcode_scanner = connect_to_serial_device(
-        device_name="BarcodeScanner",
-        identification_command=identification_command,
-        expected_response=expected_response,
-        vid=0x05F9,  # Barcode scanner VID (from USB\VID_05F9...)
-        pid=0x4204   # Barcode scanner PID (from PID_4204...)
-    )
-    if barcode_scanner is None:
-        raise Exception("Barcode scanner device not found or did not respond correctly.")
-    return barcode_scanner
+    # Cleanup any stale connection
+    if barcode_scanner:
+        try:
+            if barcode_scanner.is_open:
+                barcode_scanner.close()
+        except Exception as e:
+            logging.error(f"Error closing stale barcode scanner connection: {e}")
 
+    barcode_scanner = None  # Ensure it's reset before retrying
+
+    # Retry logic with exponential backoff
+    max_attempts = 10
+    attempt = 0
+    while attempt < max_attempts:
+        attempt += 1
+        logging.info(f"Attempting to connect to barcode scanner (Attempt {attempt})...")
+
+        barcode_scanner = connect_to_serial_device(
+            device_name="BarcodeScanner",
+            identification_command="",
+            expected_response="",
+            vid=0x05F9,
+            pid=0x4204
+        )
+
+        if barcode_scanner and barcode_scanner.is_open:
+            logging.info("Barcode scanner connected successfully.")
+            
+            # Start barcode listener only if not already running
+            if not any(t.name == "BarcodeListener" for t in threading.enumerate()):
+                threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
+            
+            return barcode_scanner
+
+        logging.warning(f"Barcode scanner not found. Retrying in {attempt * 3} seconds...")
+        time.sleep(attempt * 3)  # Exponential backoff (3s, 6s, 9s, ...)
+
+    logging.error("Failed to connect to barcode scanner after multiple attempts.")
+    return None
+
+def barcode_scanner_listener():
+    """Continuously read barcode scanner data and update globals.latest_barcode."""
+    global barcode_scanner  # Ensure we're modifying the global barcode_scanner variable
+
+    while True:
+        if barcode_scanner and barcode_scanner.is_open:
+            try:
+                # Read barcode data
+                line = barcode_scanner.readline().decode(errors='ignore').strip()
+                if line:
+                    globals.latest_barcode = line
+                    logging.info(f"Barcode scanned: {line}")
+
+            except serial.SerialException as e:
+                logging.error(f"SerialException reading barcode scanner: {e}")
+                barcode_scanner.close()
+                barcode_scanner = None
+                logging.warning("Barcode scanner disconnected! Attempting reconnection...")
+
+                # Attempt reconnection loop
+                while barcode_scanner is None:
+                    try:
+                        barcode_scanner = connect_to_barcode_scanner()
+                        if barcode_scanner and barcode_scanner.is_open:
+                            logging.info("Barcode scanner reconnected successfully.")
+                            break  # Exit the loop on success
+                    except Exception as e:
+                        logging.error(f"Reconnection attempt failed: {e}")
+                        time.sleep(2)  # Wait before retrying
+
+        time.sleep(0.5)  # Poll every 500ms
 
 def disconnect_serial_device(device_name):
     """
-    Disconnect the specified device ('turntable' or 'barcode').
+    Forcefully disconnects the specified serial device ('turntable' or 'barcode').
     """
     global turntable, barcode_scanner
-    logging.info(f"Disconnecting {device_name}")
-    if device_name.lower() == 'turntable' and turntable is not None:
-        try:
-            if turntable.is_open:
-                turntable.close()
-            turntable = None
-            logging.info("Turntable disconnected successfully.")
-        except Exception as e:
-            logging.error(f"Error while disconnecting turntable: {e}")
-            raise Exception(f"Failed to disconnect {device_name}: {e}")
-    elif device_name.lower() in ['barcode', 'barcodescanner']:
-        if barcode_scanner is not None:
-            try:
-                if barcode_scanner.is_open:
-                    barcode_scanner.close()
-                barcode_scanner = None
-                logging.info("Barcode scanner disconnected successfully.")
-            except Exception as e:
-                logging.error(f"Error while disconnecting barcode scanner: {e}")
-                raise Exception(f"Failed to disconnect {device_name}: {e}")
-        else:
-            logging.error(f"Barcode scanner not connected.")
-            raise Exception(f"Barcode scanner not connected.")
-    else:
-        logging.error(f"Invalid device name or device not connected: {device_name}")
-        raise Exception(f"Invalid device name or device not connected: {device_name}")
-
-
-def is_turntable_connected():
-    """
-    Checks if the turntable is still connected and responsive.
-    """
-    global turntable
-    if turntable is None or not turntable.is_open:
-        logging.warning("Turntable connection is closed.")
-        return False
+    logging.info(f"Attempting to disconnect {device_name}")
 
     try:
-        turntable.write(b'IDN?\n')
-        response = turntable.readline().decode(errors='ignore').strip()
-        logging.debug(f"Turntable response: {response}")
+        if device_name.lower() == 'turntable' and turntable is not None:
+            if turntable.is_open:
+                turntable.close()  # Close port safely
+            turntable = None  # Remove reference
+            logging.info("Turntable disconnected successfully.")
+        elif device_name.lower() in ['barcode', 'barcodescanner'] and barcode_scanner is not None:
+            if barcode_scanner.is_open:
+                barcode_scanner.close()  # Close port safely
+            barcode_scanner = None  # Remove reference
+            logging.info("Barcode scanner disconnected successfully.")
+        else:
+            logging.warning(f"{device_name} was not connected.")
+    except Exception as e:
+        logging.error(f"Error while disconnecting {device_name}: {e}")
 
-        if response:
-            return True
-    except (serial.SerialException, serial.SerialTimeoutException) as e:
-        logging.error(f"Turntable disconnected or unresponsive: {e}")
-        turntable.close()
-        turntable = None
-        return False
 
-    logging.warning("Turntable did not respond. Marking as disconnected.")
-    turntable.close()
-    turntable = None
-    return False
+
+
 
 
 def is_barcode_scanner_connected():
@@ -193,54 +217,48 @@ def is_barcode_scanner_connected():
         return False
 
 
-
-
 def write_turntable(command, timeout=10):
-    """
-    Sends a command to the turntable and waits for a clear 'DONE' confirmation.
-    """
-    global turntable
+    global turntable, turntable_waiting_for_done
+
     if turntable is None or not turntable.is_open:
         raise Exception("Turntable is not connected or available.")
 
     try:
-        if isinstance(command, tuple):
-            formatted_command = "{},{}\n".format(*command)
-        elif isinstance(command, str):
-            formatted_command = f"{command}\n"
-        else:
-            raise ValueError("Invalid command format. Expected a string or tuple.")
-
-        # Flush buffer before sending a command
+        formatted_command = f"{command}\n"
         turntable.reset_input_buffer()
-
-        # Send the command
+        turntable.reset_output_buffer()
         turntable.write(formatted_command.encode())
         turntable.flush()
-        logging.info(f"Command sent to turntable: {formatted_command.strip()}")
+        logging.info(f"📤 Command sent to turntable: {formatted_command.strip()}")
 
-        # Read responses until we receive "DONE"
+        # ✅ Set flag to indicate we're waiting for "DONE"
+        turntable_waiting_for_done = True
+
         start_time = time.time()
         received_data = ""
 
         while time.time() - start_time < timeout:
             if turntable.in_waiting > 0:
-                chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
-                received_data += chunk
-                logging.info(f"Received from turntable: {chunk.strip()}")
+                received_chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
+                received_data += received_chunk
+                logging.info(f"📥 Received from turntable: {received_chunk.strip()}")
 
-                # If "DONE" is anywhere in the received data, return success
                 if "DONE" in received_data:
-                    logging.info("Turntable movement completed successfully.")
+                    logging.info("✅ Turntable movement completed successfully.")
+                    turntable_waiting_for_done = False  # ✅ Reset flag
                     return True
 
-        # Timeout if "DONE" was never received
-        logging.warning("Timeout waiting for 'DONE' signal from turntable.")
+            time.sleep(0.05)
+
+        logging.warning("⚠️ Timeout waiting for 'DONE' signal from turntable.")
+        turntable_waiting_for_done = False  # ✅ Reset flag on timeout
         return False
 
     except Exception as e:
-        logging.error(f"Error writing to turntable: {str(e)}")
-        raise
+        logging.error(f"❌ Error writing to turntable: {str(e)}")
+        turntable_waiting_for_done = False  # ✅ Reset flag on error
+        return False
+
 
 
 def write_barcode_scanner(data):

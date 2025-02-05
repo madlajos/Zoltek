@@ -4,6 +4,7 @@ from tkinter import filedialog, Tk
 import os
 import cv2
 import time
+from porthandler import barcode_scanner_listener
 import logging
 from logging.handlers import RotatingFileHandler
 import globals
@@ -95,14 +96,9 @@ def disconnect_serial_device(device_name):
         logging.exception(f"Exception occurred while disconnecting from {device_name}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/check-connections', methods=['GET'])
-def check_serial_connections():
-    turntable_connected = porthandler.turntable is not None
-    return jsonify({
-        'turntableConnected': turntable_connected
-    })
+
     
-### Turntable Functions ###
+
 ### Turntable Functions ###
 @app.route('/home_turntable_with_image', methods=['POST'])
 def home_turntable_with_image():
@@ -140,7 +136,7 @@ def home_turntable_with_image():
         if not movement_success:
             return jsonify({"error": "Turntable did not confirm movement completion"}), 500
 
-        app.logger.info("Rotation completed successfully.")
+        app.logger.info("✅ Rotation completed successfully.")
 
         # Step 4: Update global position after homing
         globals.turntable_position = 0
@@ -157,8 +153,6 @@ def home_turntable_with_image():
     except Exception as e:
         app.logger.exception(f"Error during homing: {e}")
         return jsonify({"error": str(e)}), 500
-
-
 
 
 ### Image Analysis Function ###
@@ -206,8 +200,6 @@ def analyze_image():
     except Exception as e:
         app.logger.exception(f"Error during image analysis: {e}")
         return jsonify({"error": str(e)}), 500
-
-
     
 @app.route('/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
@@ -294,15 +286,6 @@ def toggle_relay():
     except Exception as e:
         app.logger.exception("Error in toggling relay")
         return jsonify({"error": str(e)}), 500
-
-
-
-
-
-
-
-
-
 
 # Define the route for starting the video stream
 @app.route('/select-folder', methods=['GET'])
@@ -536,12 +519,27 @@ def get_serial_device_status(device_name):
         logging.error("Invalid device name")
         return jsonify({'error': 'Invalid device name'}), 400
 
-    if device is not None and device.is_open:
+    if device and device.is_open:
+        if device_name.lower() == 'turntable':
+            # ✅ Only send "IDN?" if we're not already waiting for another response
+            if not porthandler.turntable_waiting_for_done:
+                try:
+                    device.write(b'IDN?\n')
+                    response = device.read(10).decode(errors='ignore').strip()
+                    if response:
+                        logging.debug(f"{device_name} is responsive on port {device.port}")
+                        return jsonify({'connected': True, 'port': device.port})
+                except Exception as e:
+                    logging.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
+                    porthandler.disconnect_serial_device(device_name)  # Force disconnect
+                    return jsonify({'connected': False})
+
         logging.debug(f"{device_name} is connected on port {device.port}")
         return jsonify({'connected': True, 'port': device.port})
-    else:
-        logging.warning(f"{device_name} appears to be disconnected.")
-        return jsonify({'connected': False})
+
+    logging.warning(f"{device_name} appears to be disconnected.")
+
+
 
 @app.route('/api/update-camera-settings', methods=['POST'])
 def update_camera_settings():
@@ -659,11 +657,7 @@ def save_image():
     
 @app.route('/api/get-barcode', methods=['GET'])
 def get_barcode():
-    # Retrieve the latest scanned barcode and then clear it.
-    barcode = globals.latest_barcode
-    globals.latest_barcode = ""  # clear after reading
-    return jsonify({'barcode': barcode})    
-    
+    return jsonify({'barcode': globals.latest_barcode})
 
 def stop_camera_stream(camera_type):
     if camera_type not in globals.cameras:
@@ -770,6 +764,7 @@ def initialize_cameras():
 def initialize_serial_devices():
     """Initialize serial devices at startup."""
     app.logger.info("Initializing serial devices...")
+
     try:
         # Connect turntable as before.
         device = porthandler.connect_to_turntable()
@@ -791,27 +786,12 @@ def initialize_serial_devices():
     except Exception as e:
         app.logger.error(f"Error initializing barcode scanner: {e}")
 
-    # Start the barcode listener thread if not already running.
-    threading.Thread(target=barcode_scanner_listener, daemon=True).start()
+    # Start barcode scanner listener thread (if not already running)
+    if not any(t.name == "BarcodeListener" for t in threading.enumerate()):
+        threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
 
-        
-        
-def barcode_scanner_listener():
-    """Continuously read barcode scanner data and update globals.latest_barcode."""
-    while True:
-        # Check if the barcode scanner is connected and open.
-        if porthandler.barcode_scanner and porthandler.barcode_scanner.is_open:
-            try:
-                # readline() will block until data is available or timeout occurs.
-                line = porthandler.barcode_scanner.readline().decode(errors='ignore').strip()
-                if line:
-                    globals.latest_barcode = line
-                    # Optionally log the barcode read.
-                    app.logger.info(f"Barcode scanned: {line}")
-            except Exception as e:
-                app.logger.error(f"Error reading barcode scanner: {e}")
-        # Poll every 100ms.
-        time.sleep(0.1)        
+
+
 
         
 if __name__ == '__main__':      
