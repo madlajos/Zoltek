@@ -88,8 +88,13 @@ void handleSerial() {
       float degreeMove = command.substring(0, commaIndex).toFloat();
       int direction = command.substring(commaIndex + 1).toInt();
 
-      if (degreeMove > 0 && (direction == 0 || direction == 1)) {
-        enqueueCommand(degreeMove, direction == 1);
+      if (degreeMove >= 0 && (direction == 0 || direction == 1)) {  
+        if (degreeMove == 0) {
+          Serial.println("DONE"); // Immediately acknowledge 0,0 commands
+          Serial.flush();
+        } else {
+          enqueueCommand(degreeMove, direction == 1);
+        }
       } else {
         Serial.println("ERR: Invalid movement command format");
       }
@@ -119,7 +124,7 @@ void enqueueCommand(float degrees, bool clockwise) {
   }
   commandQueue[queueEnd] = {degrees, clockwise};
   queueEnd = (queueEnd + 1) % COMMAND_QUEUE_SIZE;
-  Serial.println("CMD: Command enqueued");
+  // Serial.println("CMD: Command enqueued");
 }
 
 void startNextCommand() {
@@ -129,6 +134,14 @@ void startNextCommand() {
 
   Command cmd = commandQueue[queueStart];
   queueStart = (queueStart + 1) % COMMAND_QUEUE_SIZE;
+
+
+  // Handle the case where degrees == 0
+  if (cmd.degrees == 0) {
+    Serial.println("DONE");
+    Serial.flush();
+    return;
+  }
 
   // Start the move
   totalSteps = mapDegreesToSteps(cmd.degrees);
@@ -142,9 +155,9 @@ void startNextCommand() {
   digitalWrite(DIR_PIN, moveClockwise ? HIGH : LOW);
   isMoving = true;
 
-  Serial.print("CMD: Started move for ");
-  Serial.print(cmd.degrees, 1);
-  Serial.println(cmd.clockwise ? " CW" : " CCW");
+  //Serial.print("CMD: Started move for ");
+  //Serial.print(cmd.degrees, 1);
+  //Serial.println(cmd.clockwise ? " CW" : " CCW");
 }
 
 // -----------------------------------------------------------------------------
@@ -156,7 +169,7 @@ void handleMotorMovement() {
 
     // Ensure previous serial messages are flushed
     Serial.flush();
-    delay(50);  // Small delay to stabilize output
+    delay(200);  // Small delay to stabilize output
 
     // Send "DONE" as a single clean message
     Serial.println("DONE");
@@ -201,10 +214,14 @@ void handleRelayCommand(const String &command) {
   if (relayValue == "0" || relayValue == "1") {
     relayState = (relayValue == "1");
     digitalWrite(RELAY_PIN, relayState ? HIGH : LOW);
-    Serial.print("RELAY: ");
-    Serial.println(relayState ? "1" : "0");
+    //Serial.print("RELAY: ");
+    //Serial.println(relayState ? "1" : "0");
+    //Serial.flush(); 
+
+    delay(200);
   } else {
     Serial.println("ERR: Invalid relay command format");
+    Serial.flush(); 
   }
 }
 

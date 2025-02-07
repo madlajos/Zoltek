@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import time
 
 global result
+global x_end
+
+x_end = 1366
 
 def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
     """
@@ -130,7 +133,7 @@ def process_center(image):
     # Step 1: Crop the input image
     cropped_image = crop_second_two_thirds(image)
     # Step 2: Match and extract the template region
-    matched_region = template_match_and_extract(template, cropped_image)
+    matched_region, x_end = template_match_and_extract(template, cropped_image)
 
     # Step 4: Detect small dots and extract their contours and areas
     dot_contours, annotated_dots = detect_small_dots_and_contours(matched_region)
@@ -142,7 +145,7 @@ def process_center(image):
     cv2.imwrite(os.path.join(script_dir, 'result.jpg'), annotated_dots)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    return dot_contours
+    return dot_contours, x_end
 
 def crop_second_two_thirds(image):
     """
@@ -189,6 +192,12 @@ def template_match_and_extract(template, cropped_image):
     # Create a blank mask of the same size as the cropped image
     mask_layer = np.zeros_like(cropped_image, dtype=np.uint8)
     mask_layer[corrected_top_left[1]:corrected_bottom_right[1],corrected_top_left[0]:corrected_bottom_right[0]] = mask_resized
+    
+    nonzero_coords = np.column_stack(np.where((mask_layer) > 0))  # Get all nonzero pixel coordinates
+
+    if len(nonzero_coords) > 0:
+        x_end = np.min(nonzero_coords[:, 1])  # Find max x-coordinate
+        print(f"Mask ends at x = {x_end}")
 
     # Apply the mask on the cropped image using bitwise operation
     masked_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask_layer)
@@ -199,7 +208,7 @@ def template_match_and_extract(template, cropped_image):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    return masked_image
+    return masked_image, x_end
 
 
 def detect_small_dots_and_contours(masked_region):
@@ -238,7 +247,6 @@ def detect_small_dots_and_contours(masked_region):
     return dot_area_column_mapping, annotated_dots
 
 def process_inner_slice(image):
-    x_end = 1366
     image = cv2.flip(image, 0)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     template_path = os.path.join(script_dir, 'templ06_mod5.jpg')
@@ -504,9 +512,9 @@ def detect_small_dots_and_contours1(masked_region, x_threshold=40):
                          col_idx in valid_column_indices}
 
     # **Step 7: Print column-wise dot counts**
-    print("\n### Dot Count per Column ###")
+    # print("\n### Dot Count per Column ###")
     for column, count in column_dot_counts.items():
-        print(f"Column {column}: {count} dots")
+       print(f"Column {column}: {count} dots")
 
     # **Step 8: Annotate the image (excluding last two columns)**
     annotated_dots = cv2.cvtColor(masked_region, cv2.COLOR_GRAY2BGR)
@@ -563,4 +571,4 @@ def detect_small_dots_and_contours1(masked_region, x_threshold=40):
     # Save the annotated image
 
 
-    return dot_centers, annotated_dots, column_dot_counts
+    return filtered_dot_area_column_mapping, annotated_dots, column_dot_counts

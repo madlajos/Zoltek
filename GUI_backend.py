@@ -15,6 +15,7 @@ import porthandler
 import imageprocessing
 import threading
 from settings_manager import load_settings, save_settings, get_settings
+import numpy as np
 
 app = Flask(__name__)
 app.secret_key = 'Zoltek'
@@ -43,6 +44,13 @@ latest_frames = {
     'main': None,
     'side': None
 }
+
+if not hasattr(globals, 'measurement_data'):
+    globals.measurement_data = []  # This will store all the dot_contours arrays.
+if not hasattr(globals, 'result_counts'):
+    globals.result_counts = [0, 0, 0]  # One counter per result class.
+
+
 
 ### Serial Device Functions ###
 # Define the route for checking device status
@@ -156,61 +164,166 @@ def home_turntable_with_image():
 
 
 ### Image Analysis Function ###
-@app.route('/analyze_image', methods=['POST'])
-def analyze_image():
+@app.route('/analyze_center_circle', methods=['POST'])
+def analyze_center_circle():
     try:
-        app.logger.info("Image capture and analysis started.")
+        app.logger.info("Center circle analysis started.")
         camera_type = 'main'
-
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
-
             if camera is None or not camera.IsOpen():
                 app.logger.error("Main camera is not connected or open.")
                 return jsonify({"error": "Main camera is not connected or open."}), 400
 
-            # Grab an image
             grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-
             if grab_result.GrabSucceeded():
-                app.logger.info("Image grabbed successfully.")
                 image = grab_result.Array
                 grab_result.Release()
-
-                # Process the image using center_eval()
-                dot_contours = imageprocessing.process_center(image)
-                
-                if not dot_contours:  # Handle empty case
-                    app.logger.warning("⚠️ No dots detected in image.")
-                    return jsonify({
-                        "message": "Image analysis successful, but no dots detected.",
-                        "dot_contours": []
-                    })
-
-                # Append additional analysis
-                dot_contours.append(imageprocessing.process_inner_slice(image))
-
-                # Extract areas of detected dots
-                detected_dots = [
-                   {"id": i + 1, "x": dot[0], "y": dot[1], "column": dot[2], "area": dot[3]} 
-                    for i, dot in enumerate(dot_contours)
-                ]
-
-                app.logger.info(f"Image analysis complete. {len(detected_dots)} dots detected.")
-
-                return jsonify({
-                    "message": "Image analysis successful",
-                    "dot_contours": detected_dots
-                })
             else:
                 grab_result.Release()
                 app.logger.error("Failed to grab image from camera.")
                 return jsonify({"error": "Failed to grab image from camera."}), 500
 
+        # Call the processing function (process_center in imageprocessing.py)
+        dot_contours, _ = imageprocessing.process_center(image)
+        # Append the newly detected blobs into the cumulative measurement data.
+        globals.measurement_data.extend(dot_contours)
+
+        app.logger.info(f"Center circle analysis complete. {len(dot_contours)} dots detected.")
+        return jsonify({
+            "message": "Center circle analysis successful",
+            "dot_contours": dot_contours  # (Make sure dot_contours is JSON–serializable; convert to list if needed)
+        })
     except Exception as e:
-        app.logger.exception(f"Error during image analysis: {e}")
+        app.logger.exception(f"Error during center circle analysis: {e}")
         return jsonify({"error": str(e)}), 500
     
+@app.route('/analyze_center_slice', methods=['POST'])
+def analyze_center_slice():
+    try:
+        app.logger.info("Center slice analysis started.")
+        camera_type = 'main'
+        with globals.grab_locks[camera_type]:
+            camera = globals.cameras.get(camera_type)
+            if camera is None or not camera.IsOpen():
+                app.logger.error("Main camera is not connected or open.")
+                return jsonify({"error": "Main camera is not connected or open."}), 400
+
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array
+                grab_result.Release()
+            else:
+                grab_result.Release()
+                app.logger.error("Failed to grab image from camera.")
+                return jsonify({"error": "Failed to grab image from camera."}), 500
+
+        dot_contours = imageprocessing.process_inner_slice(image)
+
+        # If dot_contours is a NumPy array, convert to list
+        if isinstance(dot_contours, np.ndarray):
+            dot_contours = dot_contours.tolist()
+
+        # Convert each numeric element to a native Python type
+        dot_contours = [[int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot] for dot in dot_contours]
+
+        app.logger.info(f"Center slice analysis complete. {len(dot_contours)} dots detected.")
+        return jsonify({
+            "message": "Center slice analysis successful",
+            "dot_contours": dot_contours
+        })
+    except Exception as e:
+        app.logger.exception(f"Error during center slice analysis: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+@app.route('/analyze_outer_slice', methods=['POST'])
+def analyze_outer_slice():
+    try:
+        app.logger.info("Outer slice analysis (placeholder) started.")
+        # For now, no actual processing is done.
+        dot_contours = []  # Optionally simulate a dummy output.
+        globals.measurement_data.extend(dot_contours)
+
+        app.logger.info("Outer slice analysis placeholder complete.")
+        return jsonify({
+            "message": "Outer slice analysis (placeholder) successful",
+            "dot_contours": dot_contours
+        })
+    except Exception as e:
+        app.logger.exception(f"Error during outer slice analysis: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/update_results', methods=['POST'])
+def update_results():
+    """
+    Evaluates the cumulative measurement_data.
+    For each column, calculates the average dot area and classifies each dot:
+      - Class 1: area < 0.2 * average_area
+      - Class 2: 0.2 * average_area <= area <= 0.9 * average_area
+      - Class 3: area > 0.9 * average_area
+    Returns a list [count1, count2, count3] of the totals for all columns.
+    """
+    try:
+        # Convert each dot entry to native Python types.
+        # Assume each dot is in the format: [x, y, column, area]
+        data = []
+        for dot in globals.measurement_data:
+            converted = []
+            for value in dot:
+                if isinstance(value, (np.int32, np.int64)):
+                    converted.append(int(value))
+                elif isinstance(value, (np.float32, np.float64)):
+                    converted.append(float(value))
+                else:
+                    converted.append(value)
+            data.append(converted)
+        
+        # Group dots by their column value.
+        columns = {}
+        for dot in data:
+            col = dot[2]
+            if col not in columns:
+                columns[col] = []
+            columns[col].append(dot)
+        
+        # Initialize counts for each class.
+        count1 = 0
+        count2 = 0
+        count3 = 0
+        
+        # For each column, calculate the average area and classify each dot.
+        for col, dots in columns.items():
+            if not dots:
+                continue
+            total_area = sum(dot[3] for dot in dots)
+            avg_area = total_area / len(dots)
+            for dot in dots:
+                area = dot[3]
+                if area < 0.2 * avg_area:
+                    count1 += 1
+                elif area <= 0.9 * avg_area:
+                    count2 += 1
+                else:
+                    count3 += 1
+        
+        result_counts = [count1, count2, count3]
+        globals.result_counts = result_counts
+        
+        app.logger.info(f"Sorting complete. Result counts: {result_counts}. Total blobs: {len(data)}")
+        
+        return jsonify({
+            "message": "Results updated successfully",
+            "result_counts": result_counts
+        })
+    except Exception as e:
+        app.logger.exception(f"Error in update_results: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+
 @app.route('/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
     try:
@@ -226,7 +339,7 @@ def move_turntable_relative():
         app.logger.info(f"Sending command to turntable: {command}")
 
         # Send the command to the turntable
-        porthandler.write_turntable(command)
+        porthandler.write_turntable(command, expect_response=False)
 
         # Update position only if the turntable is homed
         if globals.turntable_homed:
@@ -244,37 +357,6 @@ def move_turntable_relative():
         app.logger.exception(f"Error in move_turntable_relative: {e}")
         return jsonify({'error': str(e)}), 500
 
-    
-@app.route('/move_turntable_absolute', methods=['POST'])
-def move_turntable_absolute():
-    global turntable_position
-    data = request.get_json()
-    target_position = data.get('degrees')
-
-    if target_position is None or not isinstance(target_position, (int, float)):
-        return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
-
-    # Calculate the shortest path to target position
-    move_by = (target_position - turntable_position) % 360
-    if move_by > 180:
-        move_by -= 360  # Take the shorter path
-
-    direction = 1 if move_by > 0 else 0
-    command = f"{abs(move_by)},{direction}"
-
-    try:
-        # Send command to Arduino
-        porthandler.write_turntable(command)
-
-        #TODO: Wait for confirmation from Arduino that the rotation was successful
-        # Update the global position
-        turntable_position = target_position % 360
-
-        return jsonify({'message': f'Turntable moved to {target_position} degrees {direction}',
-                        'current_position': turntable_position})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route('/toggle-relay', methods=['POST'])
 def toggle_relay():
@@ -289,7 +371,7 @@ def toggle_relay():
         app.logger.info(f"Sending command to turntable: {command}")
 
         # Send the command to the Arduino
-        porthandler.write_turntable(command)
+        porthandler.write_turntable(command, expect_response=False)
 
         return jsonify({"message": f"Relay {'ON' if state else 'OFF'}"}), 200
 

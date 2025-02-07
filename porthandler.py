@@ -191,10 +191,6 @@ def disconnect_serial_device(device_name):
         logging.error(f"Error while disconnecting {device_name}: {e}")
 
 
-
-
-
-
 def is_barcode_scanner_connected():
     """
     Checks if the barcode scanner is still connected.
@@ -217,49 +213,42 @@ def is_barcode_scanner_connected():
         return False
 
 
-def write_turntable(command, timeout=10):
+def write_turntable(command, timeout=10, expect_response=True):
     global turntable, turntable_waiting_for_done
 
     if turntable is None or not turntable.is_open:
         raise Exception("Turntable is not connected or available.")
 
-    try:
-        formatted_command = f"{command}\n"
-        turntable.reset_input_buffer()
-        turntable.reset_output_buffer()
-        turntable.write(formatted_command.encode())
-        turntable.flush()
-        logging.info(f"Command sent to turntable: {formatted_command.strip()}")
+    formatted_command = f"{command}\n"
+    turntable.reset_input_buffer()
+    turntable.reset_output_buffer()
+    turntable.write(formatted_command.encode())
+    turntable.flush()
+    logging.info(f"Command sent to turntable: {formatted_command.strip()}")
 
-        # Set flag to indicate we're waiting for "DONE"
-        turntable_waiting_for_done = True
+    # If we do not expect a DONE response, return immediately.
+    if not expect_response:
+        return True
 
-        start_time = time.time()
-        received_data = ""
+    turntable_waiting_for_done = True
+    start_time = time.time()
+    received_data = ""
 
-        while time.time() - start_time < timeout:
-            if turntable.in_waiting > 0:
-                received_chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
-                received_data += received_chunk
-                logging.info(f"Received from turntable: {received_chunk.strip()}")
+    while time.time() - start_time < timeout:
+        if turntable.in_waiting > 0:
+            received_chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
+            received_data += received_chunk
+            logging.info(f"Received from turntable: {received_chunk.strip()}")
 
-                if "DONE" in received_data:
-                    logging.info("Turntable movement completed successfully.")
-                    turntable_waiting_for_done = False  # Reset flag
-                    return True
+            if "DONE" in received_data:
+                logging.info("Turntable movement completed successfully.")
+                turntable_waiting_for_done = False
+                return True
+        time.sleep(0.05)
 
-            time.sleep(0.05)
-
-        logging.warning("Timeout waiting for 'DONE' signal from turntable.")
-        turntable_waiting_for_done = False  # Reset flag on timeout
-        return False
-
-    except Exception as e:
-        logging.error(f"Error writing to turntable: {str(e)}")
-        turntable_waiting_for_done = False  # Reset flag on error
-        return False
-
-
+    logging.warning("Timeout waiting for 'DONE' signal from turntable.")
+    turntable_waiting_for_done = False
+    return False
 
 def write_barcode_scanner(data):
     """
