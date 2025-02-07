@@ -63,7 +63,7 @@ export class ControlPanelComponent implements OnInit {
 
   // Rotate Up/Down Functions (unchanged)
   rotateUp(): void {
-    const payload = { degrees: 20 };
+    const payload = { degrees: -20 };
     this.http.post(`${this.BASE_URL}/move_turntable_relative`, payload).subscribe(
       (response: any) => {
         console.log("Turntable moved up 20 degrees", response);
@@ -75,7 +75,7 @@ export class ControlPanelComponent implements OnInit {
   }
 
   rotateDown(): void {
-    const payload = { degrees: -20 };
+    const payload = { degrees: 20 };
     this.http.post(`${this.BASE_URL}/move_turntable_relative`, payload).subscribe(
       (response: any) => {
         console.log("Turntable moved down 20 degrees", response);
@@ -118,11 +118,6 @@ export class ControlPanelComponent implements OnInit {
 
         console.log("Results cleared, progress bar set to 0.");
 
-        // Turn off the relay
-        if (this.relayState) {
-            this.toggleRelay();
-        }
-
         console.log("Relay turned off. Measurement cycle fully stopped.");
     }
 }
@@ -164,70 +159,65 @@ export class ControlPanelComponent implements OnInit {
   startMeasurement(): void {
     console.log("Starting measurement cycle...");
 
-    // Step 1: Ensure relay is ON
     if (!this.relayState) {
         this.toggleRelay();
     }
     console.log("Relay is ON. Proceeding to homing step...");
 
-    // Step 2: Home the turntable
     this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).subscribe(
         (homeResponse: any) => {
             console.log("Turntable homed successfully:", homeResponse);
             this.waitForTurntableDone(() => {
-                console.log("First homing cycle confirmed DONE.");
+                if (!this.measurementActive) return;
 
-                // Reset measurement count before the first analysis
+                console.log("First homing cycle confirmed DONE.");
                 this.currentMeasurement = 0;
 
-                // **First measurement includes all three analyses**
                 this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).subscribe(
                     (circleResponse: any) => {
+                        if (!this.measurementActive) return;
                         console.log("Center circle analysis completed:", circleResponse);
+
                         this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).subscribe(
                             (sliceResponse: any) => {
+                                if (!this.measurementActive) return;
                                 console.log("Center slice analysis completed:", sliceResponse);
+
                                 this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {}).subscribe(
                                     (outerResponse: any) => {
+                                        if (!this.measurementActive) return;
                                         console.log("Outer slice analysis completed:", outerResponse);
+
                                         this.http.post(`${this.BASE_URL}/update_results`, {}).subscribe(
                                             (sortResponse: any) => {
+                                                if (!this.measurementActive) return;
                                                 console.log("Sorting (evaluation) complete:", sortResponse);
+
                                                 this.results = sortResponse.result_counts.map((count: number, index: number) => ({
                                                     label: `Result ${index + 1}`,
                                                     value: count
                                                 }));
 
-                                                // After first image analysis, proceed with the measurement cycle
                                                 this.currentMeasurement = 1;
                                                 this.performMeasurementCycle();
                                             },
-                                            (sortError) => {
-                                                console.error("Sorting algorithm failed!", sortError);
-                                            }
+                                            (sortError) => console.error("Sorting algorithm failed!", sortError)
                                         );
                                     },
-                                    (outerError) => {
-                                        console.error("Outer slice analysis failed!", outerError);
-                                    }
+                                    (outerError) => console.error("Outer slice analysis failed!", outerError)
                                 );
                             },
-                            (sliceError) => {
-                                console.error("Center slice analysis failed!", sliceError);
-                            }
+                            (sliceError) => console.error("Center slice analysis failed!", sliceError)
                         );
                     },
-                    (circleError) => {
-                        console.error("Center circle analysis failed!", circleError);
-                    }
+                    (circleError) => console.error("Center circle analysis failed!", circleError)
                 );
             });
         },
-        (homeError) => {
-            console.error("Turntable homing failed!", homeError);
-        }
+        (homeError) => console.error("Turntable homing failed!", homeError)
     );
 }
+
 
   
 
@@ -244,7 +234,6 @@ performMeasurementCycle(): void {
 
   console.log(`Starting measurement ${this.currentMeasurement + 1} of ${this.totalMeasurements}...`);
 
-  // Rotate turntable before analyzing the next image
   this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).subscribe(
       (rotationResponse: any) => {
           console.log("Turntable rotated 20° successfully:", rotationResponse);
@@ -256,22 +245,27 @@ performMeasurementCycle(): void {
 
               console.log("Turntable movement confirmed. Proceeding with analysis...");
 
-              // Analyze center slice and outer slice
               this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).subscribe(
                   (sliceResponse: any) => {
-                      console.log(`Center slice analysis successful for measurement ${this.currentMeasurement + 1}:`, sliceResponse);
+                      if (!this.measurementActive) return;  // Stop if measurement was stopped
+                      console.log(`Center slice analysis successful:`, sliceResponse);
+
                       this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {}).subscribe(
                           (outerResponse: any) => {
-                              console.log(`Outer slice analysis successful for measurement ${this.currentMeasurement + 1}:`, outerResponse);
+                              if (!this.measurementActive) return;  // Stop if measurement was stopped
+                              console.log(`Outer slice analysis successful:`, outerResponse);
+
                               this.http.post(`${this.BASE_URL}/update_results`, {}).subscribe(
                                   (sortResponse: any) => {
-                                      console.log(`Sorting complete for measurement ${this.currentMeasurement + 1}:`, sortResponse);
+                                      if (!this.measurementActive) return;  // Stop if measurement was stopped
+                                      console.log(`Sorting complete:`, sortResponse);
+
+                                      // Only update results if the measurement is still active
                                       this.results = sortResponse.result_counts.map((count: number, index: number) => ({
                                           label: `Result ${index + 1}`,
                                           value: count
                                       }));
 
-                                      // Only increment after successful processing
                                       this.currentMeasurement++;
 
                                       if (!this.measurementActive) {
@@ -279,31 +273,21 @@ performMeasurementCycle(): void {
                                           return;
                                       }
 
-                                      // Continue measurement cycle until complete
                                       this.performMeasurementCycle();
                                   },
-                                  (sortError) => {
-                                      console.error("Sorting algorithm failed!", sortError);
-                                  }
+                                  (sortError) => console.error("Sorting algorithm failed!", sortError)
                               );
                           },
-                          (outerError) => {
-                              console.error("Outer slice analysis failed!", outerError);
-                          }
+                          (outerError) => console.error("Outer slice analysis failed!", outerError)
                       );
                   },
-                  (sliceError) => {
-                      console.error("Center slice analysis failed!", sliceError);
-                  }
+                  (sliceError) => console.error("Center slice analysis failed!", sliceError)
               );
           });
       },
-      (rotationError) => {
-          console.error("Failed to move turntable!", rotationError);
-      }
+      (rotationError) => console.error("Failed to move turntable!", rotationError)
   );
 }
-
   
 
 waitForTurntableDone(callback: () => void): void {
