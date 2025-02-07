@@ -154,14 +154,88 @@ export class ControlPanelComponent implements OnInit {
     this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).subscribe(
         (response: any) => {
             console.log("Turntable homed successfully:", response);
+            
+            // Reset measurement count
+            this.currentMeasurement = 0;
 
-            // Step 3: Now capture an image and analyze it
-            this.analyzeImage();
+            // Step 3: Start full measurement cycle (18 measurements)
+            this.performMeasurementCycle();
         },
         (error) => {
             console.error("Turntable homing failed!", error);
         }
     );
 }
+
+performMeasurementCycle(): void {
+    if (this.currentMeasurement >= this.totalMeasurements) {
+        console.log("Measurement cycle completed.");
+        return;
+    }
+
+    console.log(`Starting measurement ${this.currentMeasurement + 1} of ${this.totalMeasurements}...`);
+
+    // Capture and analyze the image
+    this.http.post(`${this.BASE_URL}/analyze_image`, {}).subscribe(
+        (response: any) => {
+            console.log(`Image analysis successful for measurement ${this.currentMeasurement + 1}:`, response);
+
+            // Store results for UI update
+            if (response.dot_contours) {
+                this.results = response.dot_contours.map((dot: any) => ({
+                    label: `Dot ${dot.id}`,
+                    value: dot.area
+                }));
+            }
+
+            // Increment measurement count
+            this.currentMeasurement++;
+
+            // Rotate turntable by 20 degrees before the next capture
+            if (this.currentMeasurement < this.totalMeasurements) {
+                this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).subscribe(
+                    (rotationResponse: any) => {
+                        console.log(`Turntable moved 20° successfully:`, rotationResponse);
+
+                        // Wait for "DONE" confirmation before next measurement
+                        this.waitForTurntableDone(() => {
+                            this.performMeasurementCycle();
+                        });
+                    },
+                    (rotationError) => {
+                        console.error("Failed to move turntable!", rotationError);
+                    }
+                );
+            }
+        },
+        (error) => {
+            console.error("Image analysis failed!", error);
+        }
+    );
+}
+
+waitForTurntableDone(callback: () => void): void {
+    console.log("Waiting for turntable movement to complete...");
+
+    const checkStatus = () => {
+        this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/api/status/serial/turntable`).subscribe(
+            (statusResponse) => {
+                if (statusResponse.connected) {
+                    console.log("Turntable movement completed.");
+                    callback(); // Proceed to next measurement
+                } else {
+                    setTimeout(checkStatus, 500); // Retry in 500ms
+                }
+            },
+            (statusError) => {
+                console.error("Error checking turntable status!", statusError);
+                setTimeout(checkStatus, 500); // Retry on failure
+            }
+        );
+    };
+
+    checkStatus();
+}
+
 
 }

@@ -106,7 +106,7 @@ def connect_to_barcode_scanner():
     barcode_scanner = None  # Ensure it's reset before retrying
 
     # Retry logic with exponential backoff
-    max_attempts = 10
+    max_attempts = 5
     attempt = 0
     while attempt < max_attempts:
         attempt += 1
@@ -129,8 +129,8 @@ def connect_to_barcode_scanner():
             
             return barcode_scanner
 
-        logging.warning(f"Barcode scanner not found. Retrying in {attempt * 3} seconds...")
-        time.sleep(attempt * 3)  # Exponential backoff (3s, 6s, 9s, ...)
+        logging.warning(f"Barcode scanner not found. Retrying in {1} second...")
+        time.sleep(1)
 
     logging.error("Failed to connect to barcode scanner after multiple attempts.")
     return None
@@ -229,9 +229,9 @@ def write_turntable(command, timeout=10):
         turntable.reset_output_buffer()
         turntable.write(formatted_command.encode())
         turntable.flush()
-        logging.info(f"📤 Command sent to turntable: {formatted_command.strip()}")
+        logging.info(f"Command sent to turntable: {formatted_command.strip()}")
 
-        # ✅ Set flag to indicate we're waiting for "DONE"
+        # Set flag to indicate we're waiting for "DONE"
         turntable_waiting_for_done = True
 
         start_time = time.time()
@@ -241,22 +241,22 @@ def write_turntable(command, timeout=10):
             if turntable.in_waiting > 0:
                 received_chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
                 received_data += received_chunk
-                logging.info(f"📥 Received from turntable: {received_chunk.strip()}")
+                logging.info(f"Received from turntable: {received_chunk.strip()}")
 
                 if "DONE" in received_data:
-                    logging.info("✅ Turntable movement completed successfully.")
-                    turntable_waiting_for_done = False  # ✅ Reset flag
+                    logging.info("Turntable movement completed successfully.")
+                    turntable_waiting_for_done = False  # Reset flag
                     return True
 
             time.sleep(0.05)
 
-        logging.warning("⚠️ Timeout waiting for 'DONE' signal from turntable.")
-        turntable_waiting_for_done = False  # ✅ Reset flag on timeout
+        logging.warning("Timeout waiting for 'DONE' signal from turntable.")
+        turntable_waiting_for_done = False  # Reset flag on timeout
         return False
 
     except Exception as e:
-        logging.error(f"❌ Error writing to turntable: {str(e)}")
-        turntable_waiting_for_done = False  # ✅ Reset flag on error
+        logging.error(f"Error writing to turntable: {str(e)}")
+        turntable_waiting_for_done = False  # Reset flag on error
         return False
 
 

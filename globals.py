@@ -27,3 +27,6 @@ grab_locks = {
     'main': threading.Lock(),
     'side': threading.Lock()
 }
+
+measurement_data = []
+result_counts = [0, 0, 0]

@@ -136,7 +136,7 @@ def home_turntable_with_image():
         if not movement_success:
             return jsonify({"error": "Turntable did not confirm movement completion"}), 500
 
-        app.logger.info("✅ Rotation completed successfully.")
+        app.logger.info("Rotation completed successfully.")
 
         # Step 4: Update global position after homing
         globals.turntable_position = 0
@@ -178,11 +178,21 @@ def analyze_image():
                 grab_result.Release()
 
                 # Process the image using center_eval()
-                dot_contours = imageprocessing.center_eval(image)
+                dot_contours = imageprocessing.process_center(image)
+                
+                if not dot_contours:  # Handle empty case
+                    app.logger.warning("⚠️ No dots detected in image.")
+                    return jsonify({
+                        "message": "Image analysis successful, but no dots detected.",
+                        "dot_contours": []
+                    })
+
+                # Append additional analysis
+                dot_contours.append(imageprocessing.process_inner_slice(image))
 
                 # Extract areas of detected dots
                 detected_dots = [
-                    {"id": i + 1, "x": dot[0], "y": dot[1], "column": dot[2], "area": dot[3]} 
+                   {"id": i + 1, "x": dot[0], "y": dot[1], "column": dot[2], "area": dot[3]} 
                     for i, dot in enumerate(dot_contours)
                 ]
 
@@ -521,7 +531,7 @@ def get_serial_device_status(device_name):
 
     if device and device.is_open:
         if device_name.lower() == 'turntable':
-            # ✅ Only send "IDN?" if we're not already waiting for another response
+            # Only send "IDN?" if we're not already waiting for another response
             if not porthandler.turntable_waiting_for_done:
                 try:
                     device.write(b'IDN?\n')

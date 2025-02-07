@@ -1,10 +1,10 @@
-import math
 import cv2
 import numpy as np
-import time  # Import time module for timing
 import os
 from concurrent.futures import ThreadPoolExecutor
-import pandas
+import pandas as pd
+import matplotlib.pyplot as plt
+import time
 
 global result
 
@@ -119,11 +119,7 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
 
     return adjusted_angle
 
-
-
-def center_eval(image):
-    image = cv2.flip(image, 0)
-
+def process_center(image):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     template_path = os.path.join(script_dir, 'templ03_mod3.jpg')
     template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
@@ -163,9 +159,6 @@ def crop_second_two_thirds(image):
     cv2.destroyAllWindows()
     return cropped_image
 
-
-
-
 def template_match_and_extract(template, cropped_image):
     """
     Performs template matching on the cropped image, extracts the best-matched region,
@@ -196,10 +189,6 @@ def template_match_and_extract(template, cropped_image):
     # Create a blank mask of the same size as the cropped image
     mask_layer = np.zeros_like(cropped_image, dtype=np.uint8)
     mask_layer[corrected_top_left[1]:corrected_bottom_right[1],corrected_top_left[0]:corrected_bottom_right[0]] = mask_resized
-
-
-
-
 
     # Apply the mask on the cropped image using bitwise operation
     masked_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask_layer)
@@ -244,10 +233,334 @@ def detect_small_dots_and_contours(masked_region):
                 # Draw the dot and annotate it
                 cv2.drawContours(annotated_dots, [contour], -1, (0, 255, 0), 1)
                 cv2.putText(annotated_dots, f"{area:.1f}", (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
-    df = pandas.DataFrame(dot_area_column_mapping, columns=['X', 'Y', 'Column', 'Area'])
+    df = pd.DataFrame(dot_area_column_mapping, columns=['X', 'Y', 'Column', 'Area'])
     df.to_csv('dot_areas_with_columns.csv', index=False)
     return dot_area_column_mapping, annotated_dots
 
+def process_inner_slice(image):
+    x_end = 1366
+    image = cv2.flip(image, 0)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(script_dir, 'templ06_mod5.jpg')
+    template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+
+    if image is None or template is None:
+        raise FileNotFoundError("Target or template image not found. Check the file paths.")
+        # Step 1: Crop the input image
+    cropped_image = crop_second_two_thirds1(image, x_end)
+
+    # Step 2: Match the polygonal template and extract the masked region
+    try:
+        polygon_region, annotated_image, polygon_mask = template_match_with_polygon1(cropped_image, template)
+    except ValueError as e:
+        print(e)
+        exit()
+
+    # Step 3: Detect small dots in the polygon region
+    dot_contours, annotated_dots, grouped_x = detect_small_dots_and_contours1(polygon_region)
+    # Get current timestamp
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+
+    # Define the filename with timestamp
+    filename = f"result_pizza_{timestamp}.jpg"
+
+    # Save the image in the script directory
+    cv2.imwrite(os.path.join(script_dir, filename), annotated_dots)
+
+    # Print the areas of the detected dots
+    print()
+    return(dot_contours)
+
+def crop_second_two_thirds1(image, x_end, save_path=None):
+    """
+    Crops the second 2/3 horizontally of an image and returns it.
+    """
+    cropped_image =image[:,x_end:]
+
+    return cropped_image
+
+def template_match_with_polygon1(cropped_image, template, start_x=0, start_y=0, search_width=None, search_height=None,
+                                 save_path=None):
+
+    # Ensure grayscale consistency
+    cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY) if len(cropped_image.shape) == 3 else cropped_image
+    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) if len(template.shape) == 3 else template
+
+    # Define the search area
+    if search_width is None:
+        search_width = cropped_image.shape[1] - start_x
+    if search_height is None:
+        search_height = cropped_image.shape[0] - start_y
+
+    # Extract the subregion where matching will occur
+    search_region = cropped_image[start_y:start_y + search_height, start_x:start_x + search_width]
+
+    template_height, template_width = template.shape
+    best_match = None
+    best_max_val = -1
+    best_scale = 1.0
+    best_top_left = None
+
+    # Multi-scale template matching
+    scales = np.linspace(0.99, 1, 1)  # Adjust scales to search (e.g., 84% to 100%)
+    for scale in scales:
+        resized_template = cv2.resize(template, (int(template_width * scale), int(template_height * scale)))
+        result = cv2.matchTemplate(search_region, resized_template, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+        if max_val > best_max_val:
+            best_max_val = max_val
+            best_match = resized_template
+            best_top_left = (max_loc[0] + start_x, max_loc[1] + start_y)  # Offset by search region
+            best_scale = scale
+
+    # Validate the best match
+    if best_max_val < 0:  # Adjust threshold for confidence
+        raise ValueError("Template match confidence is too low.")
+
+    # Get the region where the template matches
+    best_template_height, best_template_width = best_match.shape
+    top_left = best_top_left
+    bottom_right = (top_left[0] + best_template_width, top_left[1] + best_template_height)
+    matched_region = cropped_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+
+    # Create the original binary mask (1 inside, 0 outside)
+    original_mask = np.zeros_like(best_match, dtype=np.uint8)
+    original_mask[best_match > 10] = 1  # Threshold only the mask, NOT the image
+
+    # **Step 1: Expand the mask by 15 pixels**
+    kernel = np.ones((31, 31), np.uint8)  # 15 pixels in each direction (total size 31x31)
+    expanded_mask = cv2.dilate(original_mask, kernel, iterations=1)
+
+    # **Step 2: Create the 15-pixel white boundary**
+    boundary_mask = expanded_mask - original_mask  # Subtract original to get only boundary
+
+    # **Step 3: Set boundary to white (255), and keep the original mask as 1**
+    final_mask = np.copy(expanded_mask)
+    final_mask[boundary_mask == 1] = 255  # Set boundary pixels to white
+    final_mask[original_mask == 1] = 1  # Keep the original mask as 1
+
+    # **Apply the final mask to the matched region**
+    masked_polygon_region = cv2.bitwise_and(matched_region, matched_region, mask=expanded_mask)
 
 
+    # Annotate the matched polygon on the cropped image
+    annotated_image = cv2.cvtColor(cropped_image, cv2.COLOR_GRAY2BGR)
+    cv2.rectangle(annotated_image, top_left, bottom_right, (0, 255, 0), 2)
+    cv2.putText(annotated_image, f"Scale: {best_scale:.2f}", (top_left[0], top_left[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
+    # Optionally save the masked region
+    if save_path:
+        cv2.imwrite(save_path, masked_polygon_region)
+
+    return masked_polygon_region, annotated_image, final_mask
+
+def generate_gradient_colors1(n):
+    """Generate a gradient of distinct colors for visualization."""
+    colormap = plt.cm.get_cmap('jet', n)
+    return [(int(255 * r), int(255 * g), int(255 * b)) for r, g, b, _ in colormap(np.linspace(0, 1, n))]
+
+def detect_small_dots_and_contours1(masked_region, x_threshold=40):
+    """
+    Detects dots, groups them into columns, and excludes the last two rows & columns when saving and annotating.
+    """
+    # Apply threshold to find dots
+    _, thresh = cv2.threshold(masked_region, 130, 255, cv2.THRESH_BINARY)
+
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # **Extract dot centers and filter out zero-area contours**
+    dot_centers = []
+    dot_areas = []
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area > 1:  # Ignore zero-area dots
+            (x, y), _ = cv2.minEnclosingCircle(contour)
+            dot_centers.append((int(x), int(y)))
+            dot_areas.append(area)
+
+    dot_centers = np.array(dot_centers, dtype=np.int32)
+
+    if len(dot_centers) < 2:
+        print("Not enough dots for clustering.")
+        return dot_centers, masked_region, {}
+
+    # **Step 1: Sort dots by X-coordinate (left to right), then by Y-coordinate**
+    sorted_indices = np.lexsort((dot_centers[:, 1], dot_centers[:, 0]))  # First sort by X, then by Y
+    dot_centers = dot_centers[sorted_indices]
+    dot_areas = np.array(dot_areas)[sorted_indices]
+
+    # **Identify Rows & Exclude Last Two Rows**
+    unique_y_values = np.unique(dot_centers[:, 1])  # Unique Y-coordinates (row positions)
+
+    if len(unique_y_values) > 2:
+        excluded_rows = unique_y_values[-2:]  # Last two unique Y-values
+        mask = ~np.isin(dot_centers[:, 1], excluded_rows)  # Mask to filter out last two rows
+        dot_centers = dot_centers[mask]
+        dot_areas = dot_areas[mask]
+
+    # **Step 2: Iteratively find columns**
+    columns = []
+    column_labels = {}
+    dot_area_column_mapping = []
+
+    while len(dot_centers) > 0:
+        # Start a new column with the leftmost unassigned dot
+        first_dot = dot_centers[0]
+        new_column = [first_dot]
+        new_column_areas = [dot_areas[0]]
+
+        # Find dots that belong to this column
+        remaining_dots = []
+        remaining_areas = []
+        for i in range(1, len(dot_centers)):
+            dot = dot_centers[i]
+            area = dot_areas[i]
+            if abs(dot[0] - first_dot[0]) <= x_threshold:
+                new_column.append(dot)
+                new_column_areas.append(area)
+            else:
+                remaining_dots.append(dot)
+                remaining_areas.append(area)
+
+        # Assign column index
+        col_idx = len(columns)
+        for i, dot in enumerate(new_column):
+            column_labels[tuple(dot)] = col_idx
+            dot_area_column_mapping.append((dot[0], dot[1], col_idx, new_column_areas[i]))
+
+        columns.append(new_column)
+        dot_centers = np.array(remaining_dots)
+        dot_areas = np.array(remaining_areas)
+
+    # **Step 3: Remove Last Two Columns**
+    num_columns = len(columns)
+    if num_columns > 2:
+        columns = columns[:-7]  # Remove last two columns
+        valid_column_indices = set(range(num_columns - 7))  # Keep only valid column indices
+    else:
+        valid_column_indices = set(range(num_columns))  # Keep all if there are 2 or fewer columns
+    # **Step 3.1: Detect missing columns by analyzing spacing**
+    column_x_positions = [min(col, key=lambda d: d[0])[0] for col in columns if
+                          len(col) > 0]  # Get leftmost dot X in each column
+
+    # Sort detected column positions
+    column_x_positions.sort()
+
+    # Compute distances between adjacent columns
+    missing_columns = []
+
+    if len(column_x_positions) > 1:
+        column_distances = np.diff(column_x_positions)
+
+        # Compute median column spacing (ignoring large outliers)
+        median_spacing = np.median(column_distances)
+
+        # Identify missing columns by checking large gaps
+        for i in range(len(column_distances)):
+            gap_size = column_distances[i]
+
+            if gap_size > 1.5 * median_spacing:  # Large gap means missing columns
+                num_missing = round(gap_size / median_spacing) - 1  # Estimate missing column count
+
+                # Insert multiple missing columns in the large gap
+                for j in range(1, num_missing + 1):
+                    estimated_x = column_x_positions[i] + int(j * median_spacing)
+                    missing_columns.append(estimated_x)
+
+    # Print detected missing columns
+    if missing_columns:
+        print(f"Missing columns detected at X positions: {missing_columns}")
+
+        # Insert missing columns
+        for x_missing in missing_columns:
+            columns.append([(x_missing, -1)])  # Placeholder for missing column
+            column_labels[(x_missing, -1)] = -1  # Label as missing
+    # **Step 4: Modify Column Indexing**
+    column_mapping = {}
+    counter = 1  # Start numbering from 1
+
+    filtered_dot_area_column_mapping = []
+    for x, y, col, area in dot_area_column_mapping:
+        if col in valid_column_indices:
+            if col not in column_mapping:  # Assign a new index
+                column_mapping[col] = counter
+                counter += 1
+            new_col = column_mapping[col]  # Use assigned index
+
+            filtered_dot_area_column_mapping.append((x, y, new_col, area))
+
+    # Update column labels to start from 1 when annotating
+    column_labels = {dot: column_mapping[col] for dot, col in column_labels.items() if col in column_mapping}
+
+    # **Step 5: Assign colors to columns**
+    colors = generate_gradient_colors1(len(valid_column_indices))
+    column_colors = {col_idx: colors[i] for i, col_idx in enumerate(valid_column_indices)}
+
+    # **Step 6: Count dots per column**
+    column_dot_counts = {col_idx: sum(1 for _, _, col, _ in filtered_dot_area_column_mapping if col == col_idx) for
+                         col_idx in valid_column_indices}
+
+    # **Step 7: Print column-wise dot counts**
+    print("\n### Dot Count per Column ###")
+    for column, count in column_dot_counts.items():
+        print(f"Column {column}: {count} dots")
+
+    # **Step 8: Annotate the image (excluding last two columns)**
+    annotated_dots = cv2.cvtColor(masked_region, cv2.COLOR_GRAY2BGR)
+
+    for (x, y, col_label, area) in filtered_dot_area_column_mapping:
+        if col_label in valid_column_indices:  # Only annotate valid columns
+            color = column_colors[col_label]
+
+            # Draw dot
+            cv2.circle(annotated_dots, (x, y), 3, color, -1)
+
+            # Draw enclosing circle
+            cv2.circle(annotated_dots, (x, y), int(np.sqrt(area / np.pi)), (0, 255, 0), 1)  # Green circle
+
+            # Display dot area near the dot
+            cv2.putText(annotated_dots, f"{int(area)}", (x + 10, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)  # Yellow text for area
+
+            # Display column number near the dot
+            cv2.putText(annotated_dots, f"Col {col_label}", (x - 10, y + 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)  # White text for column
+        # **Step 8.1: Highlight Missing Columns**
+        for x_missing in missing_columns:
+            height = annotated_dots.shape[0]  # Get image height for full vertical line
+            for y in range(0, height, 10):  # Draw dashed lines (10px spacing)
+                if y % 20 == 0:
+                    cv2.line(annotated_dots, (x_missing, y), (x_missing, y + 10), (0, 0, 255), 2)  # Red dashed line
+
+            # Label the missing column
+            cv2.putText(annotated_dots, "MISSING", (x_missing - 20, 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)  # Red text for missing columns
+        # **Step 9: Save dot areas with column numbers (excluding last two columns)**
+        # Define the column names
+    columns = ['X', 'Y', 'Column', 'Area']
+
+    # Convert filtered_dot_area_column_mapping to a DataFrame
+    new_data = pd.DataFrame(filtered_dot_area_column_mapping, columns=columns)
+
+    # Check if the file already exists
+    file_path = 'dot_areas_with_columns.csv'
+    if os.path.exists(file_path):
+        # If the file exists, read it
+        existing_data = pd.read_csv(file_path)
+        # Append the new data to the existing data
+        updated_data = pd.concat([existing_data, new_data], ignore_index=True)
+    else:
+        # If the file doesn't exist, use the new data as the dataset
+        updated_data = new_data
+
+    # Save the updated data back to CSV
+    updated_data.to_csv(file_path, index=False)
+    print(f"Dot areas with column numbers saved to '{file_path}'.")
+
+    # Save the annotated image
+
+
+    return dot_centers, annotated_dots, column_dot_counts
