@@ -185,7 +185,7 @@ def analyze_center_circle():
                 return jsonify({"error": "Failed to grab image from camera."}), 500
 
         # Call the processing function (process_center in imageprocessing.py)
-        dot_contours, _ = imageprocessing.process_center(image)
+        dot_contours = imageprocessing.process_center(image)
         # Append the newly detected blobs into the cumulative measurement data.
         globals.measurement_data.extend(dot_contours)
 
@@ -241,18 +241,39 @@ def analyze_center_slice():
 @app.route('/analyze_outer_slice', methods=['POST'])
 def analyze_outer_slice():
     try:
-        app.logger.info("Outer slice analysis (placeholder) started.")
-        # For now, no actual processing is done.
-        dot_contours = []  # Optionally simulate a dummy output.
-        globals.measurement_data.extend(dot_contours)
+        app.logger.info("Center slice analysis started.")
+        camera_type = 'side'
+        with globals.grab_locks[camera_type]:
+            camera = globals.cameras.get(camera_type)
+            if camera is None or not camera.IsOpen():
+                app.logger.error("Main camera is not connected or open.")
+                return jsonify({"error": "Main camera is not connected or open."}), 400
 
-        app.logger.info("Outer slice analysis placeholder complete.")
+            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array
+                grab_result.Release()
+            else:
+                grab_result.Release()
+                app.logger.error("Failed to grab image from camera.")
+                return jsonify({"error": "Failed to grab image from camera."}), 500
+
+        dot_contours = imageprocessing.start_side_slice(image)
+
+        # If dot_contours is a NumPy array, convert to list
+        if isinstance(dot_contours, np.ndarray):
+            dot_contours = dot_contours.tolist()
+
+        # Convert each numeric element to a native Python type
+        dot_contours = [[int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot] for dot in dot_contours]
+
+        app.logger.info(f"Center slice analysis complete. {len(dot_contours)} dots detected.")
         return jsonify({
-            "message": "Outer slice analysis (placeholder) successful",
+            "message": "Center slice analysis successful",
             "dot_contours": dot_contours
         })
     except Exception as e:
-        app.logger.exception(f"Error during outer slice analysis: {e}")
+        app.logger.exception(f"Error during center slice analysis: {e}")
         return jsonify({"error": str(e)}), 500
 
 

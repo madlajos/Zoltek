@@ -30,3 +30,8 @@ grab_locks = {
 
 measurement_data = []
 result_counts = [0, 0, 0]
+
+# Image Analysis Results
+x_end = 0
+total_last_column_area = []
+last_column_idx = 0

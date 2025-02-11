@@ -5,11 +5,10 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
+from collections import Counter
 
-global result
-global x_end
+import globals
 
-x_end = 1366
 
 def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
     """
@@ -133,7 +132,7 @@ def process_center(image):
     # Step 1: Crop the input image
     cropped_image = crop_second_two_thirds(image)
     # Step 2: Match and extract the template region
-    matched_region, x_end = template_match_and_extract(template, cropped_image)
+    matched_region = template_match_and_extract(template, cropped_image)
 
     # Step 4: Detect small dots and extract their contours and areas
     dot_contours, annotated_dots = detect_small_dots_and_contours(matched_region)
@@ -145,7 +144,7 @@ def process_center(image):
     cv2.imwrite(os.path.join(script_dir, 'result.jpg'), annotated_dots)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    return dot_contours, x_end
+    return dot_contours
 
 def crop_second_two_thirds(image):
     """
@@ -196,8 +195,8 @@ def template_match_and_extract(template, cropped_image):
     nonzero_coords = np.column_stack(np.where((mask_layer) > 0))  # Get all nonzero pixel coordinates
 
     if len(nonzero_coords) > 0:
-        x_end = np.min(nonzero_coords[:, 1])  # Find max x-coordinate
-        print(f"Mask ends at x = {x_end}")
+        globals.x_end = np.min(nonzero_coords[:, 1])  # Find max x-coordinate
+        print(f"Mask ends at x = {globals.x_end}")
 
     # Apply the mask on the cropped image using bitwise operation
     masked_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask_layer)
@@ -208,7 +207,7 @@ def template_match_and_extract(template, cropped_image):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    return masked_image, x_end
+    return masked_image
 
 
 def detect_small_dots_and_contours(masked_region):
@@ -255,7 +254,7 @@ def process_inner_slice(image):
     if image is None or template is None:
         raise FileNotFoundError("Target or template image not found. Check the file paths.")
         # Step 1: Crop the input image
-    cropped_image = crop_second_two_thirds1(image, x_end)
+    cropped_image = crop_second_two_thirds1(image)
 
     # Step 2: Match the polygonal template and extract the masked region
     try:
@@ -277,13 +276,13 @@ def process_inner_slice(image):
 
     # Print the areas of the detected dots
     print()
-    return(dot_contours)
+    return dot_contours
 
-def crop_second_two_thirds1(image, x_end, save_path=None):
+def crop_second_two_thirds1(image, save_path=None):
     """
     Crops the second 2/3 horizontally of an image and returns it.
     """
-    cropped_image =image[:,x_end:]
+    cropped_image =image[:, globals.x_end:]
 
     return cropped_image
 
@@ -568,7 +567,402 @@ def detect_small_dots_and_contours1(masked_region, x_threshold=40):
     updated_data.to_csv(file_path, index=False)
     print(f"Dot areas with column numbers saved to '{file_path}'.")
 
-    # Save the annotated image
+    # Extract last column index
+    if valid_column_indices:
+        globals.last_column_idx = max(valid_column_indices)  # Last valid column index
+
+        # Get the areas of dots in the last column
+        last_column_areas = [area for x, y, col, area in filtered_dot_area_column_mapping if col == globals.last_column_idx]
+
+        # Sum the areas if needed
+        globals.total_last_column_area = (last_column_areas)
+
+        print(f"Total Area of Last Column ({globals.last_column_idx}): {globals.total_last_column_area}")
 
 
     return filtered_dot_area_column_mapping, annotated_dots, column_dot_counts
+
+
+
+
+
+
+def start_side_slice(image):
+    cropped_image = crop_second_two_thirds2(cv2.flip(image, 0))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(script_dir, 'templ05_mod2.jpg')
+    template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+
+    if image is None or template is None:
+        raise FileNotFoundError("Target or template image not found. Check the file paths.")
+        # Step 1: Crop the input image
+
+    # Step 2: Match the polygonal template and extract the masked region
+    try:
+        polygon_region, annotated_image, polygon_mask = template_match_with_polygon2(cropped_image, template)
+
+    except ValueError as e:
+        print(e)
+        exit()
+
+    # Step 3: Detect small dots in the polygon region
+    dot_contours, annotated_dots, grouped_x,matching_column = detect_small_dots_and_contours2(polygon_region)
+    
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    # Print the areas of the detected dots
+
+    return dot_contours
+
+
+def crop_second_two_thirds2(image):
+    """
+    Crops the second 2/3 horizontally of an image and returns it.
+    """
+    cropped_image = image
+
+    return cropped_image
+
+
+def template_match_with_polygon2(cropped_image, template):
+    """
+    Matches a pizza-slice-shaped template in the cropped image using multi-scale template matching.
+    Extracts and masks the matched polygon region without altering pixel intensities.
+    Expands the mask by 15 pixels with a white boundary while keeping the original mask as 1.
+    """
+    # Load the template
+
+    if template is None:
+        raise FileNotFoundError(f"Template not found at {template}")
+
+    template_height, template_width = template.shape
+    best_match = None
+    best_max_val = -1
+    best_scale = 1.0
+    best_top_left = None
+
+    # Multi-scale template matching
+    scales = np.linspace(1, 1.2, 1)  # Adjust scales to search (e.g., 84% to 100%)
+    for scale in scales:
+        resized_template = cv2.resize(template, (int(template_width * scale), int(template_height * scale)))
+        result = cv2.matchTemplate(cropped_image, resized_template, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+        if max_val > best_max_val:
+            best_max_val = max_val
+            best_match = resized_template
+            best_top_left = max_loc
+            best_scale = scale
+
+    # Validate the best match
+    if best_max_val < 0:  # Adjust threshold for confidence
+        raise ValueError("Template match confidence is too low.")
+
+    # Get the region where the template matches
+    best_template_height, best_template_width = best_match.shape
+    top_left = best_top_left
+    bottom_right = (top_left[0] + best_template_width, top_left[1] + best_template_height)
+    matched_region = cropped_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+
+    # Create the original binary mask (1 inside, 0 outside)
+    original_mask = np.zeros_like(best_match, dtype=np.uint8)
+    original_mask[best_match > 10] = 1  # Threshold only the mask, NOT the image
+
+    # **Step 1: Expand the mask by 15 pixels**
+    kernel = np.ones((200, 200), np.uint8)  # 15 pixels in each direction (total size 31x31)
+    expanded_mask = cv2.dilate(original_mask, kernel, iterations=1)
+
+    # **Step 2: Create the 15-pixel white boundary**
+    boundary_mask = expanded_mask - original_mask  # Subtract original to get only boundary
+
+    # **Step 3: Set boundary to white (255), and keep the original mask as 1**
+    final_mask = np.copy(expanded_mask)
+    final_mask[boundary_mask == 1] = 255  # Set boundary pixels to white
+    final_mask[original_mask == 1] = 1    # Keep the original mask as 1
+
+    # **Apply the final mask to the matched region**
+    masked_polygon_region = cv2.bitwise_and(matched_region, matched_region, mask=expanded_mask)
+
+    # Annotate the matched polygon on the cropped image
+    annotated_image = cv2.cvtColor(cropped_image, cv2.COLOR_GRAY2BGR)
+    cv2.rectangle(annotated_image, top_left, bottom_right, (0, 255, 0), 2)
+    cv2.putText(annotated_image, f"Scale: {best_scale:.2f}", (top_left[0], top_left[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+
+
+    return masked_polygon_region, annotated_image, final_mask
+
+
+
+
+def find_first_column2(dot_centers, x_threshold=25):
+    """
+        Finds the first column by starting from the topmost-leftmost dot and moving downward.
+        """
+    # Sort dots by X, then Y (ensures left-to-right processing)
+    dot_centers = dot_centers[np.lexsort((dot_centers[:, 0], dot_centers[:, 1]))]
+
+
+    # Get the topmost-leftmost dot as the first point
+    first_dot = tuple(dot_centers[0])
+    first_column = [first_dot]
+
+    # Convert remaining dots to list of tuples for easier removal
+    remaining_dots = [tuple(dot) for dot in dot_centers[1:]]
+
+    while True:
+        last_dot = first_column[-1]
+        min_y_diff = float('inf')
+        next_dot = None
+
+        for dot in remaining_dots:
+            x_diff = abs(dot[0] - last_dot[0])
+            y_diff = dot[1] - last_dot[1]
+
+            # Ensure the dot is below and within the X threshold
+            if  0 < y_diff <= 3000 and x_diff <= x_threshold:
+                if y_diff < min_y_diff:  # Find the closest dot in Y direction
+                    min_y_diff = y_diff
+                    next_dot = dot
+
+        if next_dot is None:
+            break  # No more dots to add to this column
+
+        first_column.append(next_dot)
+
+        # Remove the next_dot from remaining_dots by converting it to a tuple for comparison
+        remaining_dots = [dot for dot in remaining_dots if tuple(dot) != tuple(next_dot)]
+
+    return np.array(first_column), [np.array(dot) for dot in remaining_dots]
+
+def generate_gradient_colors(num_colors):
+    """Generates distinct colors for different columns."""
+    cmap = cv2.applyColorMap(np.linspace(0, 255, num_colors, dtype=np.uint8).reshape(-1, 1), cv2.COLORMAP_JET)
+    return [tuple(map(int, color[0])) for color in cmap]
+
+
+import cv2
+import numpy as np
+import pandas as pd
+
+def detect_small_dots_and_contours2(masked_region, x_threshold=10):
+    # Apply threshold to find dots
+    _, thresh = cv2.threshold(cv2.resize(masked_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
+                              80, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Extract dot centers and store contour areas
+    dot_centers = []
+    contour_areas = []  # Store contour areas
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area > 1:  # Ignore very small dots
+            (x, y), _ = cv2.minEnclosingCircle(contour)
+            dot_centers.append((int(x), int(y)))
+            contour_areas.append(area)  # Store the area
+
+    dot_centers = np.array(dot_centers, dtype=np.int32)
+
+    if len(dot_centers) < 2:
+        print("Not enough dots for clustering.")
+        return dot_centers, masked_region, {}, -1
+
+    # **Step 1: Detect All Columns Iteratively**
+    columns = []
+    column_labels = {}
+    column_areas = []  # Store areas per column
+    column_x_positions = []  # Store leftmost X position
+
+    while len(dot_centers) > 0:
+        first_column, remaining_dots = find_first_column2(dot_centers, x_threshold)
+
+        col_idx = len(columns)
+        col_area_list = [contour_areas[i] for i, dot in enumerate(dot_centers) if tuple(dot) in first_column]
+        column_areas.append(col_area_list)  # Store areas for each column
+
+        if len(first_column) > 0:
+            leftmost_x = min(first_column, key=lambda d: d[0])[0]  # Get leftmost X position
+            column_x_positions.append(leftmost_x)
+
+        for dot in first_column:
+            column_labels[tuple(dot)] = col_idx
+
+        columns.append(first_column)
+
+        # Sort remaining dots again to prioritize leftmost dots first
+        if remaining_dots:
+            remaining_dots = np.array(remaining_dots)
+            remaining_dots = remaining_dots[np.argsort(remaining_dots[:, 0])]
+            dot_centers = remaining_dots
+        else:
+            dot_centers = np.array([])
+
+    num_columns = len(columns)
+    print(f"Total columns detected: {num_columns}")
+
+    # **Step 2: Sort Columns from Left to Right**
+    sorted_column_indices = np.argsort(column_x_positions)  # Sort by leftmost X position
+    sorted_columns = [columns[i] for i in sorted_column_indices]  # Reorder columns
+    sorted_column_areas = [column_areas[i] for i in sorted_column_indices]  # Reorder areas
+
+    # Create a mapping from old indices to new sorted indices
+    column_remap = {old_idx: new_idx for new_idx, old_idx in enumerate(sorted_column_indices)}
+
+    # Update column labels based on the new sorted order
+    new_column_labels = {}
+    for dot, old_col_idx in column_labels.items():
+        new_col_idx = column_remap[old_col_idx]
+        new_column_labels[dot] = new_col_idx  # Assign new column index
+
+
+
+    # **Step 5: Save All Columns to CSV (with Sorted Indices)**
+    data = []
+    for col_idx, column in enumerate(sorted_columns):
+        for dot in column:
+            data.append((dot[0], dot[1], col_idx))  # Keep the sorted column index
+
+    dot_identifications = [row[2] for row in data]
+
+    # Count occurrences of each dot identification
+    dot_counts = Counter(dot_identifications)
+    print(dot_counts)
+
+    df = pd.DataFrame(data, columns=['X', 'Y', 'Column'])
+    df.to_csv('all_detected_columns_sorted.csv', index=False)
+    print("All detected columns saved to 'all_detected_columns_sorted.csv'.")
+
+    # **Step 6: Annotate All Detected Columns (with Sorted Indices)**
+    annotated_dots = cv2.cvtColor(cv2.resize(masked_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
+                                  cv2.COLOR_GRAY2BGR)
+    for dot, col_label in new_column_labels.items():
+        color = (0, 255, 0)  # Green color for dots
+        cv2.circle(annotated_dots, tuple(dot), 3, color, -1)  # Draw dot
+        cv2.putText(annotated_dots, f"{col_label}", (dot[0] + 5, dot[1] - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    leng_last=len(globals.total_last_column_area)
+    print(leng_last)
+    matching_dots = [dot_id for dot_id, count in dot_counts.items() if count == leng_last]
+    print(matching_dots)
+
+
+    # Extract areas of dots that belong to the matching columns (8, 9, 11)
+    sorted_matching_dot_areas = []
+
+    for col_idx in matching_dots:
+        # Get all areas for this column
+        column_areas = sorted_column_areas[col_idx]
+
+        # Sort the areas in descending order within this column
+        column_areas_sorted = sorted(column_areas, reverse=True)
+
+        # Append sorted areas with the column index
+        sorted_matching_dot_areas.extend([(col_idx, area) for area in column_areas_sorted])
+
+    # Store results for max/area[1] for all dots in each matching column
+    max_div_area1_results = []
+
+    for col_idx in matching_dots:
+        # Get all areas for this column
+        column_areas = sorted_column_areas[col_idx]
+
+        # Sort the areas in descending order (ensure the list is sorted)
+        column_areas_sorted = sorted(column_areas, reverse=True)
+
+        # Compute max/area[1] for each dot in the column (except the last one)
+        for i in range(len(column_areas_sorted) - 1):  # Avoid last index to prevent out-of-range
+            max_area = column_areas_sorted[i]  # Current max area in descending order
+            area_1 = column_areas_sorted[i + 1]  # The next area in sorted order
+            max_div_area1_results.append((col_idx, max_area / area_1))
+    print(max_div_area1_results)
+    # Calculate the average area for each matching column
+    column_average_areas = {}
+
+    for col_idx in matching_dots:
+        # Get all areas for this column
+        column_areas = [area for col, area in sorted_matching_dot_areas if col == col_idx]
+
+        # Compute average area
+        if column_areas:
+            column_average_areas[col_idx] = sum(column_areas) / len(column_areas)
+        else:
+            column_average_areas[col_idx] = 0  # Handle case where there are no areas
+    sorted_last_column_area = sorted(globals.total_last_column_area, reverse=True)
+    max_div_area2_results=[]
+    # Compute max/area[1] for each dot in the last column (except the last one)
+    for i in range(len(sorted_last_column_area) - 1):  # Avoid last index
+        max_area = sorted_last_column_area[i]  # Current max area
+        area_1 = sorted_last_column_area[i + 1]  # Next area in sorted order
+        max_div_area2_results.append( max_area / area_1)
+    print(sorted_last_column_area)
+    print(sorted_matching_dot_areas)
+    print(max_div_area1_results)
+    print(max_div_area2_results)
+    # Convert max_div_area1_results into a dictionary for easy lookup
+    max_div_area1_dict = {}
+    for col_idx, ratio in max_div_area1_results:
+        if col_idx not in max_div_area1_dict:
+            max_div_area1_dict[col_idx] = []
+        max_div_area1_dict[col_idx].append(ratio)
+
+    # Convert last column ratios to numpy array
+    last_column_ratios = np.array(max_div_area2_results)
+
+    # Find the column with the **smallest difference** using Mean Squared Error (MSE)
+    closest_col = None
+    min_mse = float('inf')  # Initialize with a large value
+
+    for col_idx, ratios in max_div_area1_dict.items():
+        # Trim or pad the lists to match lengths
+        n = min(len(ratios), len(last_column_ratios))
+        ratios = np.array(ratios[:n])
+        last_ratios = last_column_ratios[:n]
+
+        # Calculate **Mean Squared Error (MSE)**
+        mse = np.mean((ratios - last_ratios) ** 2)
+
+        # Update the closest column if this one has a smaller MSE
+        if mse < min_mse:
+            min_mse = mse
+            closest_col = col_idx
+
+    print(f"The closest column to the last column is: {closest_col}")
+    print(f"Minimum Mean Squared Error (MSE): {min_mse}")
+
+
+    best_match=1
+    # Define the closest column obtained earlier
+    # Define the closest column obtained earlier
+    starting_column = closest_col  # This is the closest column to the last column
+    print(closest_col)
+    # Create an annotated image
+    annotated_dots_sorted = cv2.cvtColor(cv2.resize(masked_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
+                                         cv2.COLOR_GRAY2BGR)
+
+    # Initialize label index starting from 49
+    label_index = globals.last_column_idx+1
+
+    # Iterate through columns starting from the closest column
+    for col_idx in range(starting_column, len(sorted_columns)):  # Start from the closest column
+        dots_to_annotate = sorted_columns[col_idx]
+
+        # Annotate dots on the image
+        for dot in dots_to_annotate:
+            color = (0, 255, 0)  # Green color for visibility
+            cv2.circle(annotated_dots_sorted, tuple(dot), 5, color, -1)  # Draw dot
+            cv2.putText(annotated_dots_sorted, f"{label_index}", (dot[0] + 5, dot[1] - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+        # Increment label index for the next column
+        label_index += 1
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+
+        # Define the filename with timestamp
+    filename = f"result_sidepizza_{timestamp}.jpg"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cv2.imwrite(os.path.join(script_dir, filename), annotated_dots_sorted)
+    print("Annotated image saved as 'result_sidepizza.png'.")
+
+    return dot_centers, annotated_dots, sorted_columns, best_match
