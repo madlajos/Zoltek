@@ -138,9 +138,12 @@ def process_center(image):
     dot_contours, annotated_dots = detect_small_dots_and_contours(matched_region)
 
     # Print the areas of the detected dots
-    for i, dot in enumerate(dot_contours):
-        print(f"Dot {i + 1}: X = {dot[0]}, Y = {dot[1]}, Column = {dot[2]}, Area = {dot[3]}")
-
+    #for i, dot in enumerate(dot_contours):
+    #    print(f"Dot {i + 1}: X = {dot[0]}, Y = {dot[1]}, Column = {dot[2]}, Area = {dot[3]}")
+    
+    print("Center fütyi")
+    print(dot_contours)
+    
     cv2.imwrite(os.path.join(script_dir, 'result.jpg'), annotated_dots)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -196,8 +199,11 @@ def template_match_and_extract(template, cropped_image):
 
     if len(nonzero_coords) > 0:
         globals.x_end = np.min(nonzero_coords[:, 1])  # Find max x-coordinate
-        print(f"Mask ends at x = {globals.x_end}")
+        # print(f"Mask ends at x = {globals.x_end}")
 
+    print("x_end FÜTYI:")
+    print(globals.x_end)
+    
     # Apply the mask on the cropped image using bitwise operation
     masked_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask_layer)
 
@@ -268,14 +274,17 @@ def process_inner_slice(image):
     # Get current timestamp
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
+
+    print("Side fütyi 1")
+    print(dot_contours)
+
+
     # Define the filename with timestamp
     filename = f"result_pizza_{timestamp}.jpg"
 
     # Save the image in the script directory
     cv2.imwrite(os.path.join(script_dir, filename), annotated_dots)
 
-    # Print the areas of the detected dots
-    print()
     return dot_contours
 
 def crop_second_two_thirds1(image, save_path=None):
@@ -512,8 +521,8 @@ def detect_small_dots_and_contours1(masked_region, x_threshold=40):
 
     # **Step 7: Print column-wise dot counts**
     # print("\n### Dot Count per Column ###")
-    for column, count in column_dot_counts.items():
-       print(f"Column {column}: {count} dots")
+    # for column, count in column_dot_counts.items():
+    #   print(f"Column {column}: {count} dots")
 
     # **Step 8: Annotate the image (excluding last two columns)**
     annotated_dots = cv2.cvtColor(masked_region, cv2.COLOR_GRAY2BGR)
@@ -565,7 +574,7 @@ def detect_small_dots_and_contours1(masked_region, x_threshold=40):
 
     # Save the updated data back to CSV
     updated_data.to_csv(file_path, index=False)
-    print(f"Dot areas with column numbers saved to '{file_path}'.")
+    #print(f"Dot areas with column numbers saved to '{file_path}'.")
 
     # Extract last column index
     if valid_column_indices:
@@ -577,7 +586,7 @@ def detect_small_dots_and_contours1(masked_region, x_threshold=40):
         # Sum the areas if needed
         globals.total_last_column_area = (last_column_areas)
 
-        print(f"Total Area of Last Column ({globals.last_column_idx}): {globals.total_last_column_area}")
+        #print(f"Total Area of Last Column ({globals.last_column_idx}): {globals.total_last_column_area}")
 
 
     return filtered_dot_area_column_mapping, annotated_dots, column_dot_counts
@@ -608,9 +617,11 @@ def start_side_slice(image):
     # Step 3: Detect small dots in the polygon region
     dot_contours, annotated_dots, grouped_x,matching_column = detect_small_dots_and_contours2(polygon_region)
     
+    print("Center fütyi2")
+    print(dot_contours)
+    
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    # Print the areas of the detected dots
 
     return dot_contours
 
@@ -742,10 +753,6 @@ def generate_gradient_colors(num_colors):
     return [tuple(map(int, color[0])) for color in cmap]
 
 
-import cv2
-import numpy as np
-import pandas as pd
-
 def detect_small_dots_and_contours2(masked_region, x_threshold=10):
     # Apply threshold to find dots
     _, thresh = cv2.threshold(cv2.resize(masked_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
@@ -828,11 +835,11 @@ def detect_small_dots_and_contours2(masked_region, x_threshold=10):
 
     # Count occurrences of each dot identification
     dot_counts = Counter(dot_identifications)
-    print(dot_counts)
+    # print(dot_counts)
 
     df = pd.DataFrame(data, columns=['X', 'Y', 'Column'])
     df.to_csv('all_detected_columns_sorted.csv', index=False)
-    print("All detected columns saved to 'all_detected_columns_sorted.csv'.")
+    # print("All detected columns saved to 'all_detected_columns_sorted.csv'.")
 
     # **Step 6: Annotate All Detected Columns (with Sorted Indices)**
     annotated_dots = cv2.cvtColor(cv2.resize(masked_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
@@ -843,9 +850,7 @@ def detect_small_dots_and_contours2(masked_region, x_threshold=10):
         cv2.putText(annotated_dots, f"{col_label}", (dot[0] + 5, dot[1] - 5),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     leng_last=len(globals.total_last_column_area)
-    print(leng_last)
     matching_dots = [dot_id for dot_id, count in dot_counts.items() if count == leng_last]
-    print(matching_dots)
 
 
     # Extract areas of dots that belong to the matching columns (8, 9, 11)
@@ -876,7 +881,6 @@ def detect_small_dots_and_contours2(masked_region, x_threshold=10):
             max_area = column_areas_sorted[i]  # Current max area in descending order
             area_1 = column_areas_sorted[i + 1]  # The next area in sorted order
             max_div_area1_results.append((col_idx, max_area / area_1))
-    print(max_div_area1_results)
     # Calculate the average area for each matching column
     column_average_areas = {}
 
@@ -896,10 +900,6 @@ def detect_small_dots_and_contours2(masked_region, x_threshold=10):
         max_area = sorted_last_column_area[i]  # Current max area
         area_1 = sorted_last_column_area[i + 1]  # Next area in sorted order
         max_div_area2_results.append( max_area / area_1)
-    print(sorted_last_column_area)
-    print(sorted_matching_dot_areas)
-    print(max_div_area1_results)
-    print(max_div_area2_results)
     # Convert max_div_area1_results into a dictionary for easy lookup
     max_div_area1_dict = {}
     for col_idx, ratio in max_div_area1_results:
@@ -928,15 +928,11 @@ def detect_small_dots_and_contours2(masked_region, x_threshold=10):
             min_mse = mse
             closest_col = col_idx
 
-    print(f"The closest column to the last column is: {closest_col}")
-    print(f"Minimum Mean Squared Error (MSE): {min_mse}")
-
-
     best_match=1
     # Define the closest column obtained earlier
-    # Define the closest column obtained earlier
+
     starting_column = closest_col  # This is the closest column to the last column
-    print(closest_col)
+
     # Create an annotated image
     annotated_dots_sorted = cv2.cvtColor(cv2.resize(masked_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
                                          cv2.COLOR_GRAY2BGR)

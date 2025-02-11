@@ -1,7 +1,8 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { TurntableControlComponent } from '../turntable-control/turntable-control.component'; // Correct import
+import { TurntableControlComponent } from '../turntable-control/turntable-control.component';
 import { Observable } from 'rxjs';
+import { switchMap, tap, finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-control-panel',
@@ -32,7 +33,7 @@ export class ControlPanelComponent implements OnInit {
     { label: 'Result 3', value: 0 }
   ];
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     setInterval(() => {
@@ -62,27 +63,10 @@ export class ControlPanelComponent implements OnInit {
   }
 
   // Rotate Up/Down Functions (unchanged)
-  rotateUp(): void {
-    const payload = { degrees: -20 };
-    this.http.post(`${this.BASE_URL}/move_turntable_relative`, payload).subscribe(
-      (response: any) => {
-        console.log("Turntable moved up 20 degrees", response);
-      },
-      (error) => {
-        console.error("Error moving turntable up:", error);
-      }
-    );
-  }
-
-  rotateDown(): void {
-    const payload = { degrees: 20 };
-    this.http.post(`${this.BASE_URL}/move_turntable_relative`, payload).subscribe(
-      (response: any) => {
-        console.log("Turntable moved down 20 degrees", response);
-      },
-      (error) => {
-        console.error("Error moving turntable down:", error);
-      }
+  moveTurntable(degrees: number): void {
+    this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees }).subscribe(
+      () => console.log(`Turntable moved ${degrees} degrees`),
+      error => console.error(`Error moving turntable by ${degrees}°:`, error)
     );
   }
 
@@ -100,48 +84,21 @@ export class ControlPanelComponent implements OnInit {
     this.measurementActive = !this.measurementActive;
 
     if (this.measurementActive) {
-        console.log("Measurement cycle started.");
-        this.startMeasurement();
+      console.log("Measurement cycle started.");
+      this.startMeasurement();
     } else {
-        console.log("Measurement cycle stopping...");
-
-        // Stop any ongoing measurement cycle
-        this.measurementActive = false;
-
-        // Immediately reset progress and results
-        this.currentMeasurement = 0;
-        this.results = [
-            { label: 'Result 1', value: 0 },
-            { label: 'Result 2', value: 0 },
-            { label: 'Result 3', value: 0 }
-        ];
-
-        console.log("Results cleared, progress bar set to 0.");
-
-        console.log("Relay turned off. Measurement cycle fully stopped.");
+      console.log("Measurement cycle stopping...");
+      this.stopMeasurement();
     }
-}
+  }
 
+  stopMeasurement(): void {
+    this.measurementActive = false;
+    this.currentMeasurement = 0;
+    this.results = this.results.map(res => ({ ...res, value: 0 }));
+    console.log("Results cleared, progress bar reset.");
 
-
-  analyzeImage(): void {
-    this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).subscribe(
-      (response: any) => {
-        console.log("Image analysis successful:", response);
-        
-        // Store results for UI update
-        if (response.dot_contours) {
-          this.results = response.dot_contours.map((dot: any) => ({
-            label: `Dot ${dot.id}`,
-            value: dot.area
-          }));
-        }
-  
-      },
-      (error) => {
-        console.error("Image analysis failed!", error);
-      }
-    );
+    if (this.relayState) this.toggleRelay();
   }
 
   fetchBarcodeData(): void {
@@ -159,159 +116,81 @@ export class ControlPanelComponent implements OnInit {
   startMeasurement(): void {
     console.log("Starting measurement cycle...");
 
+    const startProcess = () => this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
+      tap(() => console.log("Turntable homed successfully")),
+      switchMap(() => this.waitForTurntableDone()),
+      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, {})),
+      tap((response: any) => this.updateResultsUI(response)),
+      finalize(() => this.performMeasurementCycle())
+    );
+
     if (!this.relayState) {
         this.toggleRelay();
+        setTimeout(() => startProcess().subscribe(), 500);  // ✅ **Now it correctly starts**
+    } else {
+        startProcess().subscribe();  // ✅ **Now it runs immediately if the relay is already on**
     }
-    console.log("Relay is ON. Proceeding to homing step...");
-
-    this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).subscribe(
-        (homeResponse: any) => {
-            console.log("Turntable homed successfully:", homeResponse);
-            this.waitForTurntableDone(() => {
-                if (!this.measurementActive) return;
-
-                console.log("First homing cycle confirmed DONE.");
-                this.currentMeasurement = 0;
-
-                this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).subscribe(
-                    (circleResponse: any) => {
-                        if (!this.measurementActive) return;
-                        console.log("Center circle analysis completed:", circleResponse);
-
-                        this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).subscribe(
-                            (sliceResponse: any) => {
-                                if (!this.measurementActive) return;
-                                console.log("Center slice analysis completed:", sliceResponse);
-
-                                this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {}).subscribe(
-                                    (outerResponse: any) => {
-                                        if (!this.measurementActive) return;
-                                        console.log("Outer slice analysis completed:", outerResponse);
-
-                                        this.http.post(`${this.BASE_URL}/update_results`, {}).subscribe(
-                                            (sortResponse: any) => {
-                                                if (!this.measurementActive) return;
-                                                console.log("Sorting (evaluation) complete:", sortResponse);
-
-                                                this.results = sortResponse.result_counts.map((count: number, index: number) => ({
-                                                    label: `Result ${index + 1}`,
-                                                    value: count
-                                                }));
-
-                                                this.currentMeasurement = 1;
-                                                this.performMeasurementCycle();
-                                            },
-                                            (sortError) => console.error("Sorting algorithm failed!", sortError)
-                                        );
-                                    },
-                                    (outerError) => console.error("Outer slice analysis failed!", outerError)
-                                );
-                            },
-                            (sliceError) => console.error("Center slice analysis failed!", sliceError)
-                        );
-                    },
-                    (circleError) => console.error("Center circle analysis failed!", circleError)
-                );
-            });
-        },
-        (homeError) => console.error("Turntable homing failed!", homeError)
-    );
 }
 
 
   
 
-performMeasurementCycle(): void {
-  if (!this.measurementActive) {
-      console.log("Measurement cycle was stopped.");
-      return;
-  }
-
-  if (this.currentMeasurement >= this.totalMeasurements) {
+  performMeasurementCycle(): void {
+    if (!this.measurementActive || this.currentMeasurement >= this.totalMeasurements) {
       console.log("Measurement cycle completed.");
       return;
+    }
+
+    console.log(`Starting measurement ${this.currentMeasurement + 1} of ${this.totalMeasurements}...`);
+
+    this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).pipe(
+      tap(() => console.log("Turntable rotated 20°")),
+      switchMap(() => this.waitForTurntableDone()),
+      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, {})),
+      tap((response: any) => this.updateResultsUI(response)),
+      finalize(() => {
+        this.currentMeasurement++;
+        this.performMeasurementCycle();
+      })
+    ).subscribe();
   }
-
-  console.log(`Starting measurement ${this.currentMeasurement + 1} of ${this.totalMeasurements}...`);
-
-  this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).subscribe(
-      (rotationResponse: any) => {
-          console.log("Turntable rotated 20° successfully:", rotationResponse);
-          this.waitForTurntableDone(() => {
-              if (!this.measurementActive) {
-                  console.log("Measurement cycle was stopped after rotation.");
-                  return;
-              }
-
-              console.log("Turntable movement confirmed. Proceeding with analysis...");
-
-              this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).subscribe(
-                  (sliceResponse: any) => {
-                      if (!this.measurementActive) return;  // Stop if measurement was stopped
-                      console.log(`Center slice analysis successful:`, sliceResponse);
-
-                      this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {}).subscribe(
-                          (outerResponse: any) => {
-                              if (!this.measurementActive) return;  // Stop if measurement was stopped
-                              console.log(`Outer slice analysis successful:`, outerResponse);
-
-                              this.http.post(`${this.BASE_URL}/update_results`, {}).subscribe(
-                                  (sortResponse: any) => {
-                                      if (!this.measurementActive) return;  // Stop if measurement was stopped
-                                      console.log(`Sorting complete:`, sortResponse);
-
-                                      // Only update results if the measurement is still active
-                                      this.results = sortResponse.result_counts.map((count: number, index: number) => ({
-                                          label: `Result ${index + 1}`,
-                                          value: count
-                                      }));
-
-                                      this.currentMeasurement++;
-
-                                      if (!this.measurementActive) {
-                                          console.log("Measurement cycle was stopped before next rotation.");
-                                          return;
-                                      }
-
-                                      this.performMeasurementCycle();
-                                  },
-                                  (sortError) => console.error("Sorting algorithm failed!", sortError)
-                              );
-                          },
-                          (outerError) => console.error("Outer slice analysis failed!", outerError)
-                      );
-                  },
-                  (sliceError) => console.error("Center slice analysis failed!", sliceError)
-              );
-          });
-      },
-      (rotationError) => console.error("Failed to move turntable!", rotationError)
-  );
-}
   
 
-waitForTurntableDone(callback: () => void): void {
-    console.log("Waiting for turntable movement to complete...");
-
-    const checkStatus = () => {
+  waitForTurntableDone(): Observable<any> {
+    return new Observable(observer => {
+      const checkStatus = () => {
         this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/api/status/serial/turntable`).subscribe(
-            (statusResponse) => {
-                if (statusResponse.connected) {
-                    console.log("Turntable movement completed.");
-                    callback(); // Proceed to next measurement
-                } else {
-                    setTimeout(checkStatus, 500); // Retry in 500ms
-                }
-            },
-            (statusError) => {
-                console.error("Error checking turntable status!", statusError);
-                setTimeout(checkStatus, 500); // Retry on failure
+          statusResponse => {
+            if (statusResponse.connected) {
+              console.log("Turntable movement completed.");
+              observer.next();
+              observer.complete();
+            } else {
+              setTimeout(checkStatus, 500);
             }
+          },
+          error => {
+            console.error("Error checking turntable status!", error);
+            setTimeout(checkStatus, 500);
+          }
         );
-    };
+      };
+      checkStatus();
+    });
+  }
 
-    checkStatus();
-}
-
-
+  updateResultsUI(response: any): void {
+    if (this.measurementActive && response?.result_counts) {
+      this.results = response.result_counts.map((count: number, index: number) => ({
+        label: `Result ${index + 1}`,
+        value: count
+      }));
+      this.cdr.detectChanges();  // Ensure UI updates
+    }
+  }
 }

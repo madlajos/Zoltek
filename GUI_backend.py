@@ -279,30 +279,23 @@ def analyze_outer_slice():
 
 @app.route('/update_results', methods=['POST'])
 def update_results():
-    """
-    Evaluates the cumulative measurement_data.
-    For each column, calculates the average dot area and classifies each dot:
-      - Class 1: area < 0.2 * average_area
-      - Class 2: 0.2 * average_area <= area <= 0.9 * average_area
-      - Class 3: area > 0.9 * average_area
-    Returns a list [count1, count2, count3] of the totals for all columns.
-    """
     try:
-        # Convert each dot entry to native Python types.
-        # Assume each dot is in the format: [x, y, column, area]
-        data = []
-        for dot in globals.measurement_data:
-            converted = []
-            for value in dot:
-                if isinstance(value, (np.int32, np.int64)):
-                    converted.append(int(value))
-                elif isinstance(value, (np.float32, np.float64)):
-                    converted.append(float(value))
-                else:
-                    converted.append(value)
-            data.append(converted)
+        # Convert measurement data to native Python types
+        data = [[int(dot[0]), int(dot[1]), int(dot[2]), float(dot[3])] for dot in globals.measurement_data]
         
-        # Group dots by their column value.
+        # Expected number of blobs per cycle
+        first_cycle_expected = 360 + 2758  # 3118
+        subsequent_cycle_expected = 2758
+        
+        # Determine if it's the first cycle
+        is_first_cycle = any(dot[2] == 0 for dot in data)
+        expected_count = first_cycle_expected if is_first_cycle else subsequent_cycle_expected
+        
+        # Count actual blobs detected
+        actual_count = len(data)
+        missing_blobs = max(0, expected_count - actual_count)
+        
+        # Categorize blobs by column
         columns = {}
         for dot in data:
             col = dot[2]
@@ -310,38 +303,54 @@ def update_results():
                 columns[col] = []
             columns[col].append(dot)
         
-        # Initialize counts for each class.
-        count1 = 0
-        count2 = 0
-        count3 = 0
+        # Calculate column averages
+        column_averages = {}
         
-        # For each column, calculate the average area and classify each dot.
+        # Compute average for column 0 (center)
+        if 0 in columns:
+            column_averages[0] = np.mean([dot[3] for dot in columns[0]])
+        
+        # Compute average for columns 1-10 together
+        combined_areas = [dot[3] for col in range(1, 11) if col in columns for dot in columns[col]]
+        if combined_areas:
+            column_averages['1-10'] = np.mean(combined_areas)
+        
+        # Compute average for columns 11-127 individually
+        for col in range(11, 128):
+            if col in columns:
+                column_averages[col] = np.mean([dot[3] for dot in columns[col]])
+        
+        # Initialize class counts
+        class_counts = {1: missing_blobs, 2: 0, 3: 0}
+        
+        # Classify blobs based on their area
         for col, dots in columns.items():
-            if not dots:
-                continue
-            total_area = sum(dot[3] for dot in dots)
-            avg_area = total_area / len(dots)
+            if col == 0:
+                avg_area = column_averages[0]
+            elif 1 <= col <= 10:
+                avg_area = column_averages['1-10']
+            else:
+                avg_area = column_averages.get(col, 1)  # Avoid division by zero
+            
             for dot in dots:
-                area = dot[3]
-                if area < 0.2 * avg_area:
-                    count1 += 1
-                elif area <= 0.9 * avg_area:
-                    count2 += 1
+                area_ratio = dot[3] / avg_area if avg_area > 0 else 1
+                
+                if area_ratio < 0.1:
+                    class_counts[1] += 1
+                elif 0.1 <= area_ratio <= 0.95:
+                    class_counts[2] += 1
                 else:
-                    count3 += 1
+                    class_counts[3] += 1
         
-        result_counts = [count1, count2, count3]
-        globals.result_counts = result_counts
-        
-        app.logger.info(f"Sorting complete. Result counts: {result_counts}. Total blobs: {len(data)}")
+        # Store and return results
+        globals.result_counts = [class_counts[1], class_counts[2], class_counts[3]]
         
         return jsonify({
             "message": "Results updated successfully",
-            "result_counts": result_counts
+            "result_counts": globals.result_counts
         })
     except Exception as e:
-        app.logger.exception(f"Error in update_results: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)})
 
 
 
