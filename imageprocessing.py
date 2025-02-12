@@ -21,7 +21,7 @@ def home_turntable_with_image(image, scale_percent=10, resize_percent=20):
         resize_percent (int): Percent to resize images for visualization.
 
     Returns:
-        float: The best alignment angle in degrees.
+        float: The best alignment angle in degrees
     """
 
 
