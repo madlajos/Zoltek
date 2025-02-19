@@ -36,7 +36,22 @@
             [ngClass]="{'measurement-on': measurementActive, 'measurement-off': !measurementActive}">
       {{ measurementActive ? 'Mérés leállítása' : 'Mérés indítása' }}
     </button>
-  </div>
+
+    <button (click)="analyzeCenterCircle()"
+            class="measurement-button">
+      {{ 'Center Circle' }}
+    </button>
+
+     <button (click)="analyzeInnerSlice()"
+            class="measurement-button">
+      {{ 'Inner Slice' }}
+    </button>
+    
+    <button (click)="analyzeOuterSlice()"
+        class="measurement-button">
+    {{ 'Outer Circle' }}
+    </button>
+      </div>
 
   <!-- Progress Bar -->
   <div class="progress-container">

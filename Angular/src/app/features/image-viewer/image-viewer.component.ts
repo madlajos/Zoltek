@@ -42,7 +42,7 @@ export class ImageViewerComponent implements AfterViewInit {
     let img = videoContainer.querySelector('img');
   
     if ((cameraType === 'main' && this.isMainStreaming) || (cameraType === 'side' && this.isSideStreaming)) {
-      console.log(`📷 Displaying ${cameraType} stream in UI.`);
+      console.log(`Displaying ${cameraType} stream in UI.`);
   
       if (!img) {
         img = document.createElement('img');

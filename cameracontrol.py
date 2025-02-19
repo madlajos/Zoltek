@@ -290,6 +290,9 @@ def validate_and_set_camera_param(camera, param_name: str, param_value: float, p
             camera.Gain.SetValue(valid_value)
         elif param_name == 'Gamma':
             camera.Gamma.SetValue(valid_value)
+        
+        camera.ReverseX.SetValue(True)
+        camera.ReverseY.SetValue(True)
 
         app.logger.info(f" {camera_type.capitalize()} camera {param_name} set to {valid_value}")
 

@@ -16,6 +16,7 @@ import imageprocessing
 import threading
 from settings_manager import load_settings, save_settings, get_settings
 import numpy as np
+from statistics_processor import calculate_statistics, save_annotated_image
 
 app = Flask(__name__)
 app.secret_key = 'Zoltek'
@@ -164,194 +165,181 @@ def home_turntable_with_image():
 
 
 ### Image Analysis Function ###
-@app.route('/analyze_center_circle', methods=['POST'])
-def analyze_center_circle():
+def analyze_slice(process_func, camera_type, label):
+    """
+    Helper to reduce boilerplate in each route.
+      - process_func: function that processes the raw image (e.g. process_center, process_inner_slice, etc.)
+      - camera_type: 'main' or 'side'
+      - label: string key like 'center_circle', 'center_slice', 'outer_slice'
+    """
     try:
-        app.logger.info("Center circle analysis started.")
-        camera_type = 'main'
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
             if camera is None or not camera.IsOpen():
-                app.logger.error("Main camera is not connected or open.")
-                return jsonify({"error": "Main camera is not connected or open."}), 400
+                msg = f"{camera_type.capitalize()} camera is not connected or open."
+                app.logger.error(msg)
+                return jsonify({"error": msg}), 400
 
             grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grab_result.GrabSucceeded():
-                image = grab_result.Array
+            if not grab_result.GrabSucceeded():
                 grab_result.Release()
-            else:
-                grab_result.Release()
-                app.logger.error("Failed to grab image from camera.")
-                return jsonify({"error": "Failed to grab image from camera."}), 500
+                msg = f"Failed to grab image from {camera_type} camera."
+                app.logger.error(msg)
+                return jsonify({"error": msg}), 500
 
-        # Call the processing function (process_center in imageprocessing.py)
-        dot_contours = imageprocessing.process_center(image)
-        # Append the newly detected blobs into the cumulative measurement data.
-        globals.measurement_data.extend(dot_contours)
+            image = grab_result.Array
+            grab_result.Release()
+            globals.latest_image = image.copy()
 
-        app.logger.info(f"Center circle analysis complete. {len(dot_contours)} dots detected.")
+        # 1) Process
+        new_dot_contours = process_func(image)
+        if isinstance(new_dot_contours, np.ndarray):
+            new_dot_contours = new_dot_contours.tolist()
+        # Convert int32/int64 -> Python int
+        new_dot_contours = [
+            [int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot]
+            for dot in new_dot_contours
+        ]
+
+        # 2) Append
+        old_len = len(globals.measurement_data)
+        globals.measurement_data.extend(new_dot_contours)
+        globals.last_blob_counts[label] = len(new_dot_contours)
+
+        # 3) Classify
+        result = calculate_statistics(globals.measurement_data)
+        classified_dots = result["classified_dots"]
+        latest_classified_dots = classified_dots[old_len:]
+
+        # 4) Annotate
+        save_path = save_annotated_image(globals.latest_image, latest_classified_dots, label)
+
+        # 5) Logging and Return
+        app.logger.info(f"{label} analysis complete. {len(new_dot_contours)} new dots detected.")
+        app.logger.info(f"Saved annotated image: {save_path}")
+
         return jsonify({
-            "message": "Center circle analysis successful",
-            "dot_contours": dot_contours  # (Make sure dot_contours is JSON–serializable; convert to list if needed)
+            "message": f"{label} analysis successful",
+            "dot_contours": latest_classified_dots,
+            "image_path": save_path,
+            "result_counts": result["result_counts"]
         })
+
     except Exception as e:
-        app.logger.exception(f"Error during center circle analysis: {e}")
+        app.logger.exception(f"Error during {label} analysis: {e}")
         return jsonify({"error": str(e)}), 500
     
+    
+@app.route('/analyze_center_circle', methods=['POST'])
+def analyze_center_circle():
+    app.logger.info("Center circle analysis started.")
+    return analyze_slice(
+        process_func=imageprocessing.process_center,
+        camera_type='main',
+        label='center_circle',
+    )
+
 @app.route('/analyze_center_slice', methods=['POST'])
 def analyze_center_slice():
-    try:
-        app.logger.info("Center slice analysis started.")
-        camera_type = 'main'
-        with globals.grab_locks[camera_type]:
-            camera = globals.cameras.get(camera_type)
-            if camera is None or not camera.IsOpen():
-                app.logger.error("Main camera is not connected or open.")
-                return jsonify({"error": "Main camera is not connected or open."}), 400
-
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grab_result.GrabSucceeded():
-                image = grab_result.Array
-                grab_result.Release()
-            else:
-                grab_result.Release()
-                app.logger.error("Failed to grab image from camera.")
-                return jsonify({"error": "Failed to grab image from camera."}), 500
-
-        dot_contours = imageprocessing.process_inner_slice(image)
-
-        # If dot_contours is a NumPy array, convert to list
-        if isinstance(dot_contours, np.ndarray):
-            dot_contours = dot_contours.tolist()
-
-        # Convert each numeric element to a native Python type
-        dot_contours = [[int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot] for dot in dot_contours]
-
-        app.logger.info(f"Center slice analysis complete. {len(dot_contours)} dots detected.")
-        return jsonify({
-            "message": "Center slice analysis successful",
-            "dot_contours": dot_contours
-        })
-    except Exception as e:
-        app.logger.exception(f"Error during center slice analysis: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
+    app.logger.info("Center slice analysis started.")
+    return analyze_slice(
+        process_func=imageprocessing.process_inner_slice,
+        camera_type='main',
+        label='center_slice',
+    )
 
 @app.route('/analyze_outer_slice', methods=['POST'])
 def analyze_outer_slice():
-    try:
-        app.logger.info("Center slice analysis started.")
-        camera_type = 'side'
-        with globals.grab_locks[camera_type]:
-            camera = globals.cameras.get(camera_type)
-            if camera is None or not camera.IsOpen():
-                app.logger.error("Main camera is not connected or open.")
-                return jsonify({"error": "Main camera is not connected or open."}), 400
-
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grab_result.GrabSucceeded():
-                image = grab_result.Array
-                grab_result.Release()
-            else:
-                grab_result.Release()
-                app.logger.error("Failed to grab image from camera.")
-                return jsonify({"error": "Failed to grab image from camera."}), 500
-
-        dot_contours = imageprocessing.start_side_slice(image)
-
-        # If dot_contours is a NumPy array, convert to list
-        if isinstance(dot_contours, np.ndarray):
-            dot_contours = dot_contours.tolist()
-
-        # Convert each numeric element to a native Python type
-        dot_contours = [[int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot] for dot in dot_contours]
-
-        app.logger.info(f"Center slice analysis complete. {len(dot_contours)} dots detected.")
-        return jsonify({
-            "message": "Center slice analysis successful",
-            "dot_contours": dot_contours
-        })
-    except Exception as e:
-        app.logger.exception(f"Error during center slice analysis: {e}")
-        return jsonify({"error": str(e)}), 500
-
+    app.logger.info("Outer slice analysis started.")
+    return analyze_slice(
+        process_func=imageprocessing.start_side_slice,
+        camera_type='side',
+        label='outer_slice',
+    )
 
 @app.route('/update_results', methods=['POST'])
 def update_results():
     try:
-        # Convert measurement data to native Python types
-        data = [[int(dot[0]), int(dot[1]), int(dot[2]), float(dot[3])] for dot in globals.measurement_data]
+        mode = request.json.get("mode")
+        if not mode:
+            return jsonify({"error": "Missing 'mode' in request"}), 400
+
+        expected_counts_map = {
+            "full": {"center_circle": 360, "center_slice": 510, "outer_slice": 2248},
+            "center_circle": {"center_circle": 360, "center_slice": 0, "outer_slice": 0},
+            "center_slice": {"center_circle": 0, "center_slice": 510, "outer_slice": 0},
+            "outer_slice": {"center_circle": 0, "center_slice": 0, "outer_slice": 2248},
+            "slices": {"center_circle": 0, "center_slice": 510, "outer_slice": 2248},  
+        }
+
+        if mode not in expected_counts_map:
+            return jsonify({"error": f"Invalid mode '{mode}'"}), 400
+
+        expected_counts = expected_counts_map[mode]
         
-        # Expected number of blobs per cycle
-        first_cycle_expected = 360 + 2758  # 3118
-        subsequent_cycle_expected = 2758
+        if not globals.measurement_data:
+            return jsonify({"error": "No measurement data available for processing."}), 400
+
+        # How many new blobs were found *this run* by each route
+        new_blob_counts = {
+            "center_circle": globals.last_blob_counts.get("center_circle", 0),
+            "center_slice": globals.last_blob_counts.get("center_slice", 0),
+            "outer_slice": globals.last_blob_counts.get("outer_slice", 0),
+        }
+
+        # Calculate how many are missing total:
+        missing_blobs = sum(
+            max(0, expected_counts[label] - new_blob_counts[label])
+            for label in expected_counts
+        )
+
+        globals.locked_class1_count += missing_blobs
         
-        # Determine if it's the first cycle
-        is_first_cycle = any(dot[2] == 0 for dot in data)
-        expected_count = first_cycle_expected if is_first_cycle else subsequent_cycle_expected
-        
-        # Count actual blobs detected
-        actual_count = len(data)
-        missing_blobs = max(0, expected_count - actual_count)
-        
-        # Categorize blobs by column
-        columns = {}
-        for dot in data:
-            col = dot[2]
-            if col not in columns:
-                columns[col] = []
-            columns[col].append(dot)
-        
-        # Calculate column averages
-        column_averages = {}
-        
-        # Compute average for column 0 (center)
-        if 0 in columns:
-            column_averages[0] = np.mean([dot[3] for dot in columns[0]])
-        
-        # Compute average for columns 1-10 together
-        combined_areas = [dot[3] for col in range(1, 11) if col in columns for dot in columns[col]]
-        if combined_areas:
-            column_averages['1-10'] = np.mean(combined_areas)
-        
-        # Compute average for columns 11-127 individually
-        for col in range(11, 128):
-            if col in columns:
-                column_averages[col] = np.mean([dot[3] for dot in columns[col]])
-        
-        # Initialize class counts
-        class_counts = {1: missing_blobs, 2: 0, 3: 0}
-        
-        # Classify blobs based on their area
-        for col, dots in columns.items():
-            if col == 0:
-                avg_area = column_averages[0]
-            elif 1 <= col <= 10:
-                avg_area = column_averages['1-10']
-            else:
-                avg_area = column_averages.get(col, 1)  # Avoid division by zero
-            
-            for dot in dots:
-                area_ratio = dot[3] / avg_area if avg_area > 0 else 1
-                
-                if area_ratio < 0.1:
-                    class_counts[1] += 1
-                elif 0.1 <= area_ratio <= 0.95:
-                    class_counts[2] += 1
-                else:
-                    class_counts[3] += 1
-        
-        # Store and return results
-        globals.result_counts = [class_counts[1], class_counts[2], class_counts[3]]
-        
+        # **Run statistics** on everything
+        result = calculate_statistics(globals.measurement_data, expected_counts)
+        if "error" in result:
+            return jsonify({"error": result["error"]})
+
+        # result_counts = [count_class1, count_class2, count_class3]
+        class_counts = result["result_counts"]
+
+        # If we are short some blobs, treat those shortfalls as "Class 1"
+        # so that the final result_counts reflect "missing" as class 1.
+        if missing_blobs > 0:
+            globals.locked_class1_count += missing_blobs
+            # class_counts[0] += missing_blobs  # class_counts[0] is "Class 1"
+
+        # Save final counts globally
+        globals.result_counts = class_counts
+
+        app.logger.info(f"Update Results: {globals.result_counts}")
+
         return jsonify({
-            "message": "Results updated successfully",
+            "message": f"Results updated successfully for mode: {mode}",
+            "result_counts": globals.result_counts
+        })
+
+    except Exception as e:
+        app.logger.exception(f"Exception in update_results: {e}")
+        return jsonify({"error": str(e)})
+
+
+@app.route('/reset_results', methods=['POST'])
+def reset_results():
+    try:
+        # Reset global measurement results
+        globals.result_counts = [0, 0, 0]
+        globals.measurement_data.clear()
+        globals.last_blob_counts = {"center_circle": 0, "center_slice": 0, "outer_slice": 0}
+
+        app.logger.info("Results reset successfully.")
+        return jsonify({
+            "message": "Results reset successfully",
             "result_counts": globals.result_counts
         })
     except Exception as e:
-        return jsonify({"error": str(e)})
-
+        app.logger.exception(f"Error resetting results: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/move_turntable_relative', methods=['POST'])
@@ -504,9 +492,7 @@ def generate_frames(camera_type, scale_factor=0.25):
 
                 if grab_result.GrabSucceeded():
                     image = grab_result.Array
-                    
-                    image = cv2.flip(image, 1)
-                    image = cv2.flip(image, 0)
+            
                     if scale_factor != 1.0:
                         width = int(image.shape[1] * scale_factor)
                         height = int(image.shape[0] * scale_factor)

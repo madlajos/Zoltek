@@ -16,11 +16,10 @@ export class ControlPanelComponent implements OnInit {
   nozzleId: string = "";
   measurementActive: boolean = false;
 
-  currentMeasurement: number = 0;
+  currentMeasurement: number = 1;
   totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
 
-  // Add ViewChild reference to access TurntableControlComponent
   @ViewChild(TurntableControlComponent) turntableControl!: TurntableControlComponent;
 
   get progressPercentage(): number {
@@ -28,9 +27,9 @@ export class ControlPanelComponent implements OnInit {
   }
 
   results: { label: string, value: number }[] = [
-    { label: 'Result 1', value: 0 },
-    { label: 'Result 2', value: 0 },
-    { label: 'Result 3', value: 0 }
+    { label: 'Eldugult', value: 0 },
+    { label: 'Részl. Eldugult', value: 0 },
+    { label: 'Tiszta', value: 0 }
   ];
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
@@ -95,17 +94,34 @@ export class ControlPanelComponent implements OnInit {
   stopMeasurement(): void {
     this.measurementActive = false;
     this.currentMeasurement = 0;
+    
+    // Reset only the values while keeping the original labels
     this.results = this.results.map(res => ({ ...res, value: 0 }));
+    
     console.log("Results cleared, progress bar reset.");
 
-    if (this.relayState) this.toggleRelay();
-  }
+    this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe(
+        (response: any) => {
+            console.log("Backend results reset:", response);
+            
+            if (response?.result_counts && this.results.length === response.result_counts.length) {
+                // Update values while retaining the original labels
+                this.results.forEach((result, index) => {
+                    result.value = response.result_counts[index];
+                });
+            }
+        },
+        (error) => {
+            console.error("Failed to reset backend results:", error);
+        }
+    );
+}
 
   fetchBarcodeData(): void {
     this.http.get<{ barcode: string }>(`${this.BASE_URL}/api/get-barcode`).subscribe(
       (response) => {
         console.log("Barcode received from API:", response.barcode);
-        this.nozzleId = response.barcode; // Update UI
+        this.nozzleId = response.barcode;
       },
       (error) => {
         console.error("Failed to fetch barcode!", error);
@@ -116,27 +132,24 @@ export class ControlPanelComponent implements OnInit {
   startMeasurement(): void {
     console.log("Starting measurement cycle...");
 
-    const startProcess = () => this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
+    const startProcess = (mode: string) => this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
       tap(() => console.log("Turntable homed successfully")),
       switchMap(() => this.waitForTurntableDone()),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "full" })),
       tap((response: any) => this.updateResultsUI(response)),
       finalize(() => this.performMeasurementCycle())
     );
 
     if (!this.relayState) {
-        this.toggleRelay();
-        setTimeout(() => startProcess().subscribe(), 500);  // ✅ **Now it correctly starts**
+      this.toggleRelay();
+      setTimeout(() => startProcess("full").subscribe(), 500);
     } else {
-        startProcess().subscribe();  // ✅ **Now it runs immediately if the relay is already on**
+      startProcess("full").subscribe();
     }
-}
-
-
-  
+  }
 
   performMeasurementCycle(): void {
     if (!this.measurementActive || this.currentMeasurement >= this.totalMeasurements) {
@@ -151,7 +164,7 @@ export class ControlPanelComponent implements OnInit {
       switchMap(() => this.waitForTurntableDone()),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "slices" })),
       tap((response: any) => this.updateResultsUI(response)),
       finalize(() => {
         this.currentMeasurement++;
@@ -185,12 +198,54 @@ export class ControlPanelComponent implements OnInit {
   }
 
   updateResultsUI(response: any): void {
-    if (this.measurementActive && response?.result_counts) {
+  if (response?.result_counts) {
+    if (!this.results || this.results.length !== response.result_counts.length) {
+      // Initialize with default labels if results are empty or different in length
       this.results = response.result_counts.map((count: number, index: number) => ({
         label: `Result ${index + 1}`,
         value: count
       }));
-      this.cdr.detectChanges();  // Ensure UI updates
+    } else {
+      // Update values but retain original labels
+      this.results.forEach((result, index) => {
+        result.value = response.result_counts[index];
+      });
     }
+    this.cdr.detectChanges();
+  }
+}
+
+  // Tester Functions to analyse only parts of the images
+  analyzeCenterCircle(): void {
+    console.log("Analyzing Center Circle...");
+    this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).pipe(
+      tap(response => console.log("analyze_center_circle Response:", response)),  // Log response
+      switchMap(() => {
+        console.log("➡️ Calling update_results...");
+        return this.http.post(`${this.BASE_URL}/update_results`, { mode: "center_circle" }, { headers: { 'Content-Type': 'application/json' } });
+      }),
+      tap((response: any) => {
+        console.log("update_results Response:", response);
+        this.updateResultsUI(response);
+      })
+    ).subscribe({
+      error: (err) => console.error("Error in analyzeCenterCircle:", err)  // Log error if any
+    });
+  }
+
+  analyzeInnerSlice(): void {
+    console.log("Analyzing Center Slice...");
+    this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).pipe(
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "center_slice" })),
+      tap((response: any) => this.updateResultsUI(response))
+    ).subscribe();
+  }
+
+  analyzeOuterSlice(): void {
+    console.log("Analyzing Outer Slice...");
+    this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {}).pipe(
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "outer_slice" })),
+      tap((response: any) => this.updateResultsUI(response))
+    ).subscribe();
   }
 }

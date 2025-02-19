@@ -32,6 +32,18 @@ measurement_data = []
 result_counts = [0, 0, 0]
 
 # Image Analysis Results
-x_end = 0
+x_end = 2880
 total_last_column_area = []
 last_column_idx = 0
+
+dot_id_counter = 1  # Used for stable IDs, incremented each time we add a dot
+measurement_data = []  # Will store [dot_id, x, y, col, area]
+locked_class1_count = 0  # Once a dot is deemed class 1, or missing, it’s locked in
+result_counts = [0,0,0]  # optional, if you want to store the last result
+last_blob_counts = {
+    "center_circle": 0,
+    "center_slice": 0,
+    "outer_slice": 0
+}
+
+latest_image = None
