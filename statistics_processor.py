@@ -2,132 +2,124 @@ import numpy as np
 import os
 import cv2
 import time
+import globals
 
-def calculate_statistics(dot_contours, expected_counts=None):
+def calculate_statistics(dot_list, expected_counts=None):
     """
-    Classifies all detected blobs but preserves their original order by storing an index.
-    If a blob is classified into class 1, it's "locked" there permanently:
-      - We remove it from `measurement_data` so it won't reappear in future classifications.
-      - We increment `globals.locked_class1_count`.
+    dot_list = [ [dot_id, x, y, col, area], ... ] from globals.measurement_data.
+    
+    We classify each dot into 1,2,3 based on area ratio.
+    If a dot is class 1 => remove it from measurement_data, increment locked_class1_count.
+
+    The final class 1 = newly found in this pass + locked_class1_count.
+    Returns a dict: {
+      "result_counts": [class1, class2, class3],
+      "classified_dots": [ (dot_id, x, y, col, area, cls), ... ]
+    }
     """
     from collections import defaultdict
-    try:
-        # Build a list of (orig_index, x, y, col, area)
-        data = []
-        for i, dot in enumerate(dot_contours):
-            x, y, col, area = dot
-            data.append((i, int(x), int(y), int(col), float(area)))
 
+    try:
+        # 1) Build a list of (dot_id, x, y, col, area)
+        data = []
+        for item in dot_list:
+            dot_id, x, y, col, area = item
+            data.append((dot_id, int(x), int(y), int(col), float(area)))
+
+        # Default or provided expected counts
         default_expected_counts = {
             "center_circle": 360,
             "center_slice": 510,
             "outer_slice": 2248
         }
-        expected_counts = expected_counts if expected_counts else default_expected_counts
+        if not expected_counts:
+            expected_counts = default_expected_counts
 
-        # Group by column, but keep the original index
+        # 2) Group by column
         columns = defaultdict(list)
-        for (orig_idx, x, y, col, area) in data:
-            columns[col].append((orig_idx, x, y, col, area))
+        for (dot_id, x, y, col, area) in data:
+            columns[col].append((dot_id, x, y, col, area))
 
-        # Compute average areas per column
+        # Compute column averages
         column_averages = {}
         if 0 in columns:
-            column_averages[0] = np.mean([dot[4] for dot in columns[0]])
+            column_averages[0] = np.mean([d[4] for d in columns[0]])
 
         combined_areas = []
-        for col_num in range(1, 11):
-            if col_num in columns:
-                combined_areas += [dot[4] for dot in columns[col_num]]
+        for c in range(1, 11):
+            if c in columns:
+                combined_areas += [d[4] for d in columns[c]]
         if combined_areas:
             column_averages["1-10"] = np.mean(combined_areas)
 
-        for col_num in range(11, 128):
-            if col_num in columns:
-                column_averages[col_num] = np.mean([dot[4] for dot in columns[col_num]])
+        for c in range(11, 128):
+            if c in columns:
+                column_averages[c] = np.mean([d[4] for d in columns[c]])
 
+        # 3) Classify
         class_counts = {1: 0, 2: 0, 3: 0}
-        classified_with_index = []
+        classified_with_id = []  # (dot_id, x, y, col, area, cls)
 
-        # Classify each dot
-        for col, dots_in_col in columns.items():
-            avg_area = column_averages.get(col, 1.0)
+        for col_val, dots_in_col in columns.items():
+            avg_area = column_averages.get(col_val, 1.0)
             min_thresh = 0.1 * avg_area
             max_thresh = 0.95 * avg_area
 
-            for (orig_idx, x, y, col, area) in dots_in_col:
-                area_ratio = area / avg_area if avg_area > 0 else 1
-
-                if area_ratio < 0.1:
-                    blob_class = 1
-                elif area_ratio <= 0.95:
-                    blob_class = 2
+            for (dot_id, x, y, col, area) in dots_in_col:
+                ratio = (area / avg_area) if avg_area > 0 else 1
+                if ratio < 0.1:
+                    ccls = 1
+                elif ratio <= 0.95:
+                    ccls = 2
                 else:
-                    blob_class = 3
+                    ccls = 3
 
-                class_counts[blob_class] += 1
+                class_counts[ccls] += 1
+                classified_with_id.append((dot_id, x, y, col, area, ccls))
 
-                classified_with_index.append(
-                    (orig_idx, x, y, col, area, blob_class)
-                )
+        # Sort by dot_id if you like stable output
+        classified_with_id.sort(key=lambda item: item[0])
 
-        # (1) Sort by original index so final list matches append order
-        classified_with_index.sort(key=lambda t: t[0])
-
-        # (2) Convert to final dot format: (x, y, col, area, class)
-        classified_dots = [
-            (x, y, col, area, blob_class)
-            for (orig_idx, x, y, col, area, blob_class) in classified_with_index
-        ]
-
-        # (3) Identify newly discovered Class-1 indices
-        class1_indices = {
-            orig_idx
-            for (orig_idx, x, y, col, area, blob_class) in classified_with_index
-            if blob_class == 1
-        }
-
-        # (4) Remove them from measurement_data so they won't be reclassified
-        #     We'll also increment `globals.locked_class1_count`.
-        if class1_indices:
-            removed_count = remove_class1_from_data(class1_indices)
+        # 4) Remove newly discovered Class 1 from measurement_data
+        class1_ids = {item[0] for item in classified_with_id if item[5] == 1}
+        if class1_ids:
+            removed_count = remove_class1_from_data(class1_ids)
             globals.locked_class1_count += removed_count
-            # Adjust current "class 1" count: we are effectively removing them
-            # so they won't appear again, but we still want to reflect they
-            # were discovered in *this* classification pass.
-            # So class_counts[1] remains the same for "this pass."
-            # We'll just add locked_class1_count at the end.
 
-        # Final reported class1 = newly found (class_counts[1]) 
-        #                         + all historically locked
+        # 5) Final class1 = newly found + locked_class1_count
         final_class1 = class_counts[1] + globals.locked_class1_count
         final_counts = [final_class1, class_counts[2], class_counts[3]]
 
+        # Convert to final list for "classified_dots"
+        # Keep dot_id so the route can filter out newly added ones
+        classified_dots = classified_with_id  # (dot_id,x,y,col,area,ccls)
+
         return {
-            "result_counts": final_counts,       # [class1, class2, class3]
-            "classified_dots": classified_dots   # only the current pass
+            "result_counts": final_counts,
+            "classified_dots": classified_dots
         }
 
     except Exception as e:
         return {"error": str(e)}
     
     
-def remove_class1_from_data(class1_indices):
+def remove_class1_from_data(class1_ids):
     """
-    Removes any dot from globals.measurement_data whose enumerated index is in class1_indices.
-    Returns the count of removed items.
+    From globals.measurement_data ([dot_id, x, y, col, area]),
+    remove any item whose dot_id is in class1_ids.
+    Returns how many were removed.
     """
-    # We rebuild measurement_data but skip the ones in class1_indices
-    # We'll keep a local copy, then reassign
-    new_data = []
+    new_list = []
     removed_count = 0
-    for i, dot in enumerate(globals.measurement_data):
-        if i in class1_indices:
+    for item in globals.measurement_data:
+        dot_id = item[0]
+        if dot_id in class1_ids:
             removed_count += 1
         else:
-            new_data.append(dot)
-    globals.measurement_data = new_data
+            new_list.append(item)
+    globals.measurement_data = new_list
     return removed_count
+
 
 
 def save_annotated_image(image, classified_dots, output_dir="output_images"):

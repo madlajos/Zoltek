@@ -379,7 +379,7 @@ def islice_detect_small_dots_and_contours(masked_region, x_threshold=40):
     max_x = max(x_values) if x_values else None
 
     if max_x is not None and max_x < 2600:
-        counter = 2  # Start numbering from 1
+        counter = 1  # Start numbering from 1
         print("The first column is missing!")
     else:
         counter = 1
@@ -891,7 +891,7 @@ def detect_small_dots_and_contours(masked_region, x_threshold=40):
             x, y, area = row  # Unpack the row
             data.append((x, y, new_label, area))  # Store x, y, new column label, and area
 
-    print("Filtered & Renumbered Processed Data:", data)
+    # print("Filtered & Renumbered Processed Data:", data)
 
     # Save the filtered data to a CSV file
     df = pd.DataFrame(data, columns=["X", "Y", "Column_Index", "Area"])

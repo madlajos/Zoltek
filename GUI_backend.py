@@ -167,7 +167,7 @@ def home_turntable_with_image():
 ### Image Analysis Function ###
 def analyze_slice(process_func, camera_type, label):
     """
-    Helper to reduce boilerplate in each route.
+    Helper to reduce boilerplate in each route:
       - process_func: function that processes the raw image (e.g. process_center, process_inner_slice, etc.)
       - camera_type: 'main' or 'side'
       - label: string key like 'center_circle', 'center_slice', 'outer_slice'
@@ -180,49 +180,87 @@ def analyze_slice(process_func, camera_type, label):
                 app.logger.error(msg)
                 return jsonify({"error": msg}), 400
 
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if not grab_result.GrabSucceeded():
+            # Retry grabbing the image up to 10 times
+            max_retries = 10
+            for attempt in range(max_retries):
+                grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+
+                if grab_result.GrabSucceeded():
+                    image = grab_result.Array
+                    grab_result.Release()
+                    globals.latest_image = image.copy()
+                    break  # Exit the loop if successful
+
                 grab_result.Release()
-                msg = f"Failed to grab image from {camera_type} camera."
+                app.logger.warning(f"Attempt {attempt + 1}/{max_retries}: Failed to grab image from {camera_type} camera.")
+                time.sleep(0.1)  # Wait 100ms before retrying
+
+            else:
+                # If we exhaust retries, return an error
+                msg = f"Failed to grab image from {camera_type} camera after {max_retries} attempts."
                 app.logger.error(msg)
                 return jsonify({"error": msg}), 500
 
-            image = grab_result.Array
-            grab_result.Release()
-            globals.latest_image = image.copy()
 
-        # 1) Process
+        # 1) Detect new contours
         new_dot_contours = process_func(image)
         if isinstance(new_dot_contours, np.ndarray):
             new_dot_contours = new_dot_contours.tolist()
-        # Convert int32/int64 -> Python int
+
+        # Convert np.int32 → Python int
         new_dot_contours = [
             [int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot]
             for dot in new_dot_contours
         ]
 
-        # 2) Append
-        old_len = len(globals.measurement_data)
-        globals.measurement_data.extend(new_dot_contours)
+        # 2) Append new dots with stable IDs
+        #    e.g. new_dot_contours = [[x,y,col,area], ...]
+        old_counter = globals.dot_id_counter
+        for dot in new_dot_contours:
+            x, y, col, area = dot
+            dot_id = globals.dot_id_counter
+            globals.dot_id_counter += 1
+            globals.measurement_data.append([dot_id, x, y, col, area])
+
+        # Record how many new dots for this label
         globals.last_blob_counts[label] = len(new_dot_contours)
 
-        # 3) Classify
+        # 3) Classify entire dataset
         result = calculate_statistics(globals.measurement_data)
+        if "error" in result:
+            app.logger.error(f"Calculation error in {label}: {result['error']}")
+            return jsonify({"error": result["error"]}), 500
+
+        # This classification returns classified dots as (dot_id, x, y, col, area, class)
         classified_dots = result["classified_dots"]
-        latest_classified_dots = classified_dots[old_len:]
+        final_counts = result["result_counts"]
 
-        # 4) Annotate
-        save_path = save_annotated_image(globals.latest_image, latest_classified_dots, label)
+        # 4) Identify the newly added dot IDs
+        newly_added_ids = set(range(old_counter, globals.dot_id_counter))
 
-        # 5) Logging and Return
+        # Extract only the newly classified dots (by ID)
+        latest_classified_dots = [
+            d for d in classified_dots
+            if d[0] in newly_added_ids
+        ]
+
+        # Convert (dot_id, x, y, col, area, cls) → (x, y, col, area, cls) for annotation
+        latest_for_annotation = [
+            (x, y, col, area, cls) for (dot_id, x, y, col, area, cls) in latest_classified_dots
+        ]
+
+        # 5) Annotate
+        save_path = save_annotated_image(globals.latest_image, latest_for_annotation, label)
+
+        # 6) Logging & Return
         app.logger.info(f"{label} analysis complete. {len(new_dot_contours)} new dots detected.")
         app.logger.info(f"Saved annotated image: {save_path}")
 
         return jsonify({
             "message": f"{label} analysis successful",
-            "dot_contours": latest_classified_dots,
+            "dot_contours": latest_for_annotation,
             "image_path": save_path,
-            "result_counts": result["result_counts"]
+            "result_counts": final_counts
         })
 
     except Exception as e:
@@ -269,7 +307,7 @@ def update_results():
             "center_circle": {"center_circle": 360, "center_slice": 0, "outer_slice": 0},
             "center_slice": {"center_circle": 0, "center_slice": 510, "outer_slice": 0},
             "outer_slice": {"center_circle": 0, "center_slice": 0, "outer_slice": 2248},
-            "slices": {"center_circle": 0, "center_slice": 510, "outer_slice": 2248},  
+            "slices": {"center_circle": 0, "center_slice": 510, "outer_slice": 2248},
         }
 
         if mode not in expected_counts_map:
@@ -278,50 +316,40 @@ def update_results():
         expected_counts = expected_counts_map[mode]
         
         if not globals.measurement_data:
-            return jsonify({"error": "No measurement data available for processing."}), 400
+            return jsonify({"error": "No measurement data available."}), 400
 
-        # How many new blobs were found *this run* by each route
+        # new_blob_counts from the last route calls
         new_blob_counts = {
             "center_circle": globals.last_blob_counts.get("center_circle", 0),
             "center_slice": globals.last_blob_counts.get("center_slice", 0),
             "outer_slice": globals.last_blob_counts.get("outer_slice", 0),
         }
 
-        # Calculate how many are missing total:
-        missing_blobs = sum(
-            max(0, expected_counts[label] - new_blob_counts[label])
-            for label in expected_counts
-        )
+        # Calculate shortfall
+        missing_blobs = 0
+        for label, needed in expected_counts.items():
+            found = new_blob_counts[label]
+            shortfall = max(0, needed - found)
+            missing_blobs += shortfall
 
+        # Add shortfall directly to locked_class1_count
         globals.locked_class1_count += missing_blobs
-        
-        # **Run statistics** on everything
+
+        # Re-run classification
         result = calculate_statistics(globals.measurement_data, expected_counts)
         if "error" in result:
-            return jsonify({"error": result["error"]})
+            return jsonify({"error": result["error"]}), 500
 
-        # result_counts = [count_class1, count_class2, count_class3]
-        class_counts = result["result_counts"]
-
-        # If we are short some blobs, treat those shortfalls as "Class 1"
-        # so that the final result_counts reflect "missing" as class 1.
-        if missing_blobs > 0:
-            globals.locked_class1_count += missing_blobs
-            # class_counts[0] += missing_blobs  # class_counts[0] is "Class 1"
-
-        # Save final counts globally
-        globals.result_counts = class_counts
-
-        app.logger.info(f"Update Results: {globals.result_counts}")
-
+        # Save final counts
+        globals.result_counts = result["result_counts"]
         return jsonify({
-            "message": f"Results updated successfully for mode: {mode}",
+            "message": f"Results updated for mode: {mode}",
             "result_counts": globals.result_counts
         })
 
     except Exception as e:
         app.logger.exception(f"Exception in update_results: {e}")
-        return jsonify({"error": str(e)})
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/reset_results', methods=['POST'])
