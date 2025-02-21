@@ -1,6 +1,5 @@
-/* You can add global styles to this file, and also import other style files */
-html { background-color: #212529 ; }
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+html { background-color: #212529 ; }
 
 :root {
   --main-blue: #2a628c;
@@ -91,3 +90,6 @@ html, body {
 .sidenav ::-moz-scrollbar-thumb {
   border-radius: 10px; /* Round the edges of the scrollbar thumb */
 }
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }

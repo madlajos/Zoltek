@@ -1,11 +1,15 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { interval, Subscription } from 'rxjs';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
+  standalone: true,
   selector: 'app-turntable-control',
   templateUrl: './turntable-control.component.html',
-  styleUrls: ['./turntable-control.component.css']
+  styleUrls: ['./turntable-control.component.css'],
+  imports: [CommonModule, MatIconModule]
 })
 export class TurntableControlComponent implements OnInit, OnDestroy {
   private readonly BASE_URL = 'http://localhost:5000';

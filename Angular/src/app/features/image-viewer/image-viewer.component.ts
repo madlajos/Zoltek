@@ -1,11 +1,14 @@
+import { CommonModule } from '@angular/common';
 import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { SharedService } from '../../shared.service';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
+  standalone: true,
   selector: 'app-image-viewer',
   templateUrl: './image-viewer.component.html',
-  styleUrls: ['./image-viewer.component.css']
+  styleUrls: ['./image-viewer.component.css'],
+  imports: [CommonModule]
 })
 export class ImageViewerComponent implements AfterViewInit {
   @ViewChild('mainVideoContainer', { static: false }) mainVideoContainer!: ElementRef<HTMLDivElement>;

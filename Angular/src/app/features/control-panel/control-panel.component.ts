@@ -1,13 +1,18 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TurntableControlComponent } from '../turntable-control/turntable-control.component';
 import { Observable } from 'rxjs';
 import { switchMap, tap, finalize } from 'rxjs/operators';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
+  standalone: true,
   selector: 'app-control-panel',
   templateUrl: './control-panel.component.html',
-  styleUrls: ['./control-panel.component.css']
+  styleUrls: ['./control-panel.component.css'],
+  imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent]
 })
 export class ControlPanelComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000';

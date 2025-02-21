@@ -69,7 +69,7 @@ def calculate_statistics(dot_list, expected_counts=None):
                 ratio = (area / avg_area) if avg_area > 0 else 1
                 if ratio < 0.1:
                     ccls = 1
-                elif ratio <= 0.95:
+                elif ratio <= 0.9:
                     ccls = 2
                 else:
                     ccls = 3

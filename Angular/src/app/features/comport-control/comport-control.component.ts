@@ -1,7 +1,9 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { of, interval } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
+import { MatIconModule } from '@angular/material/icon';
 
 interface Device {
   name: string;    // Display name
@@ -11,9 +13,11 @@ interface Device {
 }
 
 @Component({
+  standalone: true,
   selector: 'app-comport-control',
   templateUrl: './comport-control.component.html',
-  styleUrls: ['./comport-control.component.css']
+  styleUrls: ['./comport-control.component.css'],
+  imports: [CommonModule, MatIconModule]
 })
 export class ComportControlComponent implements OnInit {
 

@@ -1,7 +1,10 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { SharedService } from '../../shared.service';
 import { interval } from 'rxjs';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 
 interface CameraSettings {
   Width: number;
@@ -16,9 +19,11 @@ interface CameraSettings {
 }
 
 @Component({
+  standalone: true,
   selector: 'app-camera-control',
   templateUrl: './camera-control.component.html',
-  styleUrls: ['./camera-control.component.css']
+  styleUrls: ['./camera-control.component.css'],
+  imports: [CommonModule, FormsModule, MatIconModule]
 })
 export class CameraControlComponent implements OnInit {
   mainCameraSettings: CameraSettings = {} as CameraSettings;

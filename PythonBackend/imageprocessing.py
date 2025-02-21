@@ -226,6 +226,17 @@ def center_detect_small_dots_and_contours(masked_region):
 
 def process_inner_slice(image):
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(script_dir, 'templ03_mod3.jpg')
+    template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+
+    if image is None or template is None:
+        raise FileNotFoundError("Target or template image not found. Check the file paths.")
+
+    # Step 1: Crop the input image
+
+    # Step 2: Match and extract the template region
+    matched_region = center_template_match_and_extract(template, image)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     template_path = os.path.join(script_dir, 'templ08_c.jpg')
     template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
 

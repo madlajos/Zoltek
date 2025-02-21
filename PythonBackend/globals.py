@@ -32,7 +32,7 @@ measurement_data = []
 result_counts = [0, 0, 0]
 
 # Image Analysis Results
-x_end = 2786
+x_end = 2884
 total_last_column_area = []
 last_column_idx = 0
 
