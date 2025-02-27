@@ -48,6 +48,12 @@ export class CameraControlComponent implements OnInit {
     'FrameRate'
   ];
 
+
+  sizeLimits: { [key: string]: number } = {
+    class1: 5,
+    class2: 95
+  };
+
   private readonly BASE_URL = 'http://localhost:5000/api';
   private settingsLoaded: boolean = false;
 
@@ -298,6 +304,26 @@ export class CameraControlComponent implements OnInit {
         console.error(`Error applying setting for ${cameraType} camera:`, error);
       }
     );
+}
+
+
+applySizeLimit(limitName: 'class1' | 'class2'): void {
+  let value = Number(this.sizeLimits[limitName]); // Explicitly convert to a number
+  console.log(`Applying size limit ${limitName}: ${value}`);
+
+  this.http.post(`${this.BASE_URL}/update-other-settings`, {
+    category: 'size_limits',
+    setting_name: limitName,
+    setting_value: value  // Now it's always a number
+  }).subscribe((response: any) => {
+    console.log(`Size limit applied successfully:`, response);
+
+    // Ensure we store it as a number again
+    this.sizeLimits[limitName] = Number(response.updated_value);
+  },
+  error => {
+    console.error(`Error applying size limit ${limitName}:`, error);
+  });
 }
 
 

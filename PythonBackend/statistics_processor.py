@@ -3,6 +3,9 @@ import os
 import cv2
 import time
 import globals
+from collections import defaultdict
+from settings_manager import get_settings
+
 
 def calculate_statistics(dot_list, expected_counts=None):
     """
@@ -17,7 +20,10 @@ def calculate_statistics(dot_list, expected_counts=None):
       "classified_dots": [ (dot_id, x, y, col, area, cls), ... ]
     }
     """
-    from collections import defaultdict
+    settings_data = get_settings()
+    size_limits = settings_data.get("size_limits", {})
+    class1_limit = size_limits.get("class1", 0) / 100
+    class2_limit = size_limits.get("class2", 0) / 100
 
     try:
         # 1) Build a list of (dot_id, x, y, col, area)
@@ -62,14 +68,12 @@ def calculate_statistics(dot_list, expected_counts=None):
 
         for col_val, dots_in_col in columns.items():
             avg_area = column_averages.get(col_val, 1.0)
-            min_thresh = 0.1 * avg_area
-            max_thresh = 0.95 * avg_area
 
             for (dot_id, x, y, col, area) in dots_in_col:
                 ratio = (area / avg_area) if avg_area > 0 else 1
-                if ratio < 0.1:
+                if ratio < class1_limit:
                     ccls = 1
-                elif ratio <= 0.9:
+                elif ratio <= class2_limit:
                     ccls = 2
                 else:
                     ccls = 3

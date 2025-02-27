@@ -32,7 +32,7 @@ measurement_data = []
 result_counts = [0, 0, 0]
 
 # Image Analysis Results
-x_end = 2884
+x_end = 2834
 total_last_column_area = []
 last_column_idx = 0
 
@@ -47,3 +47,8 @@ last_blob_counts = {
 }
 
 latest_image = None
+
+size_limits = {
+    "class1": 0,
+    "class2": 0
+}

@@ -20,5 +20,9 @@
             "Gamma": 1,
             "FrameRate": 20.0
         }
+    },
+    "size_limits": {
+        "class1": 5,
+        "class2": 90
     }
 }

@@ -710,6 +710,44 @@ def update_camera_settings():
     except Exception as e:
         app.logger.exception("Failed to update camera settings")
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/update-other-settings', methods=['POST'])
+def update_other_settings():
+    try:
+        data = request.json
+        category = data.get('category')           # e.g. 'size_limits'
+        setting_name = data.get('setting_name')   # e.g. 'class1'
+        setting_value = data.get('setting_value') # e.g. 123
+
+        app.logger.info(f"Updating {category}.{setting_name} = {setting_value}")
+
+        # Grab the in-memory settings
+        settings_data = get_settings()
+
+        # If the category (e.g., size_limits) doesn’t exist, initialize it
+        if category not in settings_data:
+            settings_data[category] = {}
+
+        # Update the chosen setting with the new value
+        settings_data[category][setting_name] = setting_value
+
+        # Optionally, you could do validation or type-casting here,
+        # e.g. ensuring it's an integer or within certain bounds
+
+        # Save to disk
+        save_settings()
+
+        app.logger.info(f"{category}.{setting_name} updated and saved to settings.json")
+
+        # Return the updated (or validated) value to the frontend
+        return jsonify({
+            "message": f"{category}.{setting_name} updated and saved.",
+            "updated_value": setting_value
+        }), 200
+
+    except Exception as e:
+        app.logger.exception("Failed to update other settings")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/video-stream', methods=['GET'])
 def video_stream():
