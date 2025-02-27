@@ -31,15 +31,7 @@
 }
 
 /* Style the Sidenav headers */
-.mat-expansion-panel-header {
-  background-color: rgb(46, 46, 46);
-  color: #fff;
-  height: 30px;
-  line-height: 30px;
-  padding: 2px 24px;
-  margin: 0;
-  transition: background-color 0.3s;
-}
+
 
 /* Hover effect for both closed and open panel headers */
 .mat-expansion-panel:not(.mat-expanded) .mat-expansion-panel-header:hover,

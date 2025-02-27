@@ -26,12 +26,12 @@ html, body {
 
 .sidenav-container ::-webkit-scrollbar-track {
   background: #2c2c2c; /* Set the background of the scrollbar track */
-  border-radius: 10px; /* Round the edges of the scrollbar track */
+  /*border-radius: 10px; /* Round the edges of the scrollbar track */
 }
 
 .sidenav-container ::-webkit-scrollbar-thumb {
   background-color: #555; /* Set the color of the scrollbar thumb */
-  border-radius: 10px; /* Round the edges of the scrollbar thumb */
+  /*border-radius: 10px; /* Round the edges of the scrollbar thumb */
   border: none; /* Remove border around the scrollbar thumb */
 }
 
@@ -93,3 +93,18 @@ html, body {
 
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+/* More specific selectors to override Material default styles */
+.mat-expansion-panel-header {
+  background-color: rgb(46, 46, 46);
+  color: #fff;
+  height: 36px !important;
+  line-height: 30px;
+  padding: 2px 30px;
+  margin: 0;
+  transition: background-color 0.3s;
+}
+
+.mat-expansion-panel {
+  min-height: unset;
+}
