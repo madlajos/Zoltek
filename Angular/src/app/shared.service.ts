@@ -1,12 +1,27 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { map } from 'rxjs/operators';
+import { map, switchMap, tap } from 'rxjs/operators';
+
+export interface MeasurementResult {
+  label: string;
+  value: number;
+}
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class SharedService {
+  private readonly BASE_URL = 'http://localhost:5000';
+
+  private measurementResultsSubject = new BehaviorSubject<MeasurementResult[]>([
+    { label: 'Eldugult', value: 0 },
+    { label: 'Részl. Eldugult', value: 0 },
+    { label: 'Tiszta', value: 0 }
+  ]);
+  public measurementResults$ = this.measurementResultsSubject.asObservable();
+
   private cameraConnectionStatus = new BehaviorSubject<{ main: boolean; side: boolean }>({
     main: false,
     side: false
@@ -146,5 +161,67 @@ export class SharedService {
         console.error(`Failed to disconnect ${cameraType} camera:`, error);
       }
     );
+  }
+
+  updateResults(response: any): void {
+    if (response?.result_counts) {
+      const currentResults = this.measurementResultsSubject.getValue();
+      let newResults: MeasurementResult[];
+      if (!currentResults || currentResults.length !== response.result_counts.length) {
+        newResults = response.result_counts.map((count: number, index: number) => ({
+          label: `Result ${index + 1}`,
+          value: count
+        }));
+      } else {
+        newResults = currentResults.map((result, index) => ({
+          label: result.label,
+          value: response.result_counts[index]
+        }));
+      }
+      this.measurementResultsSubject.next(newResults);
+    }
+  }
+
+  analyzeCenterCircle(): void {
+    console.log("Analyzing Center Circle via SharedService...");
+    this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).pipe(
+      tap(response => console.log("analyze_center_circle Response:", response)),
+      switchMap(() => {
+        console.log("Calling update_results for center circle...");
+        return this.http.post(`${this.BASE_URL}/update_results`, { mode: "center_circle" }, { headers: { 'Content-Type': 'application/json' } });
+      }),
+      tap((response: any) => {
+        console.log("Update results response for center circle:", response);
+        this.updateResults(response);
+      })
+    ).subscribe({
+      error: err => console.error("Error in analyzeCenterCircle:", err)
+    });
+  }
+
+  analyzeInnerSlice(): void {
+    console.log("Analyzing Inner Slice via SharedService...");
+    this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).pipe(
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "center_slice" })),
+      tap((response: any) => {
+        console.log("Update results response for center slice:", response);
+        this.updateResults(response);
+      })
+    ).subscribe({
+      error: err => console.error("Error in analyzeInnerSlice:", err)
+    });
+  }
+
+  analyzeOuterSlice(): void {
+    console.log("Analyzing Outer Slice via SharedService...");
+    this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {}).pipe(
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "outer_slice" })),
+      tap((response: any) => {
+        console.log("Update results response for outer slice:", response);
+        this.updateResults(response);
+      })
+    ).subscribe({
+      error: err => console.error("Error in analyzeOuterSlice:", err)
+    });
   }
 }

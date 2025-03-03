@@ -51,7 +51,8 @@ export class CameraControlComponent implements OnInit {
 
   sizeLimits: { [key: string]: number } = {
     class1: 5,
-    class2: 95
+    class2: 95,
+    ng_limit: 15
   };
 
   private readonly BASE_URL = 'http://localhost:5000/api';
@@ -307,7 +308,7 @@ export class CameraControlComponent implements OnInit {
 }
 
 
-applySizeLimit(limitName: 'class1' | 'class2'): void {
+applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
   let value = Number(this.sizeLimits[limitName]); // Explicitly convert to a number
   console.log(`Applying size limit ${limitName}: ${value}`);
 

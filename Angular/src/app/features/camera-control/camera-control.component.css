@@ -72,3 +72,86 @@ td button:hover {
 .stream-button.streaming {
   background-color: #2a628c;
 }
+
+/* ─────────────────────────────────── */
+/* 🔹 User Settings Styles (New Additions) */
+/* ─────────────────────────────────── */
+
+.user-settings {
+  margin-bottom: 15px;
+}
+
+/* Table for User Settings */
+.user-settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+}
+
+.user-settings-table th,
+.user-settings-table td {
+  text-align: center;
+  padding: 4px 6px;
+  color: #fff;
+  font-size: 12px;
+}
+
+/* Styling User Settings Inputs */
+.user-settings-table input {
+  width: 60%;
+  padding: 3px;
+  font-size: 12px;
+  border-radius: 3px;
+  border: 1px solid #555;
+  background-color: #333;
+  color: #fff;
+}
+
+/* ─────────────────────────────────── */
+/* 🔹 Section Headers (User & Developer Settings) */
+/* ─────────────────────────────────── */
+
+.user-settings h3,
+.developer-settings h3 {
+  font-size: 14px;
+  color: #ddd;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px;
+  background-color: #222;
+  border-radius: 4px;
+}
+
+/* ─────────────────────────────────── */
+/* 🔹 Divider between User & Developer Settings */
+/* ─────────────────────────────────── */
+.divider {
+  border: none;
+  height: 2px;
+  background-color: #555;
+  margin: 15px 0;
+}
+
+/* ─────────────────────────────────── */
+/* 🔹 Developer Settings Section */
+/* ─────────────────────────────────── */
+
+.developer-settings {
+  margin-bottom: 10px;
+}
+
+.measurement-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: background-color 0.3s ease;
+}
+
+.measurement-button:hover {
+  background-color: #0056b3;
+}

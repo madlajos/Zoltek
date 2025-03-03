@@ -14,7 +14,8 @@
   align-items: flex-start;
   width: 100%;
   margin: 0;
-  margin-top: 6px;
+  margin-top: 8px;
+  margin-left: 10px;
   box-sizing: border-box;
 }
 /*** Main Content (Main UI) ***/
@@ -26,8 +27,10 @@
   background-color: #000; /* Black background color */
   color: #fff; /* White text color */
   font-size: 16px; /* Adjust text size as needed */
-  margin-right: 20px;
+  margin-right: 10px;
   margin-top: 10px;
+  height: 560px;
+  border-radius: 5px 5px 5px 5px;
 }
 
 /* Style the Sidenav headers */
@@ -37,10 +40,6 @@
 .mat-expansion-panel:not(.mat-expanded) .mat-expansion-panel-header:hover,
 .mat-expansion-panel.mat-expanded .mat-expansion-panel-header:hover {
   background-color: #444; /* Darker grey for hover effect */
-}
-
-.mat-sidenav-container {
-  height: 100vh;
 }
 
 /* Remove margin between panels */
@@ -53,12 +52,12 @@
 .toggle-button {
   position: absolute;
   top: 1%;
-  right: 20px; /* Align next to the sidebar */
+  right: 14px; /* Align next to the sidebar */
   transform: translateY(-50%);
   transform: translateX(10%);
-  background-color: #444;
+  background-color: #313131;
   border: none;
-  border-radius: 5px 0 0 5px;
+  border-radius: 5px 5px 5px 5px;
   cursor: pointer;
   transition: right 0.3s ease;
   z-index: 10;
@@ -66,22 +65,31 @@
 
 .toggle-button mat-icon {
   color: #fff;
+  padding: 3px;
 }
 /*** Toggle Button ***/
 
 
-/*** Control Panel ***/
-.control-panel-container {
-  margin-top: 20px;
-  width: 600px;
-  height: 94%;
-  align-items: flex-end;
-  padding-left: 2px;
+.control-panel-results-container {
+  display: flex;          /* Enables Flexbox */
+  flex-direction: row;    /* Aligns elements side-by-side */
+  justify-content: flex-start; /* Aligns items to the left */
+  align-items: flex-start; /* Aligns to the top */
+  gap: 15px;              /* Adds spacing between elements */
+  margin-left: 10px;
+  margin-top: 10px;
 }
 
-/*** Control Panel ***/
+.control-panel-container {
+  width: 600px;      /* Ensures it doesn't shrink too much */
+  height: 98vh;
+}
 
-
+.results-table-container {
+  margin-left: 28px;
+  width: 814px;      /* Optional: Adjust max width */
+  height: 98vh;
+}
 
 
 .login-popup {
@@ -108,3 +116,4 @@
   color: red;
   font-size: 14px;
 }
+

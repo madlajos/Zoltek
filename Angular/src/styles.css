@@ -105,6 +105,3 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
   transition: background-color 0.3s;
 }
 
-.mat-expansion-panel {
-  min-height: unset;
-}

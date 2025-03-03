@@ -7,10 +7,17 @@
 <div class="settings-row">
   <mat-sidenav-container class="sidenav-container">
     
-    <!-- Left: Control Panel -->
-    <div class="control-panel-container">
-      <app-control-panel></app-control-panel>
+    <!-- Left: Control Panel + Results Table -->
+    <div class="control-panel-results-container">
+      <div class="control-panel-container">
+        <app-control-panel></app-control-panel>
+      </div>
+      <div class="results-table-container">
+        <app-results-table></app-results-table>
+      </div>
     </div>
+    
+
 
     <!-- Right: Settings Panel (Locked behind login) -->
     <mat-sidenav #sidenav mode="side" position="end" opened="false" class="sidenav">

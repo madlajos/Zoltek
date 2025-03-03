@@ -16,6 +16,7 @@ import { ControlPanelComponent } from './features/control-panel/control-panel.co
 import { TurntableControlComponent } from './features/turntable-control/turntable-control.component';
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
+import { ResultsTableComponent } from './features/results-table/results-table.component';
 
 @Component({
   selector: 'app-root',
@@ -33,7 +34,8 @@ import { CameraControlComponent } from './features/camera-control/camera-control
     ControlPanelComponent,
     TurntableControlComponent,
     ComportControlComponent,
-    CameraControlComponent
+    CameraControlComponent,
+    ResultsTableComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']

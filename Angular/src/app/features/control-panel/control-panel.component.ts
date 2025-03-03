@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 import { switchMap, tap, finalize } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { SharedService, MeasurementResult } from '../../shared.service';
 
 @Component({
   standalone: true,
@@ -37,12 +38,17 @@ export class ControlPanelComponent implements OnInit {
     { label: 'Tiszta', value: 0 }
   ];
 
-  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
+  constructor(private http: HttpClient, private cdr: ChangeDetectorRef, private sharedService: SharedService) {}
 
   ngOnInit(): void {
     setInterval(() => {
       this.fetchBarcodeData();
-    }, 3000); // Fetch barcode every 1 second
+    }, 3000);
+
+    this.sharedService.measurementResults$.subscribe((res) => {
+      this.results = res;
+      this.cdr.detectChanges();
+    });
   }
 
   ngAfterViewInit(): void {
