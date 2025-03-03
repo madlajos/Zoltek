@@ -21,7 +21,7 @@ export class ControlPanelComponent implements OnInit {
   nozzleId: string = "";
   measurementActive: boolean = false;
 
-  currentMeasurement: number = 1;
+  currentMeasurement: number = 0;
   totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
 
@@ -42,7 +42,7 @@ export class ControlPanelComponent implements OnInit {
   ngOnInit(): void {
     setInterval(() => {
       this.fetchBarcodeData();
-    }, 1000); // Fetch barcode every 1 second
+    }, 3000); // Fetch barcode every 1 second
   }
 
   ngAfterViewInit(): void {
@@ -137,8 +137,26 @@ export class ControlPanelComponent implements OnInit {
   startMeasurement(): void {
     console.log("Starting measurement cycle...");
 
+    this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe(
+      (response: any) => {
+          console.log("Backend results reset:", response);
+          
+          if (response?.result_counts && this.results.length === response.result_counts.length) {
+              // Update values while retaining the original labels
+              this.results.forEach((result, index) => {
+                  result.value = response.result_counts[index];
+              });
+          }
+      },
+      (error) => {
+          console.error("Failed to reset backend results:", error);
+      }
+  );
+
+
     const startProcess = (mode: string) => this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
       tap(() => console.log("Turntable homed successfully")),
+      tap(() => { this.currentMeasurement++;}),
       switchMap(() => this.waitForTurntableDone()),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
@@ -167,12 +185,13 @@ export class ControlPanelComponent implements OnInit {
     this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).pipe(
       tap(() => console.log("Turntable rotated 20°")),
       switchMap(() => this.waitForTurntableDone()),
+      tap(() => { this.currentMeasurement++;}),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "slices" })),
       tap((response: any) => this.updateResultsUI(response)),
       finalize(() => {
-        this.currentMeasurement++;
+        
         this.performMeasurementCycle();
       })
     ).subscribe();

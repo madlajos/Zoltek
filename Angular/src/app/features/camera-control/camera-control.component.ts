@@ -379,4 +379,3 @@ applySizeLimit(limitName: 'class1' | 'class2'): void {
   }
 
 }
-

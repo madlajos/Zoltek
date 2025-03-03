@@ -12,8 +12,8 @@
       <app-control-panel></app-control-panel>
     </div>
 
-    <!-- Right: Settings Panel -->
-    <mat-sidenav #sidenav mode="side" position="end" opened class="sidenav">
+    <!-- Right: Settings Panel (Locked behind login) -->
+    <mat-sidenav #sidenav mode="side" position="end" opened="false" class="sidenav">
       <mat-accordion multi="true">
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
@@ -24,24 +24,36 @@
 
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
-            <mat-panel-title>Camera Settings</mat-panel-title>
+            <mat-panel-title>Settings</mat-panel-title>
           </mat-expansion-panel-header>
           <app-camera-control></app-camera-control>
         </mat-expansion-panel>
 
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
-            <mat-panel-title>COM Settings</mat-panel-title>
+            <mat-panel-title>COM Devices</mat-panel-title>
           </mat-expansion-panel-header>
           <app-comport-control></app-comport-control>
         </mat-expansion-panel>
       </mat-accordion>
+
+      <!-- ✅ Logout Button inside the settings panel -->
+      <button (click)="logout()" class="logout-button">Kijelentkezés</button>
     </mat-sidenav>
 
-    <!-- Toggle Button for Sidenav -->
-    <button class="toggle-button" (click)="sidenav.toggle()">
+    <!-- ✅ Toggle Button for Sidenav (Now checks login) -->
+    <button class="toggle-button" (click)="toggleSettingsPanel()">
       <mat-icon>{{ sidenav.opened ? 'chevron_right' : 'chevron_left' }}</mat-icon>
     </button>
 
   </mat-sidenav-container>
+</div>
+
+<!-- ✅ Login Popup (Only appears if login is needed) -->
+<div *ngIf="isLoginPopupVisible" class="login-popup">
+  <h3>Bejelentkezés</h3>
+  <input type="text" [(ngModel)]="username" placeholder="Felhasználónév" />
+  <input type="password" [(ngModel)]="password" placeholder="Jelszó" />
+  <button (click)="login()">Bejelentkezés</button>
+  <p *ngIf="loginError" class="error">{{ loginError }}</p>
 </div>

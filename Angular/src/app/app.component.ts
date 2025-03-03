@@ -1,13 +1,14 @@
 import { Component, ViewChild, ElementRef, ChangeDetectorRef, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Lightbox } from 'ngx-lightbox';
-import { Observable } from 'rxjs';
-import { MessageService } from './message.service';
+import { MatSidenav } from '@angular/material/sidenav'; // ✅ Import MatSidenav
 import { CommonModule } from '@angular/common';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { FormsModule } from '@angular/forms'; // ✅ Import FormsModule
+
 
 // ✅ Import all standalone components explicitly
 import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
@@ -25,6 +26,7 @@ import { CameraControlComponent } from './features/camera-control/camera-control
     MatButtonModule, 
     MatIconModule, 
     MatExpansionModule,
+    FormsModule,
 
     // ✅ Add standalone components to imports
     ImageViewerComponent,
@@ -38,37 +40,52 @@ import { CameraControlComponent } from './features/camera-control/camera-control
 })
 export class AppComponent implements OnInit {
   title = 'Untitled';  
-  @ViewChild('videoPlayer') videoPlayer!: any;
-  videoUrl: string | null = null;
-  selectedImage: string | null = null;
-  embeddedURL: string | null = null;
-  imageList: string[] = [];
-  displayedImages: string[] = [];
-  imageFilenames: string[] = [];
-  inputNumber: string = '';
-  selectedFolder: string[] = [];
-  lastThreeImages: any;
-  out_files0: string[] = [];
-  out_files: string[] = [];
-  lampConnected: boolean = false;
-  psuConnected: boolean = false;
-  printerConnected: boolean = false;
-  logMessages: string[] = [];
-  showProgressBar = false;
-  showModal: string | null = null;
-  isSidebarOpen = true;
-  @ViewChild('video-container', { static: true }) videoContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('sidenav') sidenav!: MatSidenav;  // ✅ Reference to sidenav
 
-  constructor(
-    private http: HttpClient, 
-    private lightbox: Lightbox, 
-    private cdRef: ChangeDetectorRef, 
-    private messageService: MessageService
-  ) {}
+  isAuthenticated = false; // ✅ Track if the user is logged in
+  isLoginPopupVisible = false; // ✅ Controls the login popup
+  username = '';
+  password = '';
+  loginError = '';
 
-  ngOnInit(): void {}
+  private readonly correctUsername = 'admin';
+  private readonly correctPassword = '1234';
 
-  toggleSidebar() {
-    this.isSidebarOpen = !this.isSidebarOpen;
+  constructor(private http: HttpClient, private lightbox: Lightbox, private cdRef: ChangeDetectorRef) {}
+
+  ngOnInit(): void {
+    // Check if the user was previously authenticated (session storage)
+    this.isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+  }
+
+  /** ✅ This function runs when clicking the toggle button */
+  toggleSettingsPanel(): void {
+    if (this.isAuthenticated) {
+      this.sidenav.toggle(); // ✅ Open if already authenticated
+    } else {
+      this.isLoginPopupVisible = true; // ✅ Show login form if not logged in
+    }
+  }
+
+  /** ✅ Handles login */
+  login(): void {
+    if (this.username === this.correctUsername && this.password === this.correctPassword) {
+      this.isAuthenticated = true;
+      sessionStorage.setItem('isAuthenticated', 'true'); // ✅ Store in session
+      this.isLoginPopupVisible = false;
+      this.sidenav.open(); // ✅ Open settings panel after login
+      this.loginError = '';
+    } else {
+      this.loginError = 'Hibás felhasználónév vagy jelszó!';
+    }
+  }
+
+  /** ✅ Logout function */
+  logout(): void {
+    this.isAuthenticated = false;
+    sessionStorage.removeItem('isAuthenticated');
+    this.sidenav.close();
+    this.username = '';
+    this.password = '';
   }
 }

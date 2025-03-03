@@ -358,6 +358,7 @@ def reset_results():
         # Reset global measurement results
         globals.result_counts = [0, 0, 0]
         globals.measurement_data.clear()
+        globals.locked_class1_count = 0
         globals.last_blob_counts = {"center_circle": 0, "center_slice": 0, "outer_slice": 0}
 
         app.logger.info("Results reset successfully.")
