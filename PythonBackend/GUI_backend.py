@@ -1,16 +1,12 @@
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
-from tkinter import filedialog, Tk
-import os
 import cv2
 import time
 from porthandler import barcode_scanner_listener
-import logging
-from logging.handlers import RotatingFileHandler
 import globals
 from pypylon import pylon
 from cameracontrol import (apply_camera_settings, set_centered_offset, 
-                           validate_and_set_camera_param, get_camera_properties, Handler)
+                           validate_and_set_camera_param, get_camera_properties)
 import porthandler
 import imageprocessing
 import threading
@@ -18,17 +14,15 @@ from settings_manager import load_settings, save_settings, get_settings
 import numpy as np
 from statistics_processor import calculate_statistics, save_annotated_image
 
+from logger_config import setup_logger, CameraError, SerialError  # Import custom exceptions if defined in logger_config.py
+setup_logger()  # This sets up the root logger with our desired configuration.
+
+
 app = Flask(__name__)
 app.secret_key = 'Zoltek'
-logging.basicConfig(level=logging.DEBUG)
 CORS(app)
 app.debug = True
 
-file_handler = RotatingFileHandler('flask.log', maxBytes=10240, backupCount=10)
-app.logger.addHandler(file_handler)
-console_handler = logging.StreamHandler()
-app.logger.addHandler(console_handler)
-app.logger.setLevel(logging.DEBUG)
 
 # Might need to be removed
 camera_properties = {'main': None, 'side': None}
@@ -53,8 +47,35 @@ if not hasattr(globals, 'result_counts'):
 
 
 
+### Error handling and logging ###
+@app.errorhandler(Exception)
+def handle_global_exception(error):
+    error_message = str(error)
+    app.logger.exception(f"Unhandled exception: {error_message}")
+    
+    return jsonify({
+        "error": "An unexpected error occurred.",
+        "details": error_message,
+        "popup": True
+    }), 500
+
+def retry_operation(operation, max_retries=3, wait=1, exceptions=(Exception,)):
+    """
+    Attempts to run 'operation' up to 'max_retries' times.
+    Waits 'wait' seconds between attempts.
+    Raises an exception after all attempts fail.
+    """
+    for attempt in range(max_retries):
+        try:
+            return operation()
+        except exceptions as e:
+            app.logger.warning("Attempt %d/%d failed: %s", attempt + 1, max_retries, e)
+            time.sleep(wait)
+    raise Exception("Operation failed after %d attempts" % max_retries)
+
+
 ### Serial Device Functions ###
-# Define the route for checking device status
+# Connect/Disconnect Serial devices
 @app.route('/api/connect-to-turntable', methods=['POST'])
 def connect_turntable():
     try:
@@ -102,13 +123,43 @@ def disconnect_serial_device(device_name):
         app.logger.info(f"Successfully disconnected from {device_name}")
         return jsonify('ok')
     except Exception as e:
-        logging.exception(f"Exception occurred while disconnecting from {device_name}")
+        app.logger.exception(f"Exception occurred while disconnecting from {device_name}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/status/serial/<device_name>', methods=['GET'])
+def get_serial_device_status(device_name):
+    app.logger.debug(f"Received status request for device: {device_name}")
+    device = None
+    if device_name.lower() == 'turntable':
+        device = porthandler.turntable
+    elif device_name.lower() in ['barcode', 'barcodescanner']:
+        device = porthandler.barcode_scanner
+    else:
+        app.logger.error("Invalid device name")
+        return jsonify({'error': 'Invalid device name'}), 400
+
+    if device and device.is_open:
+        if device_name.lower() == 'turntable':
+            # Only send "IDN?" if we're not already waiting for another response
+            if not porthandler.turntable_waiting_for_done:
+                try:
+                    device.write(b'IDN?\n')
+                    response = device.read(10).decode(errors='ignore').strip()
+                    if response:
+                        app.logger.debug(f"{device_name} is responsive on port {device.port}")
+                        return jsonify({'connected': True, 'port': device.port})
+                except Exception as e:
+                    app.logger.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
+                    porthandler.disconnect_serial_device(device_name)  # Force disconnect
+                    return jsonify({'connected': False})
+
+        app.logger.debug(f"{device_name} is connected on port {device.port}")
+        return jsonify({'connected': True, 'port': device.port})
+
+    app.logger.warning(f"{device_name} appears to be disconnected.")
 
     
-
-### Turntable Functions ###
+# Turntable Functions
 @app.route('/home_turntable_with_image', methods=['POST'])
 def home_turntable_with_image():
     try:
@@ -120,30 +171,32 @@ def home_turntable_with_image():
             camera = globals.cameras.get(camera_type)
 
             if camera is None or not camera.IsOpen():
-                app.logger.error("Main camera is not connected or open.")
-                return jsonify({"error": "Main camera is not connected or open."}), 400
+                error_msg = "Main camera is not connected or open."
+                app.logger.error(error_msg)
+                return jsonify({"error": error_msg, "popup": True}), 400
 
             grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
 
             if not grab_result.GrabSucceeded():
                 grab_result.Release()
-                app.logger.error("Failed to grab image from camera.")
-                return jsonify({"error": "Failed to grab image from camera."}), 500
+                error_msg = "Failed to grab image from camera."
+                app.logger.error(error_msg)
+                return jsonify({"error": error_msg, "popup": True}), 500
 
             app.logger.info("Image grabbed successfully.")
             image = grab_result.Array
-            grab_result.Release()  # Release camera lock immediately
+            grab_result.Release()
 
         # Step 2: Process the image and calculate rotation
         rotation_needed = imageprocessing.home_turntable_with_image(image)
         command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
         app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
 
-        # Step 3: Send rotation command & **wait for DONE**
-        movement_success = porthandler.write_turntable(command)
+        # Step 3: Send rotation command & retry confirmation
+        movement_success = retry_operation(lambda: porthandler.write_turntable(command), max_retries=3, wait=2)
 
         if not movement_success:
-            return jsonify({"error": "Turntable did not confirm movement completion"}), 500
+            return jsonify({"error": "Turntable did not confirm movement completion", "popup": True}), 500
 
         app.logger.info("Rotation completed successfully.")
 
@@ -152,7 +205,7 @@ def home_turntable_with_image():
         globals.turntable_homed = True
         app.logger.info("Homing completed successfully. Position set to 0.")
 
-        # Step 5: Return success response (AFTER turntable confirms "DONE")
+        # Step 5: Return success response
         return jsonify({
             "message": "Homing successful",
             "rotation": rotation_needed,
@@ -161,8 +214,379 @@ def home_turntable_with_image():
 
     except Exception as e:
         app.logger.exception(f"Error during homing: {e}")
+        return jsonify({"error": str(e), "popup": True}), 500
+
+
+@app.route('/move_turntable_relative', methods=['POST'])
+def move_turntable_relative():
+    try:
+        data = request.get_json()
+        move_by = data.get('degrees')
+
+        if move_by is None or not isinstance(move_by, (int, float)):
+            app.logger.error("Invalid input: 'degrees' must be a number.")
+            return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
+
+        direction = 'CW' if move_by > 0 else 'CCW'
+        command = f"{abs(move_by)},{1 if move_by > 0 else 0}"
+        app.logger.info(f"Sending command to turntable: {command}")
+
+        # Send the command to the turntable
+        porthandler.write_turntable(command, expect_response=False)
+
+        # Update position only if the turntable is homed
+        if globals.turntable_homed:
+            app.logger.info(f"Updating position (before): {globals.turntable_position}")
+            globals.turntable_position = (globals.turntable_position - move_by) % 360
+            app.logger.info(f"Updated position (after): {globals.turntable_position}")
+        else:
+            app.logger.info("Turntable is not homed. Position remains '?'.")
+
+        return jsonify({
+            'message': f'Turntable moved {move_by} degrees {direction}',
+            'current_position': globals.turntable_position if globals.turntable_homed else '?'
+        })
+    except Exception as e:
+        app.logger.exception(f"Error in move_turntable_relative: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/toggle-relay', methods=['POST'])
+def toggle_relay():
+    try:
+        data = request.get_json()
+        state = data.get('state')  # Expect 1 (ON) or 0 (OFF)
+
+        if state not in [0, 1]:
+            return jsonify({"error": "Invalid state value"}), 400
+
+        command = f"RELAY,{state}"
+        app.logger.info(f"Sending command to turntable: {command}")
+
+        # Send the command to the Arduino
+        porthandler.write_turntable(command, expect_response=False)
+
+        return jsonify({"message": f"Relay {'ON' if state else 'OFF'}"}), 200
+
+    except Exception as e:
+        app.logger.exception("Error in toggling relay")
         return jsonify({"error": str(e)}), 500
 
+
+# Barcode Scanner Functions
+@app.route('/api/get-barcode', methods=['GET'])
+def get_barcode():
+    return jsonify({'barcode': globals.latest_barcode})
+
+def stop_camera_stream(camera_type):
+    if camera_type not in globals.cameras:
+        raise ValueError(f"Invalid camera type: {camera_type}")
+
+    camera = globals.cameras.get(camera_type)
+
+    with globals.grab_locks[camera_type]:
+        if not globals.stream_running.get(camera_type, False):
+            return "Stream already stopped."
+
+        try:
+            globals.stream_running[camera_type] = False
+            if camera and camera.IsGrabbing():
+                camera.StopGrabbing()
+                app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
+
+            if globals.stream_threads.get(camera_type) and globals.stream_threads[camera_type].is_alive():
+                globals.stream_threads[camera_type].join(timeout=2)
+                app.logger.info(f"{camera_type.capitalize()} stream thread stopped.")
+
+            globals.stream_threads[camera_type] = None
+            return f"{camera_type.capitalize()} stream stopped."
+        except Exception as e:
+            raise RuntimeError(f"Failed to stop {camera_type} stream: {str(e)}")
+
+    
+### Camera-related functions ###
+@app.route('/connect-camera', methods=['POST'])
+def connect_camera():
+    camera_type = request.args.get('type')
+    if camera_type not in CAMERA_IDS:
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    result = connect_camera_internal(camera_type)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result), 200
+
+@app.route('/disconnect-camera', methods=['POST'])
+def disconnect_camera():
+    camera_type = request.args.get('type')
+
+    if camera_type not in globals.cameras or globals.cameras[camera_type] is None:
+        app.logger.warning(f"{camera_type.capitalize()} camera is already disconnected or not initialized")
+        return jsonify({"status": "already disconnected"}), 200
+
+    try:
+        stop_camera_stream(camera_type)
+        app.logger.info(f"{camera_type.capitalize()} stream stopped before disconnecting.")
+    except ValueError:
+        app.logger.warning(f"Failed to stop {camera_type} stream: Invalid camera type.")
+        # Decide how you want to handle this. If invalid camera type is fatal, return here:
+        return jsonify({"error": "Invalid camera type"}), 400
+    except RuntimeError as re:
+        app.logger.warning(f"Error stopping {camera_type} stream: {str(re)}")
+        # Maybe we continue to shut down the camera anyway
+    except Exception as e:
+        app.logger.error(f"Failed to disconnect {camera_type} camera: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    camera = globals.cameras.get(camera_type, None)
+    if camera and camera.IsGrabbing():
+        camera.StopGrabbing()
+        app.logger.info(f"{camera_type.capitalize()} camera grabbing stopped.")
+
+    if camera and camera.IsOpen():
+        camera.Close()
+        app.logger.info(f"{camera_type.capitalize()} camera closed.")
+
+    # Clean up references
+    globals.cameras[camera_type] = None
+    camera_properties[camera_type] = None  # Make sure camera_properties is in scope
+    app.logger.info(f"{camera_type.capitalize()} camera disconnected successfully.")
+
+    return jsonify({"status": "disconnected"}), 200
+
+@app.route('/api/camera-name', methods=['GET'])
+def get_camera_name():
+    try:
+        camera_type = request.args.get('type', 'main')  # Default to main camera
+        camera = globals.cameras.get(camera_type)
+
+        if camera is None or not camera.IsOpen():
+            app.logger.warning(f"{camera_type.capitalize()} camera is not connected.")
+            return jsonify({'error': f"{camera_type.capitalize()} camera is not connected", "popup": True}), 400
+
+        return jsonify({'name': camera.GetDeviceInfo().GetModelName()}), 200
+
+    except Exception as e:
+        app.logger.exception("Failed to get camera name")
+        return jsonify({"error": "Failed to retrieve camera name", "details": str(e), "popup": True}), 500
+
+    
+@app.route('/api/status/camera', methods=['GET'])
+def get_camera_status():
+    camera_type = request.args.get('type')
+
+    if camera_type not in globals.cameras:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    camera = globals.cameras.get(camera_type)
+    is_connected = camera is not None and camera.IsOpen()
+    is_streaming = globals.stream_running.get(camera_type, False)
+
+    # 1) Double-check if device is truly present in the enumerated device list.
+    factory = pylon.TlFactory.GetInstance()
+    devices = factory.EnumerateDevices()
+    found_serials = [dev.GetSerialNumber() for dev in devices]
+
+    # Suppose you store the camera's serial in some global map, e.g. CAMERA_IDS[camera_type].
+    expected_serial = CAMERA_IDS.get(camera_type)
+
+    # If expected serial is NOT in the enumerated list, the device is physically missing
+    if expected_serial not in found_serials:
+        app.logger.warning(
+           f"Camera {camera_type} with serial {expected_serial} not enumerated. " 
+           "Assuming physically disconnected."
+        )
+        # Mark as disconnected in memory
+        if camera and camera.IsOpen():
+            try:
+                camera.StopGrabbing()
+                camera.Close()
+            except Exception as e:
+                app.logger.error(f"Error closing camera {camera_type} after removal: {e}")
+        globals.cameras[camera_type] = None
+        globals.stream_running[camera_type] = False
+        is_connected = False
+        is_streaming = False
+
+    return jsonify({
+        "connected": is_connected,
+        "streaming": is_streaming
+    }), 200
+    
+@app.route('/api/get-camera-settings', methods=['GET'])
+def get_camera_settings():
+    camera_type = request.args.get('type')
+    app.logger.info(f"API Call: /api/get-camera-settings for {camera_type}")
+
+    if camera_type not in ['main', 'side']:
+        return jsonify({"error": "Invalid camera type"}), 400
+
+    settings_data = get_settings()
+    camera_settings = settings_data.get('camera_params', {}).get(camera_type, {})
+
+    if not camera_settings:
+        app.logger.warning(f"No settings found for {camera_type} camera.")
+        return jsonify({"error": "No settings found"}), 404
+
+    app.logger.info(f"Sending {camera_type} camera settings to frontend: {camera_settings}")
+    return jsonify(camera_settings), 200
+    
+@app.route('/api/update-camera-settings', methods=['POST'])
+def update_camera_settings():
+    try:
+        data = request.json
+        camera_type = data.get('camera_type')
+        setting_name = data.get('setting_name')
+        setting_value = data.get('setting_value')
+
+        app.logger.info(f"Updating {camera_type} camera setting: {setting_name} = {setting_value}")
+
+        # Apply the setting to the camera
+        updated_value = validate_and_set_camera_param(
+            globals.cameras[camera_type],
+            setting_name,
+            setting_value,
+            camera_properties[camera_type],
+            camera_type
+        )
+
+        settings_data = get_settings()
+        settings_data['camera_params'][camera_type][setting_name] = updated_value
+        save_settings()
+
+        app.logger.info(f"{camera_type.capitalize()} camera setting {setting_name} updated and saved to settings.json")
+
+        return jsonify({
+            "message": f"{camera_type.capitalize()} camera {setting_name} updated and saved.",
+            "updated_value": updated_value
+        }), 200
+
+    except Exception as e:
+        app.logger.exception("Failed to update camera settings")
+        return jsonify({"error": str(e)}), 500
+
+
+### Video streaming Function ###
+
+#TODO:Check if this can be removed. Possibly old video stream function.
+""" @app.route('/video-stream', methods=['GET'])
+def video_stream():
+    camera_type = request.args.get('type')
+
+    if camera_type not in globals.cameras:
+        app.logger.error(f"Invalid camera type: {camera_type}")
+        return jsonify({"error": "Invalid camera type specified"}), 400
+
+    app.logger.info(f"{camera_type.capitalize()} camera stream started successfully")
+    return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame') """
+
+@app.route('/start-video-stream', methods=['GET'])
+def start_video_stream():
+    """
+    Returns a live MJPEG response from generate_frames(camera_type).
+    This is the *only* place we call generate_frames, to avoid double-streaming.
+    """
+    try:
+        camera_type = request.args.get('type')
+        scale_factor = float(request.args.get('scale', 0.25))
+
+        if not camera_type or camera_type not in globals.cameras:
+            app.logger.error(f"Invalid or missing camera type: {camera_type}")
+            return jsonify({"error": "Invalid or missing camera type"}), 400
+
+         # Ensure the camera is connected
+        res = connect_camera_internal(camera_type)
+        if "error" in res:
+            app.logger.error(f"Camera connection failed: {res['error']}")
+            return jsonify(res), 400
+
+        with globals.grab_locks[camera_type]:
+            if not globals.stream_running.get(camera_type, False):
+                globals.stream_running[camera_type] = True
+                app.logger.info(f"stream_running[{camera_type}] set to True in start_video_stream")
+
+        app.logger.info(f"Starting video stream for {camera_type}")
+        return Response(
+            generate_frames(camera_type, scale_factor),
+            mimetype='multipart/x-mixed-replace; boundary=frame'
+        )
+
+    except ValueError as ve:
+        app.logger.error(f"Invalid input: {ve}")
+        return jsonify({"error": "Invalid input parameters"}), 400
+
+    except Exception as e:
+        app.logger.exception("Unexpected error in start-video-stream")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/stop-video-stream', methods=['POST'])
+def stop_video_stream():
+    camera_type = request.args.get('type')
+    app.logger.info(f"Received stop request for {camera_type}")
+
+    try:
+        message = stop_camera_stream(camera_type)
+        return jsonify({"message": message}), 200
+    except ValueError as ve:
+        # E.g., invalid camera type
+        app.logger.error(str(ve))
+        return jsonify({"error": str(ve)}), 400
+    except RuntimeError as re:
+        app.logger.error(str(re))
+        return jsonify({"error": str(re)}), 500
+    except Exception as e:
+        app.logger.exception(f"Unexpected exception while stopping {camera_type} stream.")
+        return jsonify({"error": str(e)}), 500
+
+def generate_frames(camera_type, scale_factor=0.25):
+    app.logger.info(f"Generating frames for {camera_type} with scale factor {scale_factor}")
+    camera = globals.cameras.get(camera_type)
+
+    if not camera:
+        app.logger.error(f"{camera_type.capitalize()} camera is not connected.")
+        return
+
+    if not camera.IsGrabbing():
+        app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
+        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+
+    try:
+        while globals.stream_running[camera_type]:
+            with globals.grab_locks[camera_type]:
+                grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+
+                if grab_result.GrabSucceeded():
+                    image = grab_result.Array
+            
+                    if scale_factor != 1.0:
+                        width = int(image.shape[1] * scale_factor)
+                        height = int(image.shape[0] * scale_factor)
+                        image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
+
+                    _, frame = cv2.imencode('.jpg', image)
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
+                
+                grab_result.Release()
+        
+    except Exception as e:
+        app.logger.error(f"Error in {camera_type} video stream: {e}")
+
+        if "Device has been removed" in str(e):
+            globals.stream_running[camera_type] = False
+            if camera and camera.IsOpen():
+                try:
+                    camera.StopGrabbing()
+                    camera.Close()
+                except Exception as close_err:
+                    app.logger.error(f"Failed to close {camera_type} after unplug: {close_err}")
+            globals.cameras[camera_type] = None  # Now future status checks see `None => not connected`
+    
+    finally:
+        # stream_running[camera_type] = False
+        app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
 
 ### Image Analysis Function ###
 def analyze_slice(process_func, camera_type, label):
@@ -295,6 +719,8 @@ def analyze_outer_slice():
         label='outer_slice',
     )
 
+
+### Statistics-related functions ###
 @app.route('/update_results', methods=['POST'])
 def update_results():
     try:
@@ -370,347 +796,6 @@ def reset_results():
         app.logger.exception(f"Error resetting results: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/move_turntable_relative', methods=['POST'])
-def move_turntable_relative():
-    try:
-        data = request.get_json()
-        move_by = data.get('degrees')
-
-        if move_by is None or not isinstance(move_by, (int, float)):
-            app.logger.error("Invalid input: 'degrees' must be a number.")
-            return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
-
-        direction = 'CW' if move_by > 0 else 'CCW'
-        command = f"{abs(move_by)},{1 if move_by > 0 else 0}"
-        app.logger.info(f"Sending command to turntable: {command}")
-
-        # Send the command to the turntable
-        porthandler.write_turntable(command, expect_response=False)
-
-        # Update position only if the turntable is homed
-        if globals.turntable_homed:
-            app.logger.info(f"Updating position (before): {globals.turntable_position}")
-            globals.turntable_position = (globals.turntable_position - move_by) % 360
-            app.logger.info(f"Updated position (after): {globals.turntable_position}")
-        else:
-            app.logger.info("Turntable is not homed. Position remains '?'.")
-
-        return jsonify({
-            'message': f'Turntable moved {move_by} degrees {direction}',
-            'current_position': globals.turntable_position if globals.turntable_homed else '?'
-        })
-    except Exception as e:
-        app.logger.exception(f"Error in move_turntable_relative: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/toggle-relay', methods=['POST'])
-def toggle_relay():
-    try:
-        data = request.get_json()
-        state = data.get('state')  # Expect 1 (ON) or 0 (OFF)
-
-        if state not in [0, 1]:
-            return jsonify({"error": "Invalid state value"}), 400
-
-        command = f"RELAY,{state}"
-        app.logger.info(f"Sending command to turntable: {command}")
-
-        # Send the command to the Arduino
-        porthandler.write_turntable(command, expect_response=False)
-
-        return jsonify({"message": f"Relay {'ON' if state else 'OFF'}"}), 200
-
-    except Exception as e:
-        app.logger.exception("Error in toggling relay")
-        return jsonify({"error": str(e)}), 500
-
-# Define the route for starting the video stream
-@app.route('/select-folder', methods=['GET'])
-def select_folder():
-    try:
-        root = Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        folder_selected = filedialog.askdirectory()
-        root.destroy()
-        if folder_selected:
-            return jsonify({'folder': folder_selected}), 200
-        else:
-            return jsonify({'error': 'No folder selected'}), 400
-    except Exception as e:
-        app.logger.exception("Failed to select folder")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/start-video-stream', methods=['GET'])
-def start_video_stream():
-    """
-    Returns a live MJPEG response from generate_frames(camera_type).
-    This is the *only* place we call generate_frames, to avoid double-streaming.
-    """
-    try:
-        camera_type = request.args.get('type')
-        scale_factor = float(request.args.get('scale', 0.25))
-
-        if not camera_type or camera_type not in globals.cameras:
-            app.logger.error(f"Invalid or missing camera type: {camera_type}")
-            return jsonify({"error": "Invalid or missing camera type"}), 400
-
-         # Ensure the camera is connected
-        res = connect_camera_internal(camera_type)
-        if "error" in res:
-            app.logger.error(f"Camera connection failed: {res['error']}")
-            return jsonify(res), 400
-
-        with globals.grab_locks[camera_type]:
-            if not globals.stream_running.get(camera_type, False):
-                globals.stream_running[camera_type] = True
-                app.logger.info(f"stream_running[{camera_type}] set to True in start_video_stream")
-
-        app.logger.info(f"Starting video stream for {camera_type}")
-        return Response(
-            generate_frames(camera_type, scale_factor),
-            mimetype='multipart/x-mixed-replace; boundary=frame'
-        )
-
-    except ValueError as ve:
-        app.logger.error(f"Invalid input: {ve}")
-        return jsonify({"error": "Invalid input parameters"}), 400
-
-    except Exception as e:
-        app.logger.exception("Unexpected error in start-video-stream")
-        return jsonify({"error": "Internal server error"}), 500
-
-
-@app.route('/stop-video-stream', methods=['POST'])
-def stop_video_stream():
-    camera_type = request.args.get('type')
-    app.logger.info(f"Received stop request for {camera_type}")
-
-    try:
-        message = stop_camera_stream(camera_type)
-        return jsonify({"message": message}), 200
-    except ValueError as ve:
-        # E.g., invalid camera type
-        app.logger.error(str(ve))
-        return jsonify({"error": str(ve)}), 400
-    except RuntimeError as re:
-        app.logger.error(str(re))
-        return jsonify({"error": str(re)}), 500
-    except Exception as e:
-        app.logger.exception(f"Unexpected exception while stopping {camera_type} stream.")
-        return jsonify({"error": str(e)}), 500
-
-def generate_frames(camera_type, scale_factor=0.25):
-    app.logger.info(f"Generating frames for {camera_type} with scale factor {scale_factor}")
-    camera = globals.cameras.get(camera_type)
-
-    if not camera:
-        app.logger.error(f"{camera_type.capitalize()} camera is not connected.")
-        return
-
-    if not camera.IsGrabbing():
-        app.logger.info(f"{camera_type.capitalize()} camera starting grabbing.")
-        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-
-    try:
-        while globals.stream_running[camera_type]:
-            with globals.grab_locks[camera_type]:
-                grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-
-                if grab_result.GrabSucceeded():
-                    image = grab_result.Array
-            
-                    if scale_factor != 1.0:
-                        width = int(image.shape[1] * scale_factor)
-                        height = int(image.shape[0] * scale_factor)
-                        image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
-
-                    _, frame = cv2.imencode('.jpg', image)
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
-                
-                grab_result.Release()
-        
-    except Exception as e:
-        app.logger.error(f"Error in {camera_type} video stream: {e}")
-
-        if "Device has been removed" in str(e):
-            globals.stream_running[camera_type] = False
-            if camera and camera.IsOpen():
-                try:
-                    camera.StopGrabbing()
-                    camera.Close()
-                except Exception as close_err:
-                    app.logger.error(f"Failed to close {camera_type} after unplug: {close_err}")
-            globals.cameras[camera_type] = None  # Now future status checks see `None => not connected`
-    
-    finally:
-        # stream_running[camera_type] = False
-        app.logger.info(f"{camera_type.capitalize()} camera streaming thread stopped.")
-
-
-@app.route('/connect-camera', methods=['POST'])
-def connect_camera():
-    camera_type = request.args.get('type')
-    if camera_type not in CAMERA_IDS:
-        return jsonify({"error": "Invalid camera type specified"}), 400
-
-    result = connect_camera_internal(camera_type)
-    if "error" in result:
-        return jsonify(result), 400
-    return jsonify(result), 200
-
-@app.route('/disconnect-camera', methods=['POST'])
-def disconnect_camera():
-    camera_type = request.args.get('type')
-
-    if camera_type not in globals.cameras or globals.cameras[camera_type] is None:
-        app.logger.warning(f"{camera_type.capitalize()} camera is already disconnected or not initialized")
-        return jsonify({"status": "already disconnected"}), 200
-
-    try:
-        stop_camera_stream(camera_type)
-        app.logger.info(f"{camera_type.capitalize()} stream stopped before disconnecting.")
-    except ValueError:
-        app.logger.warning(f"Failed to stop {camera_type} stream: Invalid camera type.")
-        # Decide how you want to handle this. If invalid camera type is fatal, return here:
-        return jsonify({"error": "Invalid camera type"}), 400
-    except RuntimeError as re:
-        app.logger.warning(f"Error stopping {camera_type} stream: {str(re)}")
-        # Maybe we continue to shut down the camera anyway
-    except Exception as e:
-        app.logger.error(f"Failed to disconnect {camera_type} camera: {e}")
-        return jsonify({"error": str(e)}), 500
-
-    camera = globals.cameras.get(camera_type, None)
-    if camera and camera.IsGrabbing():
-        camera.StopGrabbing()
-        app.logger.info(f"{camera_type.capitalize()} camera grabbing stopped.")
-
-    if camera and camera.IsOpen():
-        camera.Close()
-        app.logger.info(f"{camera_type.capitalize()} camera closed.")
-
-    # Clean up references
-    globals.cameras[camera_type] = None
-    camera_properties[camera_type] = None  # Make sure camera_properties is in scope
-    app.logger.info(f"{camera_type.capitalize()} camera disconnected successfully.")
-
-    return jsonify({"status": "disconnected"}), 200
-
-    
-@app.route('/api/status/camera', methods=['GET'])
-def get_camera_status():
-    camera_type = request.args.get('type')
-
-    if camera_type not in globals.cameras:
-        app.logger.error(f"Invalid camera type: {camera_type}")
-        return jsonify({"error": "Invalid camera type specified"}), 400
-
-    camera = globals.cameras.get(camera_type)
-    is_connected = camera is not None and camera.IsOpen()
-    is_streaming = globals.stream_running.get(camera_type, False)
-
-    # 1) Double-check if device is truly present in the enumerated device list.
-    factory = pylon.TlFactory.GetInstance()
-    devices = factory.EnumerateDevices()
-    found_serials = [dev.GetSerialNumber() for dev in devices]
-
-    # Suppose you store the camera's serial in some global map, e.g. CAMERA_IDS[camera_type].
-    expected_serial = CAMERA_IDS.get(camera_type)
-
-    # If expected serial is NOT in the enumerated list, the device is physically missing
-    if expected_serial not in found_serials:
-        app.logger.warning(
-           f"Camera {camera_type} with serial {expected_serial} not enumerated. " 
-           "Assuming physically disconnected."
-        )
-        # Mark as disconnected in memory
-        if camera and camera.IsOpen():
-            try:
-                camera.StopGrabbing()
-                camera.Close()
-            except Exception as e:
-                app.logger.error(f"Error closing camera {camera_type} after removal: {e}")
-        globals.cameras[camera_type] = None
-        globals.stream_running[camera_type] = False
-        is_connected = False
-        is_streaming = False
-
-    return jsonify({
-        "connected": is_connected,
-        "streaming": is_streaming
-    }), 200
-    
-@app.route('/api/status/serial/<device_name>', methods=['GET'])
-def get_serial_device_status(device_name):
-    logging.debug(f"Received status request for device: {device_name}")
-    device = None
-    if device_name.lower() == 'turntable':
-        device = porthandler.turntable
-    elif device_name.lower() in ['barcode', 'barcodescanner']:
-        device = porthandler.barcode_scanner
-    else:
-        logging.error("Invalid device name")
-        return jsonify({'error': 'Invalid device name'}), 400
-
-    if device and device.is_open:
-        if device_name.lower() == 'turntable':
-            # Only send "IDN?" if we're not already waiting for another response
-            if not porthandler.turntable_waiting_for_done:
-                try:
-                    device.write(b'IDN?\n')
-                    response = device.read(10).decode(errors='ignore').strip()
-                    if response:
-                        logging.debug(f"{device_name} is responsive on port {device.port}")
-                        return jsonify({'connected': True, 'port': device.port})
-                except Exception as e:
-                    logging.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
-                    porthandler.disconnect_serial_device(device_name)  # Force disconnect
-                    return jsonify({'connected': False})
-
-        logging.debug(f"{device_name} is connected on port {device.port}")
-        return jsonify({'connected': True, 'port': device.port})
-
-    logging.warning(f"{device_name} appears to be disconnected.")
-
-
-
-@app.route('/api/update-camera-settings', methods=['POST'])
-def update_camera_settings():
-    try:
-        data = request.json
-        camera_type = data.get('camera_type')
-        setting_name = data.get('setting_name')
-        setting_value = data.get('setting_value')
-
-        app.logger.info(f"Updating {camera_type} camera setting: {setting_name} = {setting_value}")
-
-        # Apply the setting to the camera
-        updated_value = validate_and_set_camera_param(
-            globals.cameras[camera_type],
-            setting_name,
-            setting_value,
-            camera_properties[camera_type],
-            camera_type
-        )
-
-        settings_data = get_settings()
-        settings_data['camera_params'][camera_type][setting_name] = updated_value
-        save_settings()
-
-        app.logger.info(f"{camera_type.capitalize()} camera setting {setting_name} updated and saved to settings.json")
-
-        return jsonify({
-            "message": f"{camera_type.capitalize()} camera {setting_name} updated and saved.",
-            "updated_value": updated_value
-        }), 200
-
-    except Exception as e:
-        app.logger.exception("Failed to update camera settings")
-        return jsonify({"error": str(e)}), 500
     
 @app.route('/api/update-other-settings', methods=['POST'])
 def update_other_settings():
@@ -750,115 +835,9 @@ def update_other_settings():
         app.logger.exception("Failed to update other settings")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/video-stream', methods=['GET'])
-def video_stream():
-    camera_type = request.args.get('type')
 
-    if camera_type not in globals.cameras:
-        app.logger.error(f"Invalid camera type: {camera_type}")
-        return jsonify({"error": "Invalid camera type specified"}), 400
-
-    app.logger.info(f"{camera_type.capitalize()} camera stream started successfully")
-    return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/api/get-camera-settings', methods=['GET'])
-def get_camera_settings():
-    camera_type = request.args.get('type')
-    app.logger.info(f"API Call: /api/get-camera-settings for {camera_type}")
-
-    if camera_type not in ['main', 'side']:
-        return jsonify({"error": "Invalid camera type"}), 400
-
-    settings_data = get_settings()
-    camera_settings = settings_data.get('camera_params', {}).get(camera_type, {})
-
-    if not camera_settings:
-        app.logger.warning(f"No settings found for {camera_type} camera.")
-        return jsonify({"error": "No settings found"}), 404
-
-    app.logger.info(f"Sending {camera_type} camera settings to frontend: {camera_settings}")
-    return jsonify(camera_settings), 200
-
-@app.route('/api/set-centered-offset', methods=['POST'])
-def set_centered_offset_route():
-    global camera
-    if camera:
-        centered_offsets = set_centered_offset(camera)
-        return jsonify(centered_offsets), 200
-    else:
-        return jsonify({"error": "Camera not connected"}), 400
     
-@app.route('/api/camera-name', methods=['GET'])
-def get_camera_name():
-    try:
-        if camera:
-            return jsonify({'name': camera.GetDeviceInfo().GetModelName()}), 200
-        else:
-            return jsonify({'name': 'No camera connected'}), 200
-    except Exception as e:
-        app.logger.exception("Failed to get camera name")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/save-image', methods=['POST'])
-def save_image():
-    global handler
-    try:
-        data = request.get_json()
-        save_directory = data.get('save_directory', '').strip()
-
-        app.logger.info(f"Received save directory: {save_directory}")
-
-        if not save_directory:
-            raise ValueError("Save directory is empty")
-
-        if not os.path.exists(save_directory):
-            app.logger.info(f"Creating directory: {save_directory}")
-            os.makedirs(save_directory)
-
-        handler.folder_selected = save_directory
-        handler.set_save_next_frame()
-        app.logger.info("Triggered handler to save the next frame")
-
-        # Wait for the image to be saved
-        while not handler.saved_image_path:
-            pass
-        
-        saved_image_path = os.path.join(save_directory, handler.get_latest_image_name())
-
-        return jsonify({'message': 'Image saved', 'filename': os.path.basename(saved_image_path)}), 200
-    except Exception as e:
-        app.logger.exception("Failed to save image")
-        return jsonify({'error': str(e)}), 500
-    
-@app.route('/api/get-barcode', methods=['GET'])
-def get_barcode():
-    return jsonify({'barcode': globals.latest_barcode})
-
-def stop_camera_stream(camera_type):
-    if camera_type not in globals.cameras:
-        raise ValueError(f"Invalid camera type: {camera_type}")
-
-    camera = globals.cameras.get(camera_type)
-
-    with globals.grab_locks[camera_type]:
-        if not globals.stream_running.get(camera_type, False):
-            return "Stream already stopped."
-
-        try:
-            globals.stream_running[camera_type] = False
-            if camera and camera.IsGrabbing():
-                camera.StopGrabbing()
-                app.logger.info(f"{camera_type.capitalize()} camera stream stopped.")
-
-            if globals.stream_threads.get(camera_type) and globals.stream_threads[camera_type].is_alive():
-                globals.stream_threads[camera_type].join(timeout=2)
-                app.logger.info(f"{camera_type.capitalize()} stream thread stopped.")
-
-            globals.stream_threads[camera_type] = None
-            return f"{camera_type.capitalize()} stream stopped."
-        except Exception as e:
-            raise RuntimeError(f"Failed to stop {camera_type} stream: {str(e)}")
-        
+### Internal Helper Functions ### 
 def connect_camera_internal(camera_type):
     target_serial = CAMERA_IDS.get(camera_type)
     factory = pylon.TlFactory.GetInstance()

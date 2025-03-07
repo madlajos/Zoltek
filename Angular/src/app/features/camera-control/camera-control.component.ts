@@ -367,16 +367,5 @@ applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
       }
     }
   }
-  
-
-  center(axis: 'X' | 'Y', cameraType: 'main' | 'side'): void {
-    this.http.post(`${this.BASE_URL}/set-centered-offset?type=${cameraType}`, {}).subscribe((response: any) => {
-      if (cameraType === 'main') {
-        this.mainCameraSettings[`Offset${axis}`] = response[`Offset${axis}`];
-      } else {
-        this.sideCameraSettings[`Offset${axis}`] = response[`Offset${axis}`];
-      }
-    });
-  }
 
 }
