@@ -23,6 +23,7 @@
     },
     "size_limits": {
         "class1": 5,
-        "class2": 95
+        "class2": 95,
+        "ng_limit": 15
     }
 }
