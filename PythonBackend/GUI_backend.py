@@ -162,7 +162,12 @@ def get_serial_device_status(device_name):
                 return jsonify({'connected': True, 'port': device.port})
             else:
                 app.logger.warning(f"{device_name} appears to be disconnected (port not found).")
-                return jsonify({'connected': False, 'error': f"{device_name.capitalize()} appears to be disconnected", 'popup': True}), 400
+                return jsonify({
+                    'connected': False, 
+                    'error': "Barcode Scanner disconnected", 
+                    'popup': True
+                }), 400
+
 
         app.logger.debug(f"{device_name} is connected on port {device.port}")
         return jsonify({'connected': True, 'port': device.port})

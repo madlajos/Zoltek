@@ -18,6 +18,8 @@ import { ComportControlComponent } from './features/comport-control/comport-cont
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 import { ResultsTableComponent } from './features/results-table/results-table.component';
 import { ErrorPopupListComponent } from './components/error-popup-list/error-popup-list.component';
+import { BarcodeScannerControlComponent } from './features/barcode-scanner-control/barcode-scanner-control.component';
+
 
 
 @Component({
@@ -38,7 +40,8 @@ import { ErrorPopupListComponent } from './components/error-popup-list/error-pop
     ComportControlComponent,
     CameraControlComponent,
     ResultsTableComponent,
-    ErrorPopupListComponent  
+    ErrorPopupListComponent,
+    BarcodeScannerControlComponent,  
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
