@@ -16,12 +16,14 @@ import { MatCommonModule } from '@angular/material/core';
 
 import { SharedService } from './shared.service';
 import { MessageService } from './message.service';
+import { withInterceptors } from '@angular/common/http';
+import { popupInterceptor } from './interceptors/popup.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(),
     provideAnimations(),
+    provideHttpClient(withInterceptors([popupInterceptor])),
     importProvidersFrom(
       MatCommonModule,
       LightboxModule,

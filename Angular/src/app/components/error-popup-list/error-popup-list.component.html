@@ -1,0 +1,7 @@
+<!-- src/app/components/error-popup-list/error-popup-list.component.html -->
+<div class="error-popup-list">
+    <div *ngFor="let error of errors$ | async; let i = index" class="error-item" [ngStyle]="{'margin-top': i === 0 ? '0' : '10px'}">
+      <app-error-popup [message]="error" [index]="i"></app-error-popup>
+    </div>
+  </div>
+  

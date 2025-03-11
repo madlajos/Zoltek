@@ -1,12 +1,9 @@
-<!-- Camera Row -->
 <div class="main-content">
   <app-image-viewer></app-image-viewer>
 </div>
 
-<!-- Bottom Row -->
 <div class="settings-row">
   <mat-sidenav-container class="sidenav-container">
-    
     <!-- Left: Control Panel + Results Table -->
     <div class="control-panel-results-container">
       <div class="control-panel-container">
@@ -15,12 +12,14 @@
       <div class="results-table-container">
         <app-results-table></app-results-table>
       </div>
+      
+      <div class="error-popup-container">
+        <app-error-popup-list></app-error-popup-list>
+      </div>      
     </div>
-    
-
-
-    <!-- Right: Settings Panel (Locked behind login) -->
+    <!-- Right: Settings Panel -->
     <mat-sidenav #sidenav mode="side" position="end" opened="false" class="sidenav">
+      <!-- Settings content -->
       <mat-accordion multi="true">
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
@@ -28,14 +27,12 @@
           </mat-expansion-panel-header>
           <app-turntable-control></app-turntable-control>
         </mat-expansion-panel>
-
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
             <mat-panel-title>Settings</mat-panel-title>
           </mat-expansion-panel-header>
           <app-camera-control></app-camera-control>
         </mat-expansion-panel>
-
         <mat-expansion-panel expanded="true">
           <mat-expansion-panel-header>
             <mat-panel-title>COM Devices</mat-panel-title>
@@ -43,20 +40,15 @@
           <app-comport-control></app-comport-control>
         </mat-expansion-panel>
       </mat-accordion>
-
-      <!-- ✅ Logout Button inside the settings panel -->
       <button (click)="logout()" class="logout-button">Kijelentkezés</button>
     </mat-sidenav>
-
-    <!-- ✅ Toggle Button for Sidenav (Now checks login) -->
     <button class="toggle-button" (click)="toggleSettingsPanel()">
       <mat-icon>{{ sidenav.opened ? 'chevron_right' : 'chevron_left' }}</mat-icon>
     </button>
-
   </mat-sidenav-container>
 </div>
 
-<!-- ✅ Login Popup (Only appears if login is needed) -->
+<!-- Login Popup -->
 <div *ngIf="isLoginPopupVisible" class="login-popup">
   <h3>Bejelentkezés</h3>
   <input type="text" [(ngModel)]="username" placeholder="Felhasználónév" />

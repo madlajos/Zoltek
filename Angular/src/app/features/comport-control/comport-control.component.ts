@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { of, interval } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
+import { ErrorNotificationService } from '../../services/error-notification.service';
 
 interface Device {
   name: string;    // Display name
@@ -28,7 +29,8 @@ export class ComportControlComponent implements OnInit {
 
   private readonly BASE_URL = 'http://localhost:5000/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private errorNotificationService: ErrorNotificationService) {}
+
 
   ngOnInit(): void {
     this.initializeDevices();
@@ -112,6 +114,9 @@ export class ComportControlComponent implements OnInit {
       .pipe(
         tap(() => {
           console.log(`${device.name} connected successfully.`);
+          if (device.apiName === 'turntable') {
+            this.errorNotificationService.removeError("Turntable disconnected");
+          }
           this.checkStatus(); // Refresh status to show actual port
         }),
         catchError((error) => {
@@ -122,6 +127,8 @@ export class ComportControlComponent implements OnInit {
       )
       .subscribe();
   }
+  
+  
 
   disconnectDevice(device: Device): void {
     console.log(`Disconnecting from ${device.name}...`);

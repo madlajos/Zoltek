@@ -1,8 +1,9 @@
-import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { interval, Subscription } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
+import { CommonModule } from '@angular/common';
+import { ErrorNotificationService } from '../../services/error-notification.service';
 
 @Component({
   standalone: true,
@@ -21,8 +22,12 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
   isConnected: boolean = false; // Track the connection status of the turntable controller
   isEditingPosition: boolean = false; // Flag to track if the position input is being edited
   isHomed: boolean = false;
+  reconnectionPolling: Subscription | undefined;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private errorNotificationService: ErrorNotificationService  // ✅ Injected here
+  ) {}
 
   ngOnInit(): void {
     this.startConnectionPolling();
@@ -40,27 +45,64 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
 
   stopConnectionPolling(): void {
     this.connectionPolling?.unsubscribe();
+    this.connectionPolling = undefined;
   }
+
+  startReconnectionPolling(): void {
+    if (!this.reconnectionPolling) {
+      this.reconnectionPolling = interval(3000).subscribe(() => {
+        this.tryReconnectTurntable();
+      });
+    }
+  }
+
+  stopReconnectionPolling(): void {
+    this.reconnectionPolling?.unsubscribe();
+    this.reconnectionPolling = undefined;
+  }
+
+  tryReconnectTurntable(): void {
+    this.http.post<{ message: string }>(`${this.BASE_URL}/api/connect-to-turntable`, {}).subscribe(
+      response => {
+        console.info('Turntable reconnected:', response.message);
+        this.isConnected = true;
+        this.errorNotificationService.removeError("Turntable disconnected");
+        this.stopReconnectionPolling();
+        this.startConnectionPolling();  // Resume normal polling
+      },
+      error => {
+        console.warn('Turntable reconnection attempt failed.', error);
+      }
+    );
+  }
+  
+  
 
   checkTurntableConnection(): void {
     this.http.get<{ connected: boolean }>(`${this.BASE_URL}/api/status/serial/turntable`).subscribe(
-      (response) => {
+      response => {
         const wasConnected = this.isConnected;
         this.isConnected = response.connected;
-
+  
         if (!this.isConnected && wasConnected) {
           console.warn("Turntable disconnected!");
-          alert("Turntable has been disconnected!");
+          this.errorNotificationService.addError("Turntable disconnected");
+          this.stopConnectionPolling();  // Stop normal state-check polling
+          this.startReconnectionPolling();  // Begin periodic reconnection attempts
         } else if (this.isConnected && !wasConnected) {
           console.info("Turntable reconnected.");
+          this.errorNotificationService.removeError("Turntable disconnected");
         }
       },
-      (error) => {
-        console.error('Failed to check turntable connection status!', error);
+      error => {
+        console.error('Failed to check turntable connection!', error);
         this.isConnected = false;
       }
     );
-}
+  }
+  
+  
+  
 
   updateTurntablePosition(): void {
     if (this.isConnected) {

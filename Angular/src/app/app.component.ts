@@ -17,6 +17,8 @@ import { TurntableControlComponent } from './features/turntable-control/turntabl
 import { ComportControlComponent } from './features/comport-control/comport-control.component';
 import { CameraControlComponent } from './features/camera-control/camera-control.component';
 import { ResultsTableComponent } from './features/results-table/results-table.component';
+import { ErrorPopupListComponent } from './components/error-popup-list/error-popup-list.component';
+
 
 @Component({
   selector: 'app-root',
@@ -35,7 +37,8 @@ import { ResultsTableComponent } from './features/results-table/results-table.co
     TurntableControlComponent,
     ComportControlComponent,
     CameraControlComponent,
-    ResultsTableComponent
+    ResultsTableComponent,
+    ErrorPopupListComponent  
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
