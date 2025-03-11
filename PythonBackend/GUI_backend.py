@@ -91,31 +91,33 @@ def connect_turntable():
             return jsonify({'message': 'Turntable connected', 'port': device.port}), 200
         else:
             app.logger.error("Failed to connect to Turntable: No response or incorrect ID")
-            return jsonify({'error': 'Failed to connect to Turntable', 'popup': True}), 404
+            # Return a generic error message for the end user
+            return jsonify({'error': 'Turntable disconnected', 'popup': True}), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Turntable")
-        return jsonify({'error': str(e), 'popup': True}), 500
+        return jsonify({'error': 'Turntable disconnected', 'popup': True}), 500
+
 
 @app.route('/api/connect-to-barcode', methods=['POST'])
 def connect_barcode_scanner():
     try:
         app.logger.info("Attempting to connect to Barcode Scanner")
-        if porthandler.barcode_scanner and porthandler.barcode_scanner.is_open:
-            app.logger.info("Barcode Scanner already connected.")
-            return jsonify({'message': 'Barcode Scanner already connected'}), 200
-
+        # Even if there is an old connection, always attempt a fresh connection.
         device = porthandler.connect_to_barcode_scanner()
         if device:
             app.logger.info("Successfully connected to Barcode Scanner")
             return jsonify({'message': 'Barcode Scanner connected', 'port': device.port}), 200
         else:
             app.logger.error("Failed to connect Barcode Scanner: Device not found")
-            return jsonify({'error': 'Failed to connect Barcode Scanner', 'popup': True}), 404
+            return jsonify({'error': 'Barcode Scanner disconnected', 'popup': True}), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Barcode Scanner")
-        return jsonify({'error': str(e), 'popup': True}), 500
+        return jsonify({'error': 'Barcode Scanner disconnected', 'popup': True}), 500
 
-@app.route('/api/disconnect-to-<device_name>', methods=['POST'])
+
+
+
+@app.route('/api/disconnect-<device_name>', methods=['POST'])
 def disconnect_serial_device(device_name):
     try:
         app.logger.info(f"Attempting to disconnect from {device_name}")
@@ -140,7 +142,7 @@ def get_serial_device_status(device_name):
 
     if device and device.is_open:
         if device_name.lower() == 'turntable':
-            # Only send "IDN?" if we're not already waiting for another response
+            # For turntable, we continue to use the "IDN?" test command.
             if not porthandler.turntable_waiting_for_done:
                 try:
                     device.write(b'IDN?\n')
@@ -150,18 +152,25 @@ def get_serial_device_status(device_name):
                         return jsonify({'connected': True, 'port': device.port})
                 except Exception as e:
                     app.logger.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
-                    porthandler.disconnect_serial_device(device_name)  # Force disconnect
+                    porthandler.disconnect_serial_device(device_name)
                     return jsonify({'connected': False, 'error': f"{device_name.capitalize()} unresponsive", 'popup': True}), 400
+        elif device_name.lower() in ['barcode', 'barcodescanner']:
+            from serial.tools import list_ports
+            available_ports = [port.device for port in list_ports.comports()]
+            if device.port in available_ports:
+                app.logger.debug(f"{device_name} is connected on port {device.port}")
+                return jsonify({'connected': True, 'port': device.port})
+            else:
+                app.logger.warning(f"{device_name} appears to be disconnected (port not found).")
+                return jsonify({'connected': False, 'error': f"{device_name.capitalize()} appears to be disconnected", 'popup': True}), 400
 
         app.logger.debug(f"{device_name} is connected on port {device.port}")
         return jsonify({'connected': True, 'port': device.port})
 
     app.logger.warning(f"{device_name} appears to be disconnected.")
-    # Always return a valid JSON response when not connected.
     return jsonify({'connected': False, 'error': f"{device_name.capitalize()} appears to be disconnected", 'popup': True}), 400
 
 
-    
 # Turntable Functions
 @app.route('/home_turntable_with_image', methods=['POST'])
 def home_turntable_with_image():

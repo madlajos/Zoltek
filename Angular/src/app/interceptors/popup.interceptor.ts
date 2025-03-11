@@ -30,7 +30,14 @@ export const popupInterceptor: HttpInterceptorFn = (
     catchError((error: HttpErrorResponse) => {
       const errorBody = error.error as ApiResponse;
       if (errorBody?.popup) {
-        errorNotificationService.addError(errorBody.error || 'An error occurred.');
+        let errorMessage = errorBody.error || 'An error occurred.';
+        if (errorMessage.toLowerCase().includes('turntable')) {
+          errorMessage = 'Turntable disconnected';
+        }
+        else if (errorMessage.toLowerCase().includes('barcode')) {
+          errorMessage = 'Barcode Scanner disconnected';
+        }
+        errorNotificationService.addError(errorMessage);
       }
       return throwError(() => error);
     })

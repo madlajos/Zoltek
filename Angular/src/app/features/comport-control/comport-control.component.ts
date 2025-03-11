@@ -109,15 +109,16 @@ export class ComportControlComponent implements OnInit {
   connectDevice(device: Device): void {
     console.log(`Connecting to ${device.name}...`);
     device.status = 'Connecting...';
-    this.http
-      .post(`${this.BASE_URL}/connect-to-${device.apiName}`, {})
+    this.http.post(`${this.BASE_URL}/connect-to-${device.apiName}`, {})
       .pipe(
         tap(() => {
           console.log(`${device.name} connected successfully.`);
           if (device.apiName === 'turntable') {
             this.errorNotificationService.removeError("Turntable disconnected");
+          } else if (device.apiName === 'barcode') {
+            this.errorNotificationService.removeError("Barcode Scanner disconnected");
           }
-          this.checkStatus(); // Refresh status to show actual port
+          this.checkStatus(); // Refresh status to update all devices
         }),
         catchError((error) => {
           console.error(`Error connecting ${device.name}:`, error);
@@ -129,12 +130,11 @@ export class ComportControlComponent implements OnInit {
   }
   
   
-
   disconnectDevice(device: Device): void {
     console.log(`Disconnecting from ${device.name}...`);
     device.status = 'Disconnecting...';
     this.http
-      .post(`${this.BASE_URL}/disconnect-to-${device.apiName}`, {})
+      .post(`${this.BASE_URL}/disconnect-${device.apiName}`, {})
       .pipe(
         tap(() => {
           console.log(`${device.name} disconnected successfully.`);

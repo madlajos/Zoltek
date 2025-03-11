@@ -84,7 +84,8 @@ def connect_to_turntable():
         pid=0x0003   # Example PID for turntable
     )
     if turntable is None:
-        raise Exception("Turntable device not found or did not respond correctly.")
+        logging.error("Turntable device not found or did not respond correctly.")
+        return None
     return turntable
 
 
@@ -95,15 +96,8 @@ def connect_to_barcode_scanner():
     """
     global barcode_scanner
 
-    # Cleanup any stale connection
-    if barcode_scanner:
-        try:
-            if barcode_scanner.is_open:
-                barcode_scanner.close()
-        except Exception as e:
-            logging.error(f"Error closing stale barcode scanner connection: {e}")
-
-    barcode_scanner = None  # Ensure it's reset before retrying
+    # Always reset to force a fresh scan
+    barcode_scanner = None
 
     # Retry logic with exponential backoff
     max_attempts = 5
@@ -111,7 +105,7 @@ def connect_to_barcode_scanner():
     while attempt < max_attempts:
         attempt += 1
         logging.info(f"Attempting to connect to barcode scanner (Attempt {attempt})...")
-
+        
         barcode_scanner = connect_to_serial_device(
             device_name="BarcodeScanner",
             identification_command="",
@@ -122,18 +116,17 @@ def connect_to_barcode_scanner():
 
         if barcode_scanner and barcode_scanner.is_open:
             logging.info("Barcode scanner connected successfully.")
-            
             # Start barcode listener only if not already running
             if not any(t.name == "BarcodeListener" for t in threading.enumerate()):
                 threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
-            
             return barcode_scanner
 
-        logging.warning(f"Barcode scanner not found. Retrying in {1} second...")
+        logging.warning("Barcode scanner not found. Retrying in 1 second...")
         time.sleep(1)
 
     logging.error("Failed to connect to barcode scanner after multiple attempts.")
     return None
+
 
 def barcode_scanner_listener():
     """Continuously read barcode scanner data and update globals.latest_barcode."""
@@ -189,28 +182,6 @@ def disconnect_serial_device(device_name):
             logging.warning(f"{device_name} was not connected.")
     except Exception as e:
         logging.error(f"Error while disconnecting {device_name}: {e}")
-
-
-def is_barcode_scanner_connected():
-    """
-    Checks if the barcode scanner is still connected.
-    For the scanner, since there is no identification handshake,
-    we simply verify that the port is open.
-    """
-    global barcode_scanner
-    if barcode_scanner is None or not barcode_scanner.is_open:
-        logging.warning("Barcode scanner connection is closed.")
-        return False
-
-    try:
-        # Optionally, you could try reading a small chunk or sending a NOP command.
-        # Here, we simply check the port status.
-        return True
-    except Exception as e:
-        logging.error(f"Barcode scanner error: {e}")
-        barcode_scanner.close()
-        barcode_scanner = None
-        return False
 
 
 def write_turntable(command, timeout=10, expect_response=True):
