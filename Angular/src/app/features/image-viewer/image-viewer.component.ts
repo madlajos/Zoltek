@@ -40,7 +40,7 @@ export class ImageViewerComponent implements AfterViewInit {
       : this.sideVideoContainer.nativeElement;
   
     // If you want to scale down the image, just add &scale=0.25 or similar
-    const streamUrl = `http://localhost:5000/start-video-stream?type=${cameraType}&scale=0.25&ts=${Date.now()}`;
+    const streamUrl = `http://localhost:5000/api/start-video-stream?type=${cameraType}&scale=0.25&ts=${Date.now()}`;
   
     let img = videoContainer.querySelector('img');
   

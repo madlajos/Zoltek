@@ -2,9 +2,10 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { SharedService } from '../../shared.service';
-import { interval } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { interval, Subscription } from 'rxjs';
+import { ErrorNotificationService } from '../../services/error-notification.service';
 
 interface CameraSettings {
   Width: number;
@@ -32,6 +33,11 @@ export class CameraControlComponent implements OnInit {
   loadedFileName: string = '';
   saveDirectory: string = 'C:\\Users\\Public\\Pictures';
 
+  connectionPollingMain: Subscription | undefined;
+  connectionPollingSide: Subscription | undefined;
+  reconnectionPollingMain: Subscription | undefined;
+  reconnectionPollingSide: Subscription | undefined;
+
   isMainConnected: boolean = false;
   isSideConnected: boolean = false;
   isMainStreaming: boolean = false;
@@ -58,7 +64,7 @@ export class CameraControlComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000/api';
   private settingsLoaded: boolean = false;
 
-  constructor(private http: HttpClient, public sharedService: SharedService) {}
+  constructor(private http: HttpClient, public sharedService: SharedService,  private errorNotificationService: ErrorNotificationService ) {}
 
   ngOnInit(): void {
     if (!this.settingsLoaded) {
@@ -72,15 +78,8 @@ export class CameraControlComponent implements OnInit {
     this.checkCameraStatus('side');
   
     // Periodically check both connection and stream status
-    interval(5000).subscribe(() => {
-      this.checkCameraStatus('main');
-      this.checkCameraStatus('side');
-    });
-
-    setTimeout(() => {
-      this.checkCameraStatus('main');
-      this.checkCameraStatus('side');
-    }, 3000);
+    this.startConnectionPolling('main');
+    this.startConnectionPolling('side');
   
     // Set the shared save directory
     this.sharedService.setSaveDirectory(this.saveDirectory);
@@ -99,56 +98,106 @@ export class CameraControlComponent implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    this.stopConnectionPolling('main');
+    this.stopConnectionPolling('side');
+    this.stopReconnectionPolling('main');
+    this.stopReconnectionPolling('side');
+  }
+
   checkCameraStatus(cameraType: 'main' | 'side'): void {
-    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe(
-      (response: any) => {
-        if (cameraType === 'main') {
-          // Always set "isMainConnected"
-          this.isMainConnected = response.connected;
-          this.sharedService.setCameraConnectionStatus('main', response.connected);
-  
-          // If not connected, forcibly set stream to false
-          if (!response.connected) {
-            this.isMainStreaming = false;
-            this.sharedService.setCameraStreamStatus('main', false);
+    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`)
+      .subscribe({
+        next: (response: any) => {
+          // Update shared service and local state
+          if (response.connected) {
+            // If previously disconnected, clear the error.
+            this.sharedService.setCameraConnectionStatus(cameraType, true);
+            this.errorNotificationService.removeError(`${cameraType} camera disconnected`);
+            // If reconnection polling is active, stop it and resume normal polling.
+            this.stopReconnectionPolling(cameraType);
+            this.startConnectionPolling(cameraType);
           } else {
-            // Conditionally sync streaming: only go from false -> true
-            const frontEndStreaming = this.isMainStreaming;
-            const serverStreaming = response.streaming;
-            if (serverStreaming && !frontEndStreaming) {
-              this.isMainStreaming = true;
-              this.sharedService.setCameraStreamStatus('main', true);
-            }
-            // If server says "false" but front end is "true", skip overwriting
+            // Not connected: update shared state, add error, and switch to reconnection polling.
+            this.sharedService.setCameraConnectionStatus(cameraType, false);
+            this.errorNotificationService.addError(`${cameraType} camera disconnected`);
+            this.stopConnectionPolling(cameraType);
+            this.startReconnectionPolling(cameraType);
           }
-        } else {
-          // 'side' camera logic
-          this.isSideConnected = response.connected;
-          this.sharedService.setCameraConnectionStatus('side', response.connected);
-  
-          if (!response.connected) {
-            // If physically disconnected or not enumerated
-            this.isSideStreaming = false;
-            this.sharedService.setCameraStreamStatus('side', false);
-          } else {
-            const frontEndStreaming = this.isSideStreaming;
-            const serverStreaming = response.streaming;
-            if (serverStreaming && !frontEndStreaming) {
-              this.isSideStreaming = true;
-              this.sharedService.setCameraStreamStatus('side', true);
-            }
-          }
+          console.log(`${cameraType.toUpperCase()} status - Connected: ${response.connected}, Streaming: ${response.streaming}`);
+        },
+        error: (err) => {
+          console.error(`Error checking ${cameraType} camera status:`, err);
+          // On error, assume disconnected.
+          this.sharedService.setCameraConnectionStatus(cameraType, false);
+          this.errorNotificationService.addError(`${cameraType} camera disconnected`);
+          this.stopConnectionPolling(cameraType);
+          this.startReconnectionPolling(cameraType);
         }
-  
-        console.log(
-          `${cameraType.toUpperCase()} status - ` +
-          `Connected: ${response.connected}, Streaming: ${response.streaming}`
-        );
-      },
-      error => console.error(`Error checking ${cameraType} camera status:`, error)
-    );
+      });
   }
   
+  
+  startConnectionPolling(cameraType: 'main' | 'side'): void {
+    if (cameraType === 'main' && !this.connectionPollingMain) {
+      this.connectionPollingMain = interval(5000).subscribe(() => {
+        this.checkCameraStatus('main');
+      });
+    } else if (cameraType === 'side' && !this.connectionPollingSide) {
+      this.connectionPollingSide = interval(5000).subscribe(() => {
+        this.checkCameraStatus('side');
+      });
+    }
+  }
+  
+  stopConnectionPolling(cameraType: 'main' | 'side'): void {
+    if (cameraType === 'main') {
+      this.connectionPollingMain?.unsubscribe();
+      this.connectionPollingMain = undefined;
+    } else {
+      this.connectionPollingSide?.unsubscribe();
+      this.connectionPollingSide = undefined;
+    }
+  }
+  
+  startReconnectionPolling(cameraType: 'main' | 'side'): void {
+    if (cameraType === 'main' && !this.reconnectionPollingMain) {
+      this.reconnectionPollingMain = interval(3000).subscribe(() => {
+        this.tryReconnectCamera('main');
+      });
+    } else if (cameraType === 'side' && !this.reconnectionPollingSide) {
+      this.reconnectionPollingSide = interval(3000).subscribe(() => {
+        this.tryReconnectCamera('side');
+      });
+    }
+  }
+  
+  stopReconnectionPolling(cameraType: 'main' | 'side'): void {
+    if (cameraType === 'main') {
+      this.reconnectionPollingMain?.unsubscribe();
+      this.reconnectionPollingMain = undefined;
+    } else {
+      this.reconnectionPollingSide?.unsubscribe();
+      this.reconnectionPollingSide = undefined;
+    }
+  }
+
+  tryReconnectCamera(cameraType: 'main' | 'side'): void {
+    this.http.post(`${this.BASE_URL}/connect-camera?type=${cameraType}`, {})
+      .subscribe({
+        next: (response: any) => {
+          console.info(`${cameraType.toUpperCase()} camera reconnected:`, response.message);
+          this.sharedService.setCameraConnectionStatus(cameraType, true);
+          this.errorNotificationService.removeError(`${cameraType} camera disconnected`);
+          this.stopReconnectionPolling(cameraType);
+          this.startConnectionPolling(cameraType);
+        },
+        error: (error) => {
+          console.warn(`${cameraType.toUpperCase()} camera reconnection attempt failed.`, error);
+          // Reconnection polling continues.
+        }
+      });
+  }
 
   checkCameraConnection(cameraType: 'main' | 'side'): void {
     this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`).subscribe(
@@ -169,16 +218,17 @@ export class CameraControlComponent implements OnInit {
 
   connectCamera(cameraType: 'main' | 'side'): void {
     this.http.post(`${this.BASE_URL}/connect-camera?type=${cameraType}`, {}).subscribe(
-      () => {
+      (response: any) => {
         this.sharedService.setCameraConnectionStatus(cameraType, true);
+        this.errorNotificationService.removeError(`${cameraType} camera disconnected`);
         console.log(`${cameraType.toUpperCase()} camera connected.`);
-  
-        // Fetch the settings after successful connection
-        this.fetchCameraSettings(cameraType);
+        // Optionally trigger a status refresh:
+        this.checkCameraStatus(cameraType);
       },
       error => console.error(`Failed to connect ${cameraType} camera:`, error)
     );
   }
+  
 
   fetchCameraSettings(cameraType: 'main' | 'side'): void {
     this.http.get(`${this.BASE_URL}/get-camera-settings?type=${cameraType}`).subscribe(
@@ -196,9 +246,11 @@ export class CameraControlComponent implements OnInit {
 
   disconnectCamera(cameraType: 'main' | 'side'): void {
     this.http.post(`${this.BASE_URL}/disconnect-camera?type=${cameraType}`, {}).subscribe(
-      () => {
+      (response: any) => {
         this.sharedService.setCameraConnectionStatus(cameraType, false);
+        this.errorNotificationService.addError(`${cameraType} camera disconnected`);
         console.log(`${cameraType.toUpperCase()} camera disconnected.`);
+        this.checkCameraStatus(cameraType);
       },
       error => console.error(`Failed to disconnect ${cameraType} camera:`, error)
     );

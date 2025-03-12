@@ -16,7 +16,7 @@ import { SharedService, MeasurementResult } from '../../shared.service';
   imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent]
 })
 export class ControlPanelComponent implements OnInit {
-  private readonly BASE_URL = 'http://localhost:5000';
+  private readonly BASE_URL = 'http://localhost:5000/api';
 
   relayState: boolean = false;
   nozzleId: string = "";
@@ -129,7 +129,7 @@ export class ControlPanelComponent implements OnInit {
 }
 
   fetchBarcodeData(): void {
-    this.http.get<{ barcode: string }>(`${this.BASE_URL}/api/get-barcode`).subscribe(
+    this.http.get<{ barcode: string }>(`${this.BASE_URL}/get-barcode`).subscribe(
       (response) => {
         console.log("Barcode received from API:", response.barcode);
         this.nozzleId = response.barcode;
@@ -207,7 +207,7 @@ export class ControlPanelComponent implements OnInit {
   waitForTurntableDone(): Observable<any> {
     return new Observable(observer => {
       const checkStatus = () => {
-        this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/api/status/serial/turntable`).subscribe(
+        this.http.get<{ connected: boolean; port?: string }>(`${this.BASE_URL}/status/serial/turntable`).subscribe(
           statusResponse => {
             if (statusResponse.connected) {
               console.log("Turntable movement completed.");

@@ -37,6 +37,12 @@ export const popupInterceptor: HttpInterceptorFn = (
         else if (errorMessage.toLowerCase().includes('barcode')) {
           errorMessage = 'Barcode Scanner disconnected';
         }
+        else if (errorMessage.toLowerCase().includes('main')) {
+          errorMessage = 'main camera disconnected';
+        }
+        else if (errorMessage.toLowerCase().includes('side')) {
+          errorMessage = 'side camera disconnected';
+        }
         errorNotificationService.addError(errorMessage);
       }
       return throwError(() => error);

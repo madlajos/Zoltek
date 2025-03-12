@@ -13,7 +13,7 @@ export interface MeasurementResult {
   providedIn: 'root'
 })
 export class SharedService {
-  private readonly BASE_URL = 'http://localhost:5000';
+  private readonly BASE_URL = 'http://localhost:5000/api';
 
   private measurementResultsSubject = new BehaviorSubject<MeasurementResult[]>([
     { label: 'Eldugult', value: 0 },
@@ -98,7 +98,7 @@ export class SharedService {
   
     console.log(`Starting ${cameraType} stream...`);
   
-    this.http.get(`http://localhost:5000/start-video-stream?type=${cameraType}`).subscribe(
+    this.http.get(`${this.BASE_URL}/start-video-stream?type=${cameraType}`).subscribe(
       () => {
         console.log(`${cameraType} camera stream started.`);
         this.setCameraStreamStatus(cameraType, true);
@@ -113,7 +113,7 @@ export class SharedService {
   
   stopStream(cameraType: 'main' | 'side'): void {
     console.log(`Stopping ${cameraType} stream...`);
-    this.http.post(`http://localhost:5000/stop-video-stream?type=${cameraType}`, {}).subscribe(
+    this.http.post(`${this.BASE_URL}/stop-video-stream?type=${cameraType}`, {}).subscribe(
       () => {
         console.log(`${cameraType} camera stream stopped.`);
         this.setCameraStreamStatus(cameraType, false);
@@ -136,7 +136,7 @@ export class SharedService {
   }
 
   connectCamera(cameraType: 'main' | 'side'): void {
-    this.http.post(`http://localhost:5000/connect-camera?type=${cameraType}`, {}).subscribe(
+    this.http.post(`${this.BASE_URL}/connect-camera?type=${cameraType}`, {}).subscribe(
       () => {
         this.setCameraConnectionStatus(cameraType, true);
         console.log(`Connected ${cameraType} camera.`);
@@ -151,7 +151,7 @@ export class SharedService {
     // Stop stream before disconnecting
     this.stopStream(cameraType);
   
-    this.http.post(`http://localhost:5000/disconnect-camera?type=${cameraType}`, {}).subscribe(
+    this.http.post(`${this.BASE_URL}/disconnect-camera?type=${cameraType}`, {}).subscribe(
       () => {
         this.setCameraConnectionStatus(cameraType, false);
         this.setCameraStreamStatus(cameraType, false);  // Reset stream status

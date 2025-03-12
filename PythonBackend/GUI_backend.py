@@ -177,7 +177,7 @@ def get_serial_device_status(device_name):
 
 
 # Turntable Functions
-@app.route('/home_turntable_with_image', methods=['POST'])
+@app.route('/api/home_turntable_with_image', methods=['POST'])
 def home_turntable_with_image():
     try:
         app.logger.info("Homing process initiated.")
@@ -234,7 +234,7 @@ def home_turntable_with_image():
         return jsonify({"error": str(e), "popup": True}), 500
 
 
-@app.route('/move_turntable_relative', methods=['POST'])
+@app.route('/api/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
     try:
         data = request.get_json()
@@ -268,7 +268,7 @@ def move_turntable_relative():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/toggle-relay', methods=['POST'])
+@app.route('/api/toggle-relay', methods=['POST'])
 def toggle_relay():
     try:
         data = request.get_json()
@@ -322,7 +322,7 @@ def stop_camera_stream(camera_type):
 
     
 ### Camera-related functions ###
-@app.route('/connect-camera', methods=['POST'])
+@app.route('/api/connect-camera', methods=['POST'])
 def connect_camera():
     camera_type = request.args.get('type')
     if camera_type not in CAMERA_IDS:
@@ -334,7 +334,7 @@ def connect_camera():
         return jsonify(result), 400
     return jsonify(result), 200
 
-@app.route('/disconnect-camera', methods=['POST'])
+@app.route('/api/disconnect-camera', methods=['POST'])
 def disconnect_camera():
     camera_type = request.args.get('type')
 
@@ -484,19 +484,9 @@ def update_camera_settings():
 
 ### Video streaming Function ###
 
-#TODO:Check if this can be removed. Possibly old video stream function.
-""" @app.route('/video-stream', methods=['GET'])
-def video_stream():
-    camera_type = request.args.get('type')
 
-    if camera_type not in globals.cameras:
-        app.logger.error(f"Invalid camera type: {camera_type}")
-        return jsonify({"error": "Invalid camera type specified"}), 400
 
-    app.logger.info(f"{camera_type.capitalize()} camera stream started successfully")
-    return Response(generate_frames(camera_type), mimetype='multipart/x-mixed-replace; boundary=frame') """
-
-@app.route('/start-video-stream', methods=['GET'])
+@app.route('/api/start-video-stream', methods=['GET'])
 def start_video_stream():
     """
     Returns a live MJPEG response from generate_frames(camera_type).
@@ -536,7 +526,7 @@ def start_video_stream():
         return jsonify({"error": "Internal server error"}), 500
 
 
-@app.route('/stop-video-stream', methods=['POST'])
+@app.route('/api/stop-video-stream', methods=['POST'])
 def stop_video_stream():
     camera_type = request.args.get('type')
     app.logger.info(f"Received stop request for {camera_type}")
@@ -699,7 +689,7 @@ def analyze_slice(process_func, camera_type, label):
         return jsonify({"error": str(e)}), 500
     
     
-@app.route('/analyze_center_circle', methods=['POST'])
+@app.route('/api/analyze_center_circle', methods=['POST'])
 def analyze_center_circle():
     app.logger.info("Center circle analysis started.")
     return analyze_slice(
@@ -708,7 +698,7 @@ def analyze_center_circle():
         label='center_circle',
     )
 
-@app.route('/analyze_center_slice', methods=['POST'])
+@app.route('/api/analyze_center_slice', methods=['POST'])
 def analyze_center_slice():
     app.logger.info("Center slice analysis started.")
     return analyze_slice(
@@ -717,7 +707,7 @@ def analyze_center_slice():
         label='center_slice',
     )
 
-@app.route('/analyze_outer_slice', methods=['POST'])
+@app.route('/api/analyze_outer_slice', methods=['POST'])
 def analyze_outer_slice():
     app.logger.info("Outer slice analysis started.")
     return analyze_slice(
@@ -728,7 +718,7 @@ def analyze_outer_slice():
 
 
 ### Statistics-related functions ###
-@app.route('/update_results', methods=['POST'])
+@app.route('/api/update_results', methods=['POST'])
 def update_results():
     try:
         mode = request.json.get("mode")
@@ -785,7 +775,7 @@ def update_results():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/reset_results', methods=['POST'])
+@app.route('/api/reset_results', methods=['POST'])
 def reset_results():
     try:
         # Reset global measurement results
@@ -849,9 +839,6 @@ def connect_camera_internal(camera_type):
     target_serial = CAMERA_IDS.get(camera_type)
     factory = pylon.TlFactory.GetInstance()
     devices = factory.EnumerateDevices()
-
-    if not devices:
-        return {"error": "No cameras connected"}
 
     selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
     if not selected_device:

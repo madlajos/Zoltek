@@ -13,7 +13,7 @@ import { ErrorNotificationService } from '../../services/error-notification.serv
   imports: [CommonModule, MatIconModule]
 })
 export class TurntableControlComponent implements OnInit, OnDestroy {
-  private readonly BASE_URL = 'http://localhost:5000';
+  private readonly BASE_URL = 'http://localhost:5000/api';
   movementAmount: number = 1; // Default movement amount
 
   turntablePosition: number | string = '?';  // Default unknown position
@@ -26,7 +26,7 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
 
   constructor(
     private http: HttpClient,
-    private errorNotificationService: ErrorNotificationService  // ✅ Injected here
+    private errorNotificationService: ErrorNotificationService
   ) {}
 
   ngOnInit(): void {
@@ -63,7 +63,7 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
   }
 
   tryReconnectTurntable(): void {
-    this.http.post<{ message: string }>(`${this.BASE_URL}/api/connect-to-turntable`, {}).subscribe({
+    this.http.post<{ message: string }>(`${this.BASE_URL}/connect-to-turntable`, {}).subscribe({
       next: (response) => {
         console.info('Turntable reconnected:', response.message);
         this.isConnected = true;
@@ -79,7 +79,7 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
   }
 
   checkTurntableConnection(): void {
-    this.http.get<{ connected: boolean }>(`${this.BASE_URL}/api/status/serial/turntable`).subscribe({
+    this.http.get<{ connected: boolean }>(`${this.BASE_URL}/status/serial/turntable`).subscribe({
       next: (response) => {
         const wasConnected = this.isConnected;
         this.isConnected = response.connected;
