@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ErrorNotificationService } from '../../services/error-notification.service';
+import { ErrorNotificationService, AppError } from '../../services/error-notification.service';
 import { Observable } from 'rxjs';
 import { ErrorPopupComponent } from '../error-popup/error-popup.component';
 
@@ -12,8 +12,8 @@ import { ErrorPopupComponent } from '../error-popup/error-popup.component';
   styleUrls: ['./error-popup-list.component.css']
 })
 export class ErrorPopupListComponent {
-  errors$: Observable<string[]>;
-  
+  errors$: Observable<AppError[]>;
+
   constructor(private errorNotificationService: ErrorNotificationService) {
     this.errors$ = this.errorNotificationService.errors$;
   }

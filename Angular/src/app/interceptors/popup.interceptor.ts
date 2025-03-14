@@ -1,14 +1,15 @@
-// src/app/interceptors/popup.interceptor.ts
+// popup.interceptor.ts
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, tap, throwError } from 'rxjs';
 import { HttpRequest, HttpHandlerFn, HttpEvent, HttpResponse, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ErrorNotificationService } from '../services/error-notification.service';
+import { ErrorNotificationService, AppError } from '../services/error-notification.service';
 
 interface ApiResponse {
   popup?: boolean;
   error?: string;
+  code?: string;
 }
 
 export const popupInterceptor: HttpInterceptorFn = (
@@ -22,28 +23,18 @@ export const popupInterceptor: HttpInterceptorFn = (
       if (event instanceof HttpResponse) {
         const body = event.body as ApiResponse;
         if (body?.popup) {
-          // Forward error message to the notification service
-          errorNotificationService.addError(body.error || 'An error occurred.');
+          const code = body.code || 'GENERIC';
+          const message = errorNotificationService.getMessage(code);
+          errorNotificationService.addError({ code, message });
         }
       }
     }),
     catchError((error: HttpErrorResponse) => {
       const errorBody = error.error as ApiResponse;
       if (errorBody?.popup) {
-        let errorMessage = errorBody.error || 'An error occurred.';
-        if (errorMessage.toLowerCase().includes('turntable')) {
-          errorMessage = 'Turntable disconnected';
-        }
-        else if (errorMessage.toLowerCase().includes('barcode')) {
-          errorMessage = 'Barcode Scanner disconnected';
-        }
-        else if (errorMessage.toLowerCase().includes('main')) {
-          errorMessage = 'main camera disconnected';
-        }
-        else if (errorMessage.toLowerCase().includes('side')) {
-          errorMessage = 'side camera disconnected';
-        }
-        errorNotificationService.addError(errorMessage);
+        const code = errorBody.code || 'GENERIC';
+        const message = errorNotificationService.getMessage(code);
+        errorNotificationService.addError({ code, message });
       }
       return throwError(() => error);
     })

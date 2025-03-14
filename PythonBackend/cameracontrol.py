@@ -71,9 +71,6 @@ def get_camera(camera_id: str) -> pylon.InstantCamera:
     factory = pylon.TlFactory.GetInstance()
     devices = factory.EnumerateDevices()
 
-    if not devices:
-        raise CameraError('No cameras connected.')
-
     app.logger.info("Connected devices:")
     for device in devices:
         app.logger.info(f"Device Model: {device.GetModelName()}, Serial Number: {device.GetSerialNumber()}")

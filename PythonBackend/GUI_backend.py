@@ -16,6 +16,7 @@ from statistics_processor import calculate_statistics, save_annotated_image
 
 from logger_config import setup_logger, CameraError, SerialError  # Import custom exceptions if defined in logger_config.py
 setup_logger()  # This sets up the root logger with our desired configuration.
+from error_codes import ErrorCode, ERROR_MESSAGES
 
 
 app = Flask(__name__)
@@ -91,12 +92,18 @@ def connect_turntable():
             return jsonify({'message': 'Turntable connected', 'port': device.port}), 200
         else:
             app.logger.error("Failed to connect to Turntable: No response or incorrect ID")
-            # Return a generic error message for the end user
-            return jsonify({'error': 'Turntable disconnected', 'popup': True}), 404
+            return jsonify({
+                'error': 'asd',
+                'code': 'E1203',
+                'popup': True
+            }), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Turntable")
-        return jsonify({'error': 'Turntable disconnected', 'popup': True}), 500
-
+        return jsonify({
+            'error': 'asd',
+            'code': 'E1203',
+            'popup': True
+        }), 500
 
 @app.route('/api/connect-to-barcode', methods=['POST'])
 def connect_barcode_scanner():

@@ -120,7 +120,7 @@ export class CameraControlComponent implements OnInit {
           } else {
             // Not connected: update shared state, add error, and switch to reconnection polling.
             this.sharedService.setCameraConnectionStatus(cameraType, false);
-            this.errorNotificationService.addError(`${cameraType} camera disconnected`);
+            ////////////this.errorNotificationService.addError(`${cameraType} camera disconnected`);
             this.stopConnectionPolling(cameraType);
             this.startReconnectionPolling(cameraType);
           }
@@ -130,7 +130,7 @@ export class CameraControlComponent implements OnInit {
           console.error(`Error checking ${cameraType} camera status:`, err);
           // On error, assume disconnected.
           this.sharedService.setCameraConnectionStatus(cameraType, false);
-          this.errorNotificationService.addError(`${cameraType} camera disconnected`);
+          /////////this.errorNotificationService.addError(`${cameraType} camera disconnected`);
           this.stopConnectionPolling(cameraType);
           this.startReconnectionPolling(cameraType);
         }
@@ -248,7 +248,7 @@ export class CameraControlComponent implements OnInit {
     this.http.post(`${this.BASE_URL}/disconnect-camera?type=${cameraType}`, {}).subscribe(
       (response: any) => {
         this.sharedService.setCameraConnectionStatus(cameraType, false);
-        this.errorNotificationService.addError(`${cameraType} camera disconnected`);
+        ////////////this.errorNotificationService.addError(`${cameraType} camera disconnected`);
         console.log(`${cameraType.toUpperCase()} camera disconnected.`);
         this.checkCameraStatus(cameraType);
       },

@@ -76,7 +76,7 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
             // If not connected, start reconnection if not already running.
             if (!this.reconnectionPolling) {
               console.warn("Barcode Scanner disconnected - starting reconnection polling.");
-              this.errorNotificationService.addError("Barcode Scanner disconnected");
+              //////////this.errorNotificationService.addError("Barcode Scanner disconnected");
               this.stopConnectionPolling();
               this.startReconnectionPolling();
             }
@@ -86,7 +86,7 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
           console.error('Failed to check barcode scanner connection!', error);
           // On HTTP error (e.g., 400 response), assume disconnected.
           if (!this.reconnectionPolling) {
-            this.errorNotificationService.addError("Barcode Scanner disconnected");
+            /////////////this.errorNotificationService.addError("Barcode Scanner disconnected");
             this.stopConnectionPolling();
             this.startReconnectionPolling();
           }

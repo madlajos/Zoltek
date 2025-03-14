@@ -1,4 +1,4 @@
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig, APP_INITIALIZER, importProvidersFrom } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
@@ -18,6 +18,12 @@ import { SharedService } from './shared.service';
 import { MessageService } from './message.service';
 import { withInterceptors } from '@angular/common/http';
 import { popupInterceptor } from './interceptors/popup.interceptor';
+import { ErrorNotificationService } from './services/error-notification.service';
+
+
+export function initializeErrorMapping(errorNotificationService: ErrorNotificationService): () => Promise<void> {
+  return () => errorNotificationService.loadErrorMapping();
+}
 
 export const appConfig: ApplicationConfig = {
   providers: [

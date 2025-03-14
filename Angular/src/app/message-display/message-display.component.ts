@@ -1,22 +1,25 @@
 import { Component } from '@angular/core';
+import { Observable } from 'rxjs';
 import { CommonModule } from '@angular/common';
-import { MessageService } from '../message.service';
+import { ErrorNotificationService, AppError } from '../services/error-notification.service';
 
 @Component({
   selector: 'app-message-display',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule], // <-- add CommonModule here
   templateUrl: './message-display.component.html',
   styleUrls: ['./message-display.component.css']
 })
 export class MessageDisplayComponent {
-  messages: string[] = [];
+  // Assume we inject the error notification service and assign its errors observable.
+  messages: Observable<AppError[]>;
 
-  constructor(private messageService: MessageService) {}
+  constructor(private errorNotificationService: ErrorNotificationService) {
+    this.messages = this.errorNotificationService.errors$;
+  }
 
-  ngOnInit() {
-    this.messageService.getMessages().subscribe((message) => {
-      this.messages.push(message);
-    });
+  // Getter method so that you can call getMessages() in the template.
+  get getMessages(): Observable<AppError[]> {
+    return this.messages;
   }
 }

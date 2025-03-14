@@ -78,33 +78,37 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
     });
   }
 
+  // turntable-control.component.ts (only the polling part shown)
   checkTurntableConnection(): void {
     this.http.get<{ connected: boolean }>(`${this.BASE_URL}/status/serial/turntable`).subscribe({
       next: (response) => {
         const wasConnected = this.isConnected;
         this.isConnected = response.connected;
-  
-        // If not connected and reconnection polling is not already active:
+    
         if (!this.isConnected && !this.reconnectionPolling) {
-          console.warn("Turntable disconnected (or still disconnected) - starting reconnection polling.");
-          this.errorNotificationService.addError("Turntable disconnected");
+          console.warn("Turntable disconnected – starting reconnection polling.");
+          // Use the error service's getMessage so that the mapped message is used.
+          this.errorNotificationService.addError({ 
+            code: "E1203", 
+            message: this.errorNotificationService.getMessage("E1203") 
+          });
           this.stopConnectionPolling();
           this.startReconnectionPolling();
-        }
-        // If we detect a transition from disconnected to connected:
-        else if (this.isConnected && !wasConnected) {
+        } else if (this.isConnected && !wasConnected) {
           console.info("Turntable reconnected.");
-          this.errorNotificationService.removeError("Turntable disconnected");
-          // Stop reconnection polling if it was active and resume normal polling.
+          this.errorNotificationService.removeError("E1203");
           this.stopReconnectionPolling();
           this.startConnectionPolling();
         }
       },
       error: (error) => {
         console.error('Failed to check turntable connection!', error);
-        // In case of an HTTP error, if we aren't already in reconnection mode, start it.
         if (!this.reconnectionPolling) {
-          this.errorNotificationService.addError("Turntable disconnected");
+          // Again, use the mapping here instead of a hard-coded dummy string.
+          this.errorNotificationService.addError({ 
+            code: "E1203", 
+            message: this.errorNotificationService.getMessage("E1203") 
+          });
           this.stopConnectionPolling();
           this.startReconnectionPolling();
         }
@@ -112,6 +116,7 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
       }
     });
   }
+  
   
   updateTurntablePosition(): void {
     if (this.isConnected) {
