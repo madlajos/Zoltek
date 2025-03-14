@@ -93,14 +93,14 @@ def connect_turntable():
         else:
             app.logger.error("Failed to connect to Turntable: No response or incorrect ID")
             return jsonify({
-                'error': 'asd',
+                'error': 'TURNTABLE_CONNECTION_FAILED',
                 'code': 'E1203',
                 'popup': True
             }), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Turntable")
         return jsonify({
-            'error': 'asd',
+            'error': 'TURNTABLE_CONNECTION_FAILED',
             'code': 'E1203',
             'popup': True
         }), 500
@@ -120,8 +120,6 @@ def connect_barcode_scanner():
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Barcode Scanner")
         return jsonify({'error': 'Barcode Scanner disconnected', 'popup': True}), 500
-
-
 
 
 @app.route('/api/disconnect-<device_name>', methods=['POST'])
@@ -149,7 +147,6 @@ def get_serial_device_status(device_name):
 
     if device and device.is_open:
         if device_name.lower() == 'turntable':
-            # For turntable, we continue to use the "IDN?" test command.
             if not porthandler.turntable_waiting_for_done:
                 try:
                     device.write(b'IDN?\n')
@@ -160,7 +157,12 @@ def get_serial_device_status(device_name):
                 except Exception as e:
                     app.logger.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
                     porthandler.disconnect_serial_device(device_name)
-                    return jsonify({'connected': False, 'error': f"{device_name.capitalize()} unresponsive", 'popup': True}), 400
+                    return jsonify({
+                        'connected': False,
+                        'error': f"{device_name.capitalize()} unresponsive",
+                        'code': ErrorCode.TURNTABLE_CONNECTION_FAILED,
+                        'popup': True
+                    }), 400
         elif device_name.lower() in ['barcode', 'barcodescanner']:
             from serial.tools import list_ports
             available_ports = [port.device for port in list_ports.comports()]
@@ -170,17 +172,31 @@ def get_serial_device_status(device_name):
             else:
                 app.logger.warning(f"{device_name} appears to be disconnected (port not found).")
                 return jsonify({
-                    'connected': False, 
-                    'error': "Barcode Scanner disconnected", 
+                    'connected': False,
+                    'error': "Barcode Scanner disconnected",
+                    'code': ErrorCode.BARCODE_DISCONNECTED,
                     'popup': True
                 }), 400
-
 
         app.logger.debug(f"{device_name} is connected on port {device.port}")
         return jsonify({'connected': True, 'port': device.port})
 
     app.logger.warning(f"{device_name} appears to be disconnected.")
-    return jsonify({'connected': False, 'error': f"{device_name.capitalize()} appears to be disconnected", 'popup': True}), 400
+    # For turntable, return error with code.
+    if device_name.lower() == 'turntable':
+        return jsonify({
+            'connected': False,
+            'error': f"{device_name.capitalize()} appears to be disconnected",
+            'code': ErrorCode.TURNTABLE_CONNECTION_FAILED,
+            'popup': True
+        }), 400
+    else:
+        return jsonify({
+            'connected': False,
+            'error': f"{device_name.capitalize()} appears to be disconnected",
+            'code': ErrorCode.BARCODE_DISCONNECTED,
+            'popup': True
+        }), 400
 
 
 # Turntable Functions

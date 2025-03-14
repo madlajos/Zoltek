@@ -32,10 +32,11 @@ export class ErrorNotificationService {
   }
 
   getMessage(code: string): string {
-    return this.errorMapping[code] ||
-           this.errorMapping['GENERIC'] ||
-           'An error occurred.';
+    const msg = this.errorMapping[code] || this.errorMapping['GENERIC'] || 'An error occurred.';
+    console.log(`getMessage('${code}') returns: ${msg}`);
+    return msg;
   }
+  
 
   addError(error: AppError): void {
     const currentErrors = this.errorsSubject.value;

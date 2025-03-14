@@ -91,42 +91,34 @@ def connect_to_turntable():
 
 def connect_to_barcode_scanner():
     """
-    Attempts to connect to the barcode scanner (QD2100) using its VID/PID.
+    Connects to the barcode scanner (QD2100) using its VID/PID.
     If successful, assigns the scanner to `barcode_scanner` and starts the listener thread.
     """
     global barcode_scanner
 
-    # Always reset to force a fresh scan
-    barcode_scanner = None
+    # Check if already connected
+    if barcode_scanner and barcode_scanner.is_open:
+        logging.info("Barcode scanner is already connected.")
+        return barcode_scanner
 
-    # Retry logic with exponential backoff
-    max_attempts = 5
-    attempt = 0
-    while attempt < max_attempts:
-        attempt += 1
-        logging.info(f"Attempting to connect to barcode scanner (Attempt {attempt})...")
-        
-        barcode_scanner = connect_to_serial_device(
-            device_name="BarcodeScanner",
-            identification_command="",
-            expected_response="",
-            vid=0x05F9,
-            pid=0x4204
-        )
+    logging.info("Attempting to connect to barcode scanner...")
+    barcode_scanner = connect_to_serial_device(
+        device_name="BarcodeScanner",
+        identification_command="",
+        expected_response="",
+        vid=0x05F9,
+        pid=0x4204
+    )
 
-        if barcode_scanner and barcode_scanner.is_open:
-            logging.info("Barcode scanner connected successfully.")
-            # Start barcode listener only if not already running
-            if not any(t.name == "BarcodeListener" for t in threading.enumerate()):
-                threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
-            return barcode_scanner
+    if barcode_scanner and barcode_scanner.is_open:
+        logging.info("Barcode scanner connected successfully.")
+        # Start barcode listener only if not already running
+        if not any(t.name == "BarcodeListener" for t in threading.enumerate()):
+            threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
+        return barcode_scanner
 
-        logging.warning("Barcode scanner not found. Retrying in 1 second...")
-        time.sleep(1)
-
-    logging.error("Failed to connect to barcode scanner after multiple attempts.")
+    logging.error("Failed to connect to barcode scanner.")
     return None
-
 
 def barcode_scanner_listener():
     """Continuously read barcode scanner data and update globals.latest_barcode."""

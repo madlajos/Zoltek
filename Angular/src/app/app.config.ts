@@ -42,5 +42,11 @@ export const appConfig: ApplicationConfig = {
     ),
     SharedService,
     MessageService,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeErrorMapping,
+      deps: [ErrorNotificationService],
+      multi: true,
+    }
   ]
 };

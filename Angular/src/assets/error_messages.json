@@ -1,7 +1,9 @@
 {
+  "E1111": "Középső kamera csatlakozási hiba",
+  "E1112": "Oldalsó kamera csatlakozási hiba",
   "E1201": "Asztalvezérlő csatlakozási hiba",
   "E1202": "Asztalvezérlő csatlakozási hiba",
   "E1203": "Asztalvezérlő csatlakozási hiba",
-  "E2001": "Barcode Scanner disconnected",
+  "E1301": "Vonalkódolvasó csatlakozási hiba",
   "GENERIC": "An error occurred."
 }

@@ -4,6 +4,8 @@ import { interval, Subscription } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 import { CommonModule } from '@angular/common';
 import { ErrorNotificationService } from '../../services/error-notification.service';
+import { switchMap } from 'rxjs/operators';
+
 
 @Component({
   standalone: true,
@@ -14,15 +16,13 @@ import { ErrorNotificationService } from '../../services/error-notification.serv
 })
 export class TurntableControlComponent implements OnInit, OnDestroy {
   private readonly BASE_URL = 'http://localhost:5000/api';
-  movementAmount: number = 1; // Default movement amount
-
-  turntablePosition: number | string = '?';  // Default unknown position
-  positionPolling: Subscription | undefined; // Subscription for polling turntable position
-  connectionPolling: Subscription | undefined; // Subscription for polling turntable controller connection status
-  isConnected: boolean = false; // Track the connection status of the turntable controller
-  isEditingPosition: boolean = false; // Flag to track if the position input is being edited
-  isHomed: boolean = false;
+  movementAmount: number = 1;
+  turntablePosition: number | string = '?';
+  connectionPolling: Subscription | undefined;
   reconnectionPolling: Subscription | undefined;
+  isConnected: boolean = false;
+  isEditingPosition: boolean = false;
+  isHomed: boolean = false;
 
   constructor(
     private http: HttpClient,
@@ -39,14 +39,53 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
   }
 
   startConnectionPolling(): void {
-    this.connectionPolling = interval(5000).subscribe(() => {
-      this.checkTurntableConnection();
-    });
+    if (!this.connectionPolling) {
+      this.connectionPolling = interval(5000)
+        .pipe(
+          switchMap(() =>
+            this.http.get<{ connected: boolean }>(`${this.BASE_URL}/status/serial/turntable`)
+          )
+        )
+        .subscribe({
+          next: (response) => {
+            const wasConnected = this.isConnected;
+            this.isConnected = response.connected;
+            if (!this.isConnected && !this.reconnectionPolling) {
+              console.warn("Turntable disconnected – starting reconnection polling.");
+              this.errorNotificationService.addError({
+                code: "E1203",
+                message: this.errorNotificationService.getMessage("E1203")
+              });
+              this.stopConnectionPolling();
+              this.startReconnectionPolling();
+            } else if (this.isConnected && !wasConnected) {
+              console.info("Turntable reconnected.");
+              this.errorNotificationService.removeError("E1203");
+              this.stopReconnectionPolling();
+              this.startConnectionPolling();
+            }
+          },
+          error: (error) => {
+            console.error('Failed to check turntable connection!', error);
+            if (!this.reconnectionPolling) {
+              this.errorNotificationService.addError({
+                code: "E1203",
+                message: this.errorNotificationService.getMessage("E1203")
+              });
+              this.stopConnectionPolling();
+              this.startReconnectionPolling();
+            }
+            this.isConnected = false;
+          }
+        });
+    }
   }
 
   stopConnectionPolling(): void {
-    this.connectionPolling?.unsubscribe();
-    this.connectionPolling = undefined;
+    if (this.connectionPolling) {
+      this.connectionPolling.unsubscribe();
+      this.connectionPolling = undefined;
+    }
   }
 
   startReconnectionPolling(): void {
@@ -67,52 +106,12 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
       next: (response) => {
         console.info('Turntable reconnected:', response.message);
         this.isConnected = true;
-        this.errorNotificationService.removeError("Turntable disconnected");
+        this.errorNotificationService.removeError("E1203");
         this.stopReconnectionPolling();
-        this.startConnectionPolling();  // Resume normal polling
+        this.startConnectionPolling();
       },
       error: (error) => {
         console.warn('Turntable reconnection attempt failed.', error);
-        // Remains disconnected; reconnectionPolling continues.
-      }
-    });
-  }
-
-  // turntable-control.component.ts (only the polling part shown)
-  checkTurntableConnection(): void {
-    this.http.get<{ connected: boolean }>(`${this.BASE_URL}/status/serial/turntable`).subscribe({
-      next: (response) => {
-        const wasConnected = this.isConnected;
-        this.isConnected = response.connected;
-    
-        if (!this.isConnected && !this.reconnectionPolling) {
-          console.warn("Turntable disconnected – starting reconnection polling.");
-          // Use the error service's getMessage so that the mapped message is used.
-          this.errorNotificationService.addError({ 
-            code: "E1203", 
-            message: this.errorNotificationService.getMessage("E1203") 
-          });
-          this.stopConnectionPolling();
-          this.startReconnectionPolling();
-        } else if (this.isConnected && !wasConnected) {
-          console.info("Turntable reconnected.");
-          this.errorNotificationService.removeError("E1203");
-          this.stopReconnectionPolling();
-          this.startConnectionPolling();
-        }
-      },
-      error: (error) => {
-        console.error('Failed to check turntable connection!', error);
-        if (!this.reconnectionPolling) {
-          // Again, use the mapping here instead of a hard-coded dummy string.
-          this.errorNotificationService.addError({ 
-            code: "E1203", 
-            message: this.errorNotificationService.getMessage("E1203") 
-          });
-          this.stopConnectionPolling();
-          this.startReconnectionPolling();
-        }
-        this.isConnected = false;
       }
     });
   }
