@@ -61,6 +61,9 @@ export class CameraControlComponent implements OnInit {
     ng_limit: 15
   };
 
+  private readonly MAIN_CAMERA_ERR_CODE = "E1111";
+  private readonly SIDE_CAMERA_ERR_CODE = "E1121";
+
   private readonly BASE_URL = 'http://localhost:5000/api';
   private settingsLoaded: boolean = false;
 
@@ -109,18 +112,17 @@ export class CameraControlComponent implements OnInit {
     this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`)
       .subscribe({
         next: (response: any) => {
-          // Update shared service and local state
           if (response.connected) {
-            // If previously disconnected, clear the error.
             this.sharedService.setCameraConnectionStatus(cameraType, true);
-            this.errorNotificationService.removeError(`${cameraType} camera disconnected`);
-            // If reconnection polling is active, stop it and resume normal polling.
+            // Remove any existing error for this camera
+            const errCode = cameraType === 'main' ? this.MAIN_CAMERA_ERR_CODE : this.SIDE_CAMERA_ERR_CODE;
+            this.errorNotificationService.removeError(errCode);
+            // If reconnection polling is active, stop it and resume normal polling
             this.stopReconnectionPolling(cameraType);
             this.startConnectionPolling(cameraType);
           } else {
-            // Not connected: update shared state, add error, and switch to reconnection polling.
             this.sharedService.setCameraConnectionStatus(cameraType, false);
-            ////////////this.errorNotificationService.addError(`${cameraType} camera disconnected`);
+            // Switch to reconnection polling
             this.stopConnectionPolling(cameraType);
             this.startReconnectionPolling(cameraType);
           }
@@ -128,9 +130,7 @@ export class CameraControlComponent implements OnInit {
         },
         error: (err) => {
           console.error(`Error checking ${cameraType} camera status:`, err);
-          // On error, assume disconnected.
           this.sharedService.setCameraConnectionStatus(cameraType, false);
-          /////////this.errorNotificationService.addError(`${cameraType} camera disconnected`);
           this.stopConnectionPolling(cameraType);
           this.startReconnectionPolling(cameraType);
         }
@@ -188,13 +188,13 @@ export class CameraControlComponent implements OnInit {
         next: (response: any) => {
           console.info(`${cameraType.toUpperCase()} camera reconnected:`, response.message);
           this.sharedService.setCameraConnectionStatus(cameraType, true);
-          this.errorNotificationService.removeError(`${cameraType} camera disconnected`);
+          const errCode = cameraType === 'main' ? this.MAIN_CAMERA_ERR_CODE : this.SIDE_CAMERA_ERR_CODE;
+          this.errorNotificationService.removeError(errCode);
           this.stopReconnectionPolling(cameraType);
           this.startConnectionPolling(cameraType);
         },
         error: (error) => {
           console.warn(`${cameraType.toUpperCase()} camera reconnection attempt failed.`, error);
-          // Reconnection polling continues.
         }
       });
   }
@@ -248,7 +248,6 @@ export class CameraControlComponent implements OnInit {
     this.http.post(`${this.BASE_URL}/disconnect-camera?type=${cameraType}`, {}).subscribe(
       (response: any) => {
         this.sharedService.setCameraConnectionStatus(cameraType, false);
-        ////////////this.errorNotificationService.addError(`${cameraType} camera disconnected`);
         console.log(`${cameraType.toUpperCase()} camera disconnected.`);
         this.checkCameraStatus(cameraType);
       },
@@ -268,28 +267,9 @@ export class CameraControlComponent implements OnInit {
   }
 
   startVideoStream(cameraType: 'main' | 'side'): void {
-    // Remove the infinite "blob" GET call.
-    // Instead, simply update the UI streaming flag in the shared service:
     this.sharedService.setCameraStreamStatus(cameraType, true);
     console.log(`${cameraType.toUpperCase()} stream set to true in SharedService (UI only).`);
-    
-    // (Optional) If your backend needs a "start" signal,
-    // you could do a short POST to e.g. /start-camera, but
-    // DO NOT request the MJPEG as a blob.
   }
-
-
-  /* startVideoStream(cameraType: 'main' | 'side'): void {
-    const streamUrl = `${this.BASE_URL}/start-video-stream?type=${cameraType}&nocache=${new Date().getTime()}`;
-    
-    this.http.get(streamUrl, { responseType: 'blob' }).subscribe(
-      () => {
-        this.sharedService.setCameraStreamStatus(cameraType, true);
-        console.log(`${cameraType.toUpperCase()} stream started.`);
-      },
-      error => console.error(`Failed to start ${cameraType} stream:`, error)
-    );
-  } */
 
   stopVideoStream(cameraType: 'main' | 'side'): void {
     this.http.post(`${this.BASE_URL}/stop-video-stream?type=${cameraType}`, {}).subscribe(
@@ -315,8 +295,6 @@ export class CameraControlComponent implements OnInit {
     );
   }
   
-  
-
   saveSettings(cameraType: 'main' | 'side'): void {
     console.log(`Save Settings button clicked for ${cameraType} camera`);
   
@@ -359,7 +337,6 @@ export class CameraControlComponent implements OnInit {
     );
 }
 
-
 applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
   let value = Number(this.sizeLimits[limitName]); // Explicitly convert to a number
   console.log(`Applying size limit ${limitName}: ${value}`);
@@ -379,14 +356,12 @@ applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
   });
 }
 
-
   handleKeyDown(event: KeyboardEvent, setting: string, cameraType: 'main' | 'side'): void {
     if (event.key === 'Enter') {
       console.log(`Enter pressed for ${setting} on ${cameraType} camera`);
       this.applySetting(setting, cameraType);  // Pass both arguments
     }
   }
-  
 
   validateInput(event: any, setting: string, cameraType: 'main' | 'side'): void {
     const input = event.target.value.replace(/[^0-9.]/g, '');

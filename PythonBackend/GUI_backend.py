@@ -350,13 +350,21 @@ def stop_camera_stream(camera_type):
 def connect_camera():
     camera_type = request.args.get('type')
     if camera_type not in CAMERA_IDS:
-        return jsonify({"error": "Invalid camera type specified", "popup": True}), 400
+        return jsonify({
+            "error": ERROR_MESSAGES.get(ErrorCode.GENERIC, "Invalid camera type specified."),
+            "code": ErrorCode.GENERIC,
+            "popup": True
+        }), 400
 
     result = connect_camera_internal(camera_type)
     if "error" in result:
+        error_code = result.get("code", ErrorCode.GENERIC)
         result["popup"] = True
-        return jsonify(result), 400
+        # Replace the error message with the mapped message
+        result["error"] = ERROR_MESSAGES.get(error_code, result["error"])
+        return jsonify(result), 404
     return jsonify(result), 200
+
 
 @app.route('/api/disconnect-camera', methods=['POST'])
 def disconnect_camera():
@@ -415,7 +423,11 @@ def get_camera_status():
     camera_type = request.args.get('type')
     if camera_type not in globals.cameras:
         app.logger.error(f"Invalid camera type: {camera_type}")
-        return jsonify({"error": "Invalid camera type specified", "popup": True}), 400
+        return jsonify({
+            "error": ERROR_MESSAGES.get(ErrorCode.GENERIC, "Invalid camera type specified."),
+            "code": ErrorCode.GENERIC,
+            "popup": True
+        }), 400
 
     camera = globals.cameras.get(camera_type)
     is_connected = camera is not None and camera.IsOpen()
@@ -428,8 +440,7 @@ def get_camera_status():
 
     if expected_serial not in found_serials:
         app.logger.warning(
-            f"Camera {camera_type} with serial {expected_serial} not enumerated. " 
-            "Assuming physically disconnected."
+            f"Camera {camera_type} with serial {expected_serial} not enumerated. Assuming physically disconnected."
         )
         if camera and camera.IsOpen():
             try:
@@ -441,17 +452,25 @@ def get_camera_status():
         globals.stream_running[camera_type] = False
         is_connected = False
         is_streaming = False
+
+        error_code = (ErrorCode.MAIN_CAMERA_DISCONNECTED 
+                      if camera_type.lower() == 'main' 
+                      else ErrorCode.SIDE_CAMERA_DISCONNECTED)
+        
         return jsonify({
             "connected": is_connected,
             "streaming": is_streaming,
-            "error": f"{camera_type.capitalize()} camera disconnected",
+            "error": ERROR_MESSAGES.get(error_code, "Unknown camera error"),
+            "code": error_code,
             "popup": True
-        }), 400
+        }), 404
 
     return jsonify({
         "connected": is_connected,
         "streaming": is_streaming
     }), 200
+
+
     
 @app.route('/api/get-camera-settings', methods=['GET'])
 def get_camera_settings():
@@ -959,9 +978,6 @@ def initialize_serial_devices():
     # Start barcode scanner listener thread (if not already running)
     if not any(t.name == "BarcodeListener" for t in threading.enumerate()):
         threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
-
-
-
 
         
 if __name__ == '__main__':      
