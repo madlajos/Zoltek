@@ -93,15 +93,15 @@ def connect_turntable():
         else:
             app.logger.error("Failed to connect to Turntable: No response or incorrect ID")
             return jsonify({
-                'error': 'TURNTABLE_CONNECTION_FAILED',
-                'code': 'E1203',
+                'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
                 'popup': True
             }), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Turntable")
         return jsonify({
-            'error': 'TURNTABLE_CONNECTION_FAILED',
-            'code': 'E1203',
+            'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+            'code': ErrorCode.TURNTABLE_DISCONNECTED,
             'popup': True
         }), 500
 
@@ -109,18 +109,25 @@ def connect_turntable():
 def connect_barcode_scanner():
     try:
         app.logger.info("Attempting to connect to Barcode Scanner")
-        # Even if there is an old connection, always attempt a fresh connection.
+        # Always attempt a fresh connection.
         device = porthandler.connect_to_barcode_scanner()
         if device:
             app.logger.info("Successfully connected to Barcode Scanner")
             return jsonify({'message': 'Barcode Scanner connected', 'port': device.port}), 200
         else:
             app.logger.error("Failed to connect Barcode Scanner: Device not found")
-            return jsonify({'error': 'Barcode Scanner disconnected', 'popup': True}), 404
+            return jsonify({
+                'error': ERROR_MESSAGES[ErrorCode.BARCODE_DISCONNECTED],
+                'code': ErrorCode.BARCODE_DISCONNECTED,
+                'popup': True
+            }), 404
     except Exception as e:
         app.logger.exception("Exception occurred while connecting to Barcode Scanner")
-        return jsonify({'error': 'Barcode Scanner disconnected', 'popup': True}), 500
-
+        return jsonify({
+            'error': ERROR_MESSAGES[ErrorCode.BARCODE_DISCONNECTED],
+            'code': ErrorCode.BARCODE_DISCONNECTED,
+            'popup': True
+        }), 500
 
 @app.route('/api/disconnect-<device_name>', methods=['POST'])
 def disconnect_serial_device(device_name):
@@ -143,7 +150,8 @@ def get_serial_device_status(device_name):
         device = porthandler.barcode_scanner
     else:
         app.logger.error("Invalid device name")
-        return jsonify({'error': 'Invalid device name', 'popup': True}), 400
+        # Return 200 with a JSON payload instead of 400
+        return jsonify({'error': 'Invalid device name', 'popup': True, 'connected': False}), 200
 
     if device and device.is_open:
         if device_name.lower() == 'turntable':
@@ -153,51 +161,35 @@ def get_serial_device_status(device_name):
                     response = device.read(10).decode(errors='ignore').strip()
                     if response:
                         app.logger.debug(f"{device_name} is responsive on port {device.port}")
-                        return jsonify({'connected': True, 'port': device.port})
+                        return jsonify({'connected': True, 'port': device.port}), 200
                 except Exception as e:
                     app.logger.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
                     porthandler.disconnect_serial_device(device_name)
-                    return jsonify({
-                        'connected': False,
-                        'error': f"{device_name.capitalize()} unresponsive",
-                        'code': ErrorCode.TURNTABLE_CONNECTION_FAILED,
-                        'popup': True
-                    }), 400
+                    return jsonify({'connected': False, 'error': f"{device_name.capitalize()} unresponsive", 'popup': True}), 200
         elif device_name.lower() in ['barcode', 'barcodescanner']:
             from serial.tools import list_ports
             available_ports = [port.device for port in list_ports.comports()]
             if device.port in available_ports:
                 app.logger.debug(f"{device_name} is connected on port {device.port}")
-                return jsonify({'connected': True, 'port': device.port})
+                return jsonify({'connected': True, 'port': device.port}), 200
             else:
                 app.logger.warning(f"{device_name} appears to be disconnected (port not found).")
                 return jsonify({
-                    'connected': False,
-                    'error': "Barcode Scanner disconnected",
-                    'code': ErrorCode.BARCODE_DISCONNECTED,
+                    'connected': False, 
+                    'error': "Barcode Scanner disconnected", 
                     'popup': True
-                }), 400
+                }), 200
 
         app.logger.debug(f"{device_name} is connected on port {device.port}")
-        return jsonify({'connected': True, 'port': device.port})
+        return jsonify({'connected': True, 'port': device.port}), 200
 
     app.logger.warning(f"{device_name} appears to be disconnected.")
-    # For turntable, return error with code.
-    if device_name.lower() == 'turntable':
-        return jsonify({
-            'connected': False,
-            'error': f"{device_name.capitalize()} appears to be disconnected",
-            'code': ErrorCode.TURNTABLE_CONNECTION_FAILED,
-            'popup': True
-        }), 400
-    else:
-        return jsonify({
-            'connected': False,
-            'error': f"{device_name.capitalize()} appears to be disconnected",
-            'code': ErrorCode.BARCODE_DISCONNECTED,
-            'popup': True
-        }), 400
-
+    # Always return HTTP 200 with connected flag false.
+    return jsonify({
+        'connected': False, 
+        'error': f"{device_name.capitalize()} appears to be disconnected", 
+        'popup': True
+    }), 200
 
 # Turntable Functions
 @app.route('/api/home_turntable_with_image', methods=['POST'])
@@ -263,18 +255,16 @@ def move_turntable_relative():
         data = request.get_json()
         move_by = data.get('degrees')
 
-        if move_by is None or not isinstance(move_by, (int, float)):
-            app.logger.error("Invalid input: 'degrees' must be a number.")
-            return jsonify({'error': 'Invalid input, provide degrees as a number'}), 400
+        # (Inputs are assumed valid on the frontend.)
 
         direction = 'CW' if move_by > 0 else 'CCW'
         command = f"{abs(move_by)},{1 if move_by > 0 else 0}"
         app.logger.info(f"Sending command to turntable: {command}")
 
-        # Send the command to the turntable
+        # Send the command to the turntable.
         porthandler.write_turntable(command, expect_response=False)
 
-        # Update position only if the turntable is homed
+        # Update position only if the turntable is homed.
         if globals.turntable_homed:
             app.logger.info(f"Updating position (before): {globals.turntable_position}")
             globals.turntable_position = (globals.turntable_position - move_by) % 360
@@ -285,10 +275,15 @@ def move_turntable_relative():
         return jsonify({
             'message': f'Turntable moved {move_by} degrees {direction}',
             'current_position': globals.turntable_position if globals.turntable_homed else '?'
-        })
+        }), 200
     except Exception as e:
         app.logger.exception(f"Error in move_turntable_relative: {e}")
-        return jsonify({'error': str(e)}), 500
+        # Include extra details (you may want to include these only in development)
+        return jsonify({
+            'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+            'code': ErrorCode.TURNTABLE_DISCONNECTED,
+            'popup': True
+        }), 500
 
 
 @app.route('/api/toggle-relay', methods=['POST'])
@@ -298,26 +293,34 @@ def toggle_relay():
         state = data.get('state')  # Expect 1 (ON) or 0 (OFF)
 
         if state not in [0, 1]:
-            return jsonify({"error": "Invalid state value"}), 400
+            app.logger.error("Invalid state value provided for relay toggle.")
+            return jsonify({
+                'error': ERROR_MESSAGES.get(ErrorCode.TURNTABLE_DISCONNECTED, "Invalid state value provided for relay toggle."),
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 400
 
         command = f"RELAY,{state}"
         app.logger.info(f"Sending command to turntable: {command}")
 
-        # Send the command to the Arduino
+        # Send the command to the Arduino.
         porthandler.write_turntable(command, expect_response=False)
-
         return jsonify({"message": f"Relay {'ON' if state else 'OFF'}"}), 200
-
     except Exception as e:
         app.logger.exception("Error in toggling relay")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            'error': ERROR_MESSAGES.get(ErrorCode.TURNTABLE_DISCONNECTED),
+            'code': ErrorCode.TURNTABLE_DISCONNECTED,
+            'popup': True
+        }), 500
 
 
 # Barcode Scanner Functions
 @app.route('/api/get-barcode', methods=['GET'])
 def get_barcode():
     return jsonify({'barcode': globals.latest_barcode})
-
+    
+### Camera-related functions ###
 def stop_camera_stream(camera_type):
     if camera_type not in globals.cameras:
         raise ValueError(f"Invalid camera type: {camera_type}")
@@ -343,8 +346,6 @@ def stop_camera_stream(camera_type):
         except Exception as e:
             raise RuntimeError(f"Failed to stop {camera_type} stream: {str(e)}")
 
-    
-### Camera-related functions ###
 @app.route('/api/connect-camera', methods=['POST'])
 def connect_camera():
     camera_type = request.args.get('type')
@@ -506,9 +507,6 @@ def update_camera_settings():
 
 
 ### Video streaming Function ###
-
-
-
 @app.route('/api/start-video-stream', methods=['GET'])
 def start_video_stream():
     """

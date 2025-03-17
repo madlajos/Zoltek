@@ -4,7 +4,6 @@ import { interval, Subscription } from 'rxjs';
 import { ErrorNotificationService } from '../../services/error-notification.service';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-barcode-scanner-control',
@@ -19,8 +18,9 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
   connectionPolling: Subscription | undefined;
   reconnectionPolling: Subscription | undefined;
 
+  // Define a constant for the barcode error code:
   private readonly BARCODE_ERR_CODE = "E1301";
-  
+
   constructor(
     private http: HttpClient,
     private errorNotificationService: ErrorNotificationService
@@ -68,7 +68,6 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
           this.isConnected = response.connected;
           if (!this.isConnected && !this.reconnectionPolling) {
             console.warn("Barcode Scanner disconnected – starting reconnection polling.");
-            // Add error with proper code and mapped message
             this.errorNotificationService.addError({
               code: this.BARCODE_ERR_CODE,
               message: this.errorNotificationService.getMessage(this.BARCODE_ERR_CODE)
@@ -96,7 +95,7 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
         }
       });
   }
-
+  
   tryReconnectBarcode(): void {
     console.info('Attempting to reconnect Barcode Scanner...');
     this.http.post<{ message: string }>(`${this.BASE_URL}/connect-to-barcode`, {})
