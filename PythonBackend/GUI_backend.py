@@ -150,8 +150,7 @@ def get_serial_device_status(device_name):
         device = porthandler.barcode_scanner
     else:
         app.logger.error("Invalid device name")
-        # Return 200 with a JSON payload instead of 400
-        return jsonify({'error': 'Invalid device name', 'popup': True, 'connected': False}), 200
+        return jsonify({'error': 'Invalid device name', 'popup': True}), 400
 
     if device and device.is_open:
         if device_name.lower() == 'turntable':
@@ -161,35 +160,51 @@ def get_serial_device_status(device_name):
                     response = device.read(10).decode(errors='ignore').strip()
                     if response:
                         app.logger.debug(f"{device_name} is responsive on port {device.port}")
-                        return jsonify({'connected': True, 'port': device.port}), 200
+                        return jsonify({'connected': True, 'port': device.port})
                 except Exception as e:
                     app.logger.warning(f"{device_name} is unresponsive, disconnecting. Error: {str(e)}")
                     porthandler.disconnect_serial_device(device_name)
-                    return jsonify({'connected': False, 'error': f"{device_name.capitalize()} unresponsive", 'popup': True}), 200
+                    return jsonify({
+                        'connected': False,
+                        'error': f"{device_name.capitalize()} unresponsive",
+                        'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                        'popup': True
+                    }), 400
         elif device_name.lower() in ['barcode', 'barcodescanner']:
             from serial.tools import list_ports
             available_ports = [port.device for port in list_ports.comports()]
             if device.port in available_ports:
                 app.logger.debug(f"{device_name} is connected on port {device.port}")
-                return jsonify({'connected': True, 'port': device.port}), 200
+                return jsonify({'connected': True, 'port': device.port})
             else:
                 app.logger.warning(f"{device_name} appears to be disconnected (port not found).")
                 return jsonify({
-                    'connected': False, 
-                    'error': "Barcode Scanner disconnected", 
+                    'connected': False,
+                    'error': "Barcode Scanner disconnected",
+                    'code': ErrorCode.BARCODE_DISCONNECTED,
                     'popup': True
-                }), 200
+                }), 400
 
         app.logger.debug(f"{device_name} is connected on port {device.port}")
-        return jsonify({'connected': True, 'port': device.port}), 200
+        return jsonify({'connected': True, 'port': device.port})
 
     app.logger.warning(f"{device_name} appears to be disconnected.")
-    # Always return HTTP 200 with connected flag false.
-    return jsonify({
-        'connected': False, 
-        'error': f"{device_name.capitalize()} appears to be disconnected", 
-        'popup': True
-    }), 200
+    # For turntable, return error with code.
+    if device_name.lower() == 'turntable':
+        return jsonify({
+            'connected': False,
+            'error': f"{device_name.capitalize()} appears to be disconnected",
+            'code': ErrorCode.TURNTABLE_DISCONNECTED,
+            'popup': True
+        }), 400
+    else:
+        return jsonify({
+            'connected': False,
+            'error': f"{device_name.capitalize()} appears to be disconnected",
+            'code': ErrorCode.BARCODE_DISCONNECTED,
+            'popup': True
+        }), 400
+
 
 # Turntable Functions
 @app.route('/api/home_turntable_with_image', methods=['POST'])
@@ -882,7 +897,9 @@ def connect_camera_internal(camera_type):
 
     selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
     if not selected_device:
-        return {"error": f"Camera {camera_type} with serial {target_serial} not found"}
+        error_code = ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
+        return {"error": f"Camera {camera_type} with serial {target_serial} not found", "code": error_code}
+
 
     # If already connected, return info.
     if globals.cameras.get(camera_type) and globals.cameras[camera_type].IsOpen():
