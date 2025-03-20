@@ -19,15 +19,18 @@ def load_settings(settings_path=DEFAULT_SETTINGS_PATH):
                 _cached_settings = json.load(file)
             logging.info(f"Settings loaded from {settings_path}")
         except FileNotFoundError:
-            logging.error(f"Settings file not found at {settings_path}")
+            error_message = f"Settings file not found at {settings_path}"
+            logging.error(error_message)
+            # Return an empty dict as fallback
             _cached_settings = {}
         except json.JSONDecodeError:
-            logging.error("Invalid JSON format in settings file.")
+            error_message = "Invalid JSON format in settings file."
+            logging.error(error_message)
             _cached_settings = {}
         except Exception as e:
-            logging.error(f"Failed to load settings: {e}")
+            error_message = f"Failed to load settings: {e}"
+            logging.error(error_message)
             _cached_settings = {}
-
     return _cached_settings
 
 def save_settings(settings_path=DEFAULT_SETTINGS_PATH):
@@ -37,22 +40,18 @@ def save_settings(settings_path=DEFAULT_SETTINGS_PATH):
             with open(settings_path, 'w') as file:
                 json.dump(_cached_settings, file, indent=4)
             logging.info("Settings saved successfully.")
+            return True
         except Exception as e:
-            logging.error(f"Failed to save settings: {e}")
+            error_message = f"Failed to save settings: {e}"
+            logging.error(error_message)
+            return False
 
 def get_settings() -> dict:
-    """
-    Returns the current in-memory settings dict.
-    Make sure to call load_settings() at least once on startup.
-    """
-    # We do NOT do any locking here because the caller might already hold the lock,
-    # but if you prefer, you can do so.
+    """Returns the current in-memory settings dict."""
     return _cached_settings
 
 def set_settings(new_settings: dict):
-    """
-    Replaces the entire settings dictionary in memory.
-    """
+    """Replaces the entire settings dictionary in memory."""
     global _cached_settings
     with _settings_lock:
         _cached_settings = new_settings

@@ -8,7 +8,9 @@ from pypylon import pylon
 from cameracontrol import (apply_camera_settings, 
                            validate_and_set_camera_param, get_camera_properties)
 import porthandler
-import imageprocessing
+
+from image_processing import imageprocessing_main
+
 import threading
 from settings_manager import load_settings, save_settings, get_settings
 import numpy as np
@@ -208,7 +210,7 @@ def get_serial_device_status(device_name):
 
 # Turntable Functions
 @app.route('/api/home_turntable_with_image', methods=['POST'])
-def home_turntable_with_image():
+def home_turntable():
     try:
         app.logger.info("Homing process initiated.")
         camera_type = 'main'
@@ -235,7 +237,14 @@ def home_turntable_with_image():
             grab_result.Release()
 
         # Step 2: Process the image and calculate rotation
-        rotation_needed = imageprocessing.home_turntable_with_image(image)
+        rotation_needed, error_msg = imageprocessing_main.home_turntable_with_image(image)
+        if rotation_needed is None:
+            app.logger.error(f"Image processing failed in home_turntable_with_image: {error_msg}")
+            return jsonify({
+                "error": "asd",
+                "code": error_msg,
+                "popup": True
+            }), 500
         command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
         app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
 
@@ -748,7 +757,7 @@ def analyze_slice(process_func, camera_type, label):
 def analyze_center_circle():
     app.logger.info("Center circle analysis started.")
     return analyze_slice(
-        process_func=imageprocessing.process_center,
+        process_func = imageprocessing_main.process_center,
         camera_type='main',
         label='center_circle',
     )
@@ -757,7 +766,7 @@ def analyze_center_circle():
 def analyze_center_slice():
     app.logger.info("Center slice analysis started.")
     return analyze_slice(
-        process_func=imageprocessing.process_inner_slice,
+        process_func = imageprocessing_main.process_inner_slice,
         camera_type='main',
         label='center_slice',
     )
@@ -766,7 +775,7 @@ def analyze_center_slice():
 def analyze_outer_slice():
     app.logger.info("Outer slice analysis started.")
     return analyze_slice(
-        process_func=imageprocessing.start_side_slice,
+        process_func = imageprocessing_main.start_side_slice,
         camera_type='side',
         label='outer_slice',
     )

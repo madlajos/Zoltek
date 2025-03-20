@@ -31,14 +31,15 @@ export const popupInterceptor: HttpInterceptorFn = (
       }
     }),
     catchError((error: HttpErrorResponse) => {
-      console.error("Interceptor caught error:", error);
+      console.debug("Interceptor caught error:", error);
       const errorBody = error.error as ApiResponse;
-      console.debug("Error body in interceptor:", errorBody);
       const code = errorBody?.code || 'GENERIC';
       const message = errorNotificationService.getMessage(code);
-      console.debug("Interceptor catchError: adding error", { code, message });
-      errorNotificationService.addError({ code, message });
+      console.debug("Interceptor processing error with code:", code, "message:", message);
+      let appError: AppError = { code, message };
+      errorNotificationService.addError(appError);
       return throwError(() => error);
     })
+    
   );
 };

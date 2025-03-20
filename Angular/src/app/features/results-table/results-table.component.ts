@@ -31,7 +31,7 @@ export class ResultsTableComponent implements OnInit {
       time: '12:32',
       id: '1234',
       barcode: '5678',
-      operator: 'Teszt Béla',
+      operator: 'Dr. Mészáros Lilla Alexandra',
       clogged: '12',
       partiallyClogged: '821',
       clean: '48012',

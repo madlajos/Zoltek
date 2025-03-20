@@ -1,0 +1,113 @@
+ERRORCODE
+
+------- HOME----------------------------------------------------------------------------------
+
+Error 2000: Home: Input image is None. Please provide a valid grayscale image.
+Error 2002: Home: Input image is not a valid NumPy array.
+Error 2003: Home: Not a grayscale image.
+Error 2004: Home: Template image not found.
+Error 2005: Home: Template image exists but is not readable.
+Error 2006: Home: Template image could not be loaded. File may be corrupted or in an unsupported format.
+Error 2007: Home: Unexpected error loading template.
+Error 2008: Home: Image is too dark. Increase lighting.
+Error 2009: Home: Image is too bright. Reduce lighting.
+Error 2010: Home: Unexpected error in image check.
+Error 2011: Home: OpenCV error in rotate_image.
+Error 2012: `rotated_templates` is empty or not a valid dictionary.
+Error 2013: 'rotated_templates' is None. Cannot compute angles."
+Error 2014: `target_to_match` or `template_small` is None. Cannot compute match.
+Error 2015: Empty image provided for template matching.
+Error 2016: cropped_region` or `template_small` is None. Cannot compute match
+Error 2017: Rotation failed for angle {angle}. Skipping this angle.
+Error 2018: OpenCV error in find_best_match_for_angle(): {e}
+Error 2019: Unexpected error in find_best_match_for_angle()
+Error 2020: Error during parallel search
+Error 2021: Error in best angle calc(10)
+Error 2022: Error in best angle calc(5)
+Error 2023: Error in best angle calc(0.5)
+Error 2024: Error in template matching()
+Error 2025: Unexpected error in angle_det()
+
+-------- CIRCLE----------------------------------------------------------------------------------
+
+Error 2100: Circle: Input image is None. Please provide a valid grayscale image.
+Error 2102: Circle: Input image is not a valid NumPy array.
+Error 2103: Circle: Not a grayscale image.
+Error 2104: Circle: Template image not found.
+Error 2105: Circle: Template image exists but is not readable.
+Error 2106: Circle: Template image could not be loaded. File may be corrupted or in an unsupported format.
+Error 2107: Circle: Unexpected error loading template.
+Error 2108: Circle: Image is too dark. Increase lighting.
+Error 2109: Circle: Image is too bright. Reduce lighting.
+Error 2110: Circle: Unexpected error in image check.
+Error 2111: Circle: OpenCV resize failed.
+Error 2112: Circle: OpenCV matchTemplate failed.
+Error 2113: Circle: No valid pixels found in mask.
+Error 2114: Circle: Failed to write to globals.py
+Error 2115: Circle: OpenCV bitwise operation failed.
+Error 2116: Circle: Masked image is None
+Error 2117: Circle: OpenCV thresholding failed.
+Error 2118: Circle: OpenCV findContours failed.
+Error 2119: Circle: Unexpected error occured in islice_template_match_with_polygon.
+Error 2120: Circle: Unexpected error in center_detect_small_dots_and_contours.
+
+-------- INNERSLICE-------------------------------------------------------------------------------
+
+Error 2200: IS: Input image is None. Please provide a valid grayscale image.
+Error 2202: IS: Input image is not a valid NumPy array.
+Error 2203: IS: Not a grayscale image.
+Error 2204: IS: Template image not found.
+Error 2205: IS: Template image exists but is not readable.
+Error 2206: IS: Template image could not be loaded. File may be corrupted or in an unsupported format.
+Error 2207: IS: Unexpected error loading template.
+Error 2208: IS: Image is too dark. Increase lighting.
+Error 2209: IS: Image is too bright. Reduce lighting.
+Error 2210: IS: Unexpected error in image check.
+Error 2211: IS: Image cropping failed.
+Error 2212: IS: Cropped image or Template is None
+Error 2213: IS: OpenCV error in resize procedure.
+Error 2214: IS: Template matching failure.
+Error 2215: IS: No matching result.
+Error 2216: IS: Extracted region exceeding the image boundaries
+Error 2217: IS: Error in extracting matched region.
+Error 2218: IS: Creating mask failure
+Error 2219: IS: Dilation failure
+Error 2220: IS: Resizing failure to original size
+Error 2221: IS: Error in bitwise operation
+Error 2222: IS: Unexpected error occured in islice_template_match_with_polygon()
+Error 2223: IS: Error during thresholding or contour detection
+Error 2224: IS: Not enough dots for clustering
+Error 2225: IS: Error in dot detection
+Error 2226: IS: Error during column detection
+Error 2227: IS: Error during column sorting
+Error 2228: IS: Unexpected error during dot detection and processing
+
+-------- OUTERSLICE-------------------------------------------------------------------------------
+
+Error 2300: OS: Input image is None. Please provide a valid grayscale image.
+Error 2302: OS: Input image is not a valid NumPy array.
+Error 2303: OS: Not a grayscale image.
+Error 2304: OS: Template image not found.
+Error 2305: OS: Template image exists but is not readable.
+Error 2306: OS: Template image could not be loaded. File may be corrupted or in an unsupported format.
+Error 2307: OS: Unexpected error loading template.
+Error 2308: OS: Image is too dark. Increase lighting.
+Error 2309: OS: Image is too bright. Reduce lighting.
+Error 2310: OS: Unexpected error in image check.
+Error 2311: OS: Template or cropped image not found
+Error 2312: OS: Downscaling resulted in empty image
+Error 2313: OS: Matched region goes out of image bounds.
+Error 2314: OS: Template mask is empty after thresholding.
+Error 2315: OS: Expanded mask is completely empty.
+Error 2316: OS: Masked region is completely black after applying the mask.
+Error 2317: OS: Template or cropped image not found.
+Error 2318: OS: ValueError encountered.
+Error 2319: OS: IndexError - Matched region out of bounds.
+Error 2320: OS: Unknown error occurred
+Error 2321: OS: Invalid or empty image provided
+Error 2322: OS: No contours found in image.
+Error 2323: OS: Not enough dots detected for clustering.
+Error 2324: OS: No dots found for column detection.
+Error 2325: OS: Error in first column detection
+Error 2326: OS: No valid columns detected
+Error 2327: OS: Unexpected error in dot detection

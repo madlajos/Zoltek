@@ -7,7 +7,10 @@ import { catchError, tap } from 'rxjs/operators';
 export interface AppError {
   code: string;
   message: string;
+  popupStyle?: 'default' | 'center';
+  abortMeasurement?: boolean;
 }
+
 
 @Injectable({ providedIn: 'root' })
 export class ErrorNotificationService {
@@ -39,15 +42,20 @@ export class ErrorNotificationService {
   
 
   addError(error: AppError): void {
+    if (error.code && error.code.startsWith("E2")) {
+      error.popupStyle = 'center';
+      error.abortMeasurement = true;
+    }
     const currentErrors = this.errorsSubject.value;
     if (!currentErrors.find(err => err.code === error.code)) {
-      // If the provided message is empty, fill it in using our mapping.
       if (!error.message) {
         error.message = this.getMessage(error.code);
       }
+      console.debug("Adding error to subject:", error);
       this.errorsSubject.next([...currentErrors, error]);
     }
   }
+  
   
   removeError(code: string): void {
     const currentErrors = this.errorsSubject.value.filter(err => err.code !== code);

@@ -2,16 +2,15 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-error-popup',
+  selector: 'app-center-error-popup',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './error-popup.component.html',
-  styleUrls: ['./error-popup.component.css']
+  templateUrl: './center-error-popup.component.html',
+  styleUrls: ['./center-error-popup.component.css']
 })
-export class ErrorPopupComponent {
+export class CenterErrorPopupComponent {
   @Input() message!: string;
-  @Input() index!: string;  // Here we can use the error code as the identifier
-  @Input() popupStyle: 'default' | 'center' = 'default';
+  @Input() index!: string;
   @Output() close = new EventEmitter<string>();
 
   dismiss() {
