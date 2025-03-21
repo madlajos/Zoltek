@@ -5,8 +5,8 @@ import { ResultsTableComponent } from './results-table.component';
 @NgModule({
   imports: [
     CommonModule,
-    ResultsTableComponent // ✅ Import the standalone component
+    ResultsTableComponent
   ],
-  exports: [ResultsTableComponent] // ✅ Make it available to other modules
+  exports: [ResultsTableComponent]
 })
 export class ResultsTableModule {}

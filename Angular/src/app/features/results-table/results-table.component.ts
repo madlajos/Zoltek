@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { SharedService } from '../../shared.service';
 
 interface MeasurementResult {
+  date: string;
   time: string;
   id: number | string;
   barcode: string;
@@ -28,10 +29,11 @@ export class ResultsTableComponent implements OnInit {
   ngOnInit(): void {
     // Pre-fill table with 5 empty rows before measurements arrive
     this.results = Array.from({ length: 12 }, (_, i) => ({
+      date: '2025.03.21',
       time: '12:32',
       id: '1234',
       barcode: '5678',
-      operator: 'Dr. Mészáros Lilla Alexandra',
+      operator: 'Teszt Béla',
       clogged: '12',
       partiallyClogged: '821',
       clean: '48012',

@@ -215,22 +215,23 @@ def home_turntable():
         app.logger.info("Homing process initiated.")
         camera_type = 'main'
 
-        # Step 1: Grab the image QUICKLY and RELEASE the camera
+        # Step 1: Grab the image quickly and release the camera
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
 
             if camera is None or not camera.IsOpen():
-                error_msg = "Main camera is not connected or open."
-                app.logger.error(error_msg)
-                return jsonify({"error": error_msg, "popup": True}), 400
+                return jsonify({'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                                'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                                "popup": True}), 500
 
-            grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            grab_result = retry_operation(lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
+                                          max_retries=3,
+                                          wait=2)
 
             if not grab_result.GrabSucceeded():
-                grab_result.Release()
-                error_msg = "Failed to grab image from camera."
-                app.logger.error(error_msg)
-                return jsonify({"error": error_msg, "popup": True}), 500
+                return jsonify({'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                                'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                                "popup": True}), 500
 
             app.logger.info("Image grabbed successfully.")
             image = grab_result.Array
@@ -241,18 +242,22 @@ def home_turntable():
         if rotation_needed is None:
             app.logger.error(f"Image processing failed in home_turntable_with_image: {error_msg}")
             return jsonify({
-                "error": "asd",
-                "code": error_msg,
-                "popup": True
+                'error': "image_analysis_error",
+                'code': error_msg,
+                'popup': True
             }), 500
         command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
         app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
 
         # Step 3: Send rotation command & retry confirmation
-        movement_success = retry_operation(lambda: porthandler.write_turntable(command), max_retries=3, wait=2)
+        movement_success = retry_operation(lambda: porthandler.write_turntable(command),
+                                           max_retries=3,
+                                           wait=2)
 
         if not movement_success:
-            return jsonify({"error": "Turntable did not confirm movement completion", "popup": True}), 500
+            return jsonify({'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+                            'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                            'popup': True}), 500
 
         app.logger.info("Rotation completed successfully.")
 
@@ -271,7 +276,6 @@ def home_turntable():
     except Exception as e:
         app.logger.exception(f"Error during homing: {e}")
         return jsonify({"error": str(e), "popup": True}), 500
-
 
 @app.route('/api/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
@@ -661,45 +665,59 @@ def analyze_slice(process_func, camera_type, label):
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
             if camera is None or not camera.IsOpen():
-                msg = f"{camera_type.capitalize()} camera is not connected or open."
-                app.logger.error(msg)
-                return jsonify({"error": msg}), 400
-
+                
+                error_code = (ErrorCode.MAIN_CAMERA_DISCONNECTED 
+                              if camera_type.lower() == 'main' 
+                              else ErrorCode.SIDE_CAMERA_DISCONNECTED)
+                app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
+                return jsonify({
+                    "error": ERROR_MESSAGES.get(error_code),
+                    "code": error_code,
+                    "popup": True
+                }), 400
+                
             # Retry grabbing the image up to 10 times
-            max_retries = 10
-            for attempt in range(max_retries):
-                grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-
-                if grab_result.GrabSucceeded():
-                    image = grab_result.Array
+            image = None
+            grab_result = retry_operation(lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
+                                          max_retries=10,
+                                          wait=1)
+            
+            if grab_result.GrabSucceeded():
+                image = grab_result.Array
+                if image is not None:
                     grab_result.Release()
                     globals.latest_image = image.copy()
-                    break  # Exit the loop if successful
-
-                grab_result.Release()
-                app.logger.warning(f"Attempt {attempt + 1}/{max_retries}: Failed to grab image from {camera_type} camera.")
-                time.sleep(0.1)  # Wait 100ms before retrying
-
+                    
             else:
-                # If we exhaust retries, return an error
-                msg = f"Failed to grab image from {camera_type} camera after {max_retries} attempts."
-                app.logger.error(msg)
-                return jsonify({"error": msg}), 500
+                error_code = (ErrorCode.MAIN_CAMERA_DISCONNECTED 
+                              if camera_type.lower() == 'main' 
+                              else ErrorCode.SIDE_CAMERA_DISCONNECTED)
+                app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
+                return jsonify({
+                    "error": ERROR_MESSAGES.get(error_code),
+                    "code": error_code,
+                    "popup": True
+                }), 400
 
-
-        # 1) Detect new contours
-        new_dot_contours = process_func(image)
+        # 1) Run the specified image processing function
+        new_dot_contours, error_msg = process_func(image)
+        if new_dot_contours is None:
+            app.logger.error(f"Image processing failed in home_turntable_with_image: {error_msg}")
+            return jsonify({
+                "error": "asd",
+                "code": error_msg,
+                "popup": True
+            }), 500
+            
         if isinstance(new_dot_contours, np.ndarray):
             new_dot_contours = new_dot_contours.tolist()
 
-        # Convert np.int32 → Python int
         new_dot_contours = [
             [int(x) if isinstance(x, (np.int32, np.int64)) else x for x in dot]
             for dot in new_dot_contours
         ]
 
         # 2) Append new dots with stable IDs
-        #    e.g. new_dot_contours = [[x,y,col,area], ...]
         old_counter = globals.dot_id_counter
         for dot in new_dot_contours:
             x, y, col, area = dot
@@ -707,34 +725,31 @@ def analyze_slice(process_func, camera_type, label):
             globals.dot_id_counter += 1
             globals.measurement_data.append([dot_id, x, y, col, area])
 
-        # Record how many new dots for this label
         globals.last_blob_counts[label] = len(new_dot_contours)
 
         # 3) Classify entire dataset
         result = calculate_statistics(globals.measurement_data)
         if "error" in result:
             app.logger.error(f"Calculation error in {label}: {result['error']}")
-            return jsonify({"error": result["error"]}), 500
+            return jsonify({
+                "error": "asd",
+                "code": ErrorCode.IMAGE_ANALYSIS_FAILED,
+                "popup": True
+            }), 500
 
-        # This classification returns classified dots as (dot_id, x, y, col, area, class)
-        classified_dots = result["classified_dots"]
+        classified_dots = result["classified_dots"]  # (dot_id, x, y, col, area, cls)
         final_counts = result["result_counts"]
 
-        # 4) Identify the newly added dot IDs
+        # 4) Identify newly added dot IDs
         newly_added_ids = set(range(old_counter, globals.dot_id_counter))
-
-        # Extract only the newly classified dots (by ID)
         latest_classified_dots = [
-            d for d in classified_dots
-            if d[0] in newly_added_ids
+            d for d in classified_dots if d[0] in newly_added_ids
         ]
-
-        # Convert (dot_id, x, y, col, area, cls) → (x, y, col, area, cls) for annotation
         latest_for_annotation = [
             (x, y, col, area, cls) for (dot_id, x, y, col, area, cls) in latest_classified_dots
         ]
 
-        # 5) Annotate
+        # 5) Annotate and save the image
         save_path = save_annotated_image(globals.latest_image, latest_for_annotation, label)
 
         # 6) Logging & Return
@@ -750,7 +765,11 @@ def analyze_slice(process_func, camera_type, label):
 
     except Exception as e:
         app.logger.exception(f"Error during {label} analysis: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": "asd",
+            "code": ErrorCode.GENERIC,
+            "popup": True
+        }), 500
     
     
 @app.route('/api/analyze_center_circle', methods=['POST'])

@@ -19,25 +19,49 @@
     </div>
   </div>
 
-  <!-- Existing Textboxes -->
-  <div class="control-panel-content">
-    <label for="nozzle-id">Dűzni Azonosító:</label>
-    <input type="text" id="nozzle-id" class="input-box" [(ngModel)]="nozzleId" readonly tabindex="-1" style="pointer-events: none;" />
+ <!-- Remove inline style here -->
+<div class="control-panel-content">
 
-    <label for="operator-id">Operátor Azonosító:</label>
-    <input type="text" id="operator-id" class="input-box" />
+  <!-- Left column: Original nozzle ID -->
+  <div style="display: flex; flex-direction: column;">
+    <label for="nozzle-id">Dűzni Azonosító:</label>
+    <input type="number"
+           id="nozzle-id"
+           class="input-box"
+           [(ngModel)]="nozzleId"
+           tabindex="-1"/>
   </div>
 
-  <!-- New Measurement Elements (placed under the textboxes) -->
+  <!-- Right column: Copy of nozzle ID -->
+  <div style="display: flex; flex-direction: column;">
+    <label for="nozzle-barcode">Dűzni Vonalkód:</label>
+    <input type="text"
+           id="nozzle-barcode"
+           class="input-box"
+           [(ngModel)]="nozzleBarcode"
+           readonly
+           tabindex="-1"
+           style="pointer-events: none;" />
+  </div>
+
+  <!-- Operator ID spans both columns -->
+  <div style="grid-column: 1 / 2; display: flex; flex-direction: column;">
+    <label for="operator-id">Operátor:</label>
+    <input type="text"
+           id="operator-id"
+           class="input-box" />
+  </div>
+</div>
+
+
+  <!-- Measurement Controls (under the text fields) -->
   <div class="measurement-controls">
-    <!-- Measurement Start/Stop Button using its own styling -->
     <button (click)="toggleMeasurement()"
             class="measurement-button"
             [ngClass]="{'measurement-on': measurementActive, 'measurement-off': !measurementActive}">
       {{ measurementActive ? 'Mérés leállítása' : 'Mérés indítása' }}
     </button>
-
-      </div>
+  </div>
 
   <!-- Progress Bar -->
   <div class="progress-container">
@@ -50,7 +74,6 @@
     </div>
   </div>
   
-
   <!-- Results Blocks -->
   <div class="results-container">
     <div class="result-block" *ngFor="let result of results">
@@ -63,5 +86,6 @@
   <div class="company-logo">
     <img src="assets/images/logo.png" alt="Company Logo">
   </div>
+
   <app-turntable-control style="display: none;"></app-turntable-control>
 </div>

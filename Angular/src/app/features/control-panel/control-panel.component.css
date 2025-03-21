@@ -20,18 +20,28 @@
 }
 
 .control-panel-content {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 0.9fr 0.9fr;
+  gap: -10px;
+  align-items: start;
 }
 
 .input-box {
-  width: 100%;
+  width: 65%;
   padding: 5px;
   background-color: var(--default-grey);
   border: 1px solid  var(--border-grey);
   color: white;
   border-radius: 5px;
+  margin-top:8px;
+  margin-bottom:12px;
+}
+
+/* Hide up down arrow from nozzle ID */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* Position buttons in the top-right */
@@ -299,3 +309,4 @@
 .company-logo img {
   max-width: 150px;
 }
+
