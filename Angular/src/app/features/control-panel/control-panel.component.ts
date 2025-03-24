@@ -7,13 +7,15 @@ import { catchError, throwError, switchMap, tap, finalize } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SharedService, MeasurementResult } from '../../shared.service';
+import { MeasurementResultsPopupComponent } from '../../components/measurement-results-popup/measurement-results-popup.component';
+
 
 @Component({
   standalone: true,
   selector: 'app-control-panel',
   templateUrl: './control-panel.component.html',
   styleUrls: ['./control-panel.component.css'],
-  imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent]
+  imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent, MeasurementResultsPopupComponent ]
 })
 export class ControlPanelComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000/api';
@@ -23,8 +25,10 @@ export class ControlPanelComponent implements OnInit {
   nozzleBarcode: string = "";
   measurementActive: boolean = false;
 
+  isResultsPopupVisible: boolean = false;
+
   currentMeasurement: number = 0;
-  totalMeasurements: number = 18;
+  totalMeasurements: number = 2;
   turntablePosition: number | string = '?';
 
   @ViewChild(TurntableControlComponent) turntableControl!: TurntableControlComponent;
@@ -57,6 +61,15 @@ export class ControlPanelComponent implements OnInit {
       console.error("TurntableControlComponent is not available!");
     }
   }
+
+  showResultsPopup(): void {
+    this.isResultsPopupVisible = true;
+  }
+
+  get resultsValues(): number[] {
+    return this.results.map(r => r.value);
+  }
+  
 
   // Toggle Relay Function (unchanged)
   toggleRelay(): void {
@@ -187,6 +200,7 @@ export class ControlPanelComponent implements OnInit {
   performMeasurementCycle(): void {
     if (!this.measurementActive || this.currentMeasurement >= this.totalMeasurements) {
       console.log("Measurement cycle completed.");
+      this.showResultsPopup();
       return;
     }
   

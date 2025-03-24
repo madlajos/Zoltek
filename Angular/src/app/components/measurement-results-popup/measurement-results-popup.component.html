@@ -1,0 +1,23 @@
+<div class="center-popup-overlay">
+    <div class="center-popup-content">
+      <h2>Sikeres mérés</h2>
+      <table class="results-table-popup">
+        <thead>
+          <tr>
+            <th>Eldugult</th>
+            <th>Részl. Eldugult</th>
+            <th>Tiszta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ results[0] }}</td>
+            <td>{{ results[1] }}</td>
+            <td>{{ results[2] }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <button (click)="dismiss()">OK</button>
+    </div>
+  </div>
+  

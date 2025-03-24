@@ -88,4 +88,11 @@
   </div>
 
   <app-turntable-control style="display: none;"></app-turntable-control>
+
 </div>
+
+<app-measurement-results-popup 
+*ngIf="isResultsPopupVisible"
+[results]="resultsValues" 
+(closePopup)="isResultsPopupVisible = false">
+</app-measurement-results-popup>
