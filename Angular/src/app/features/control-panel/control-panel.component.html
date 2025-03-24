@@ -49,7 +49,8 @@
     <label for="operator-id">Operátor:</label>
     <input type="text"
            id="operator-id"
-           class="input-box" />
+           class="input-box"
+           [(ngModel)]="operatorId" />
   </div>
 </div>
 
@@ -94,5 +95,9 @@
 <app-measurement-results-popup 
 *ngIf="isResultsPopupVisible"
 [results]="resultsValues" 
+[nozzleId]="nozzleId"
+[nozzleBarcode]="nozzleBarcode"
+[operatorId]="operatorId"
+[ngLimit]="ng_limit"
 (closePopup)="isResultsPopupVisible = false">
 </app-measurement-results-popup>

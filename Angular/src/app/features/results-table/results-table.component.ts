@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SharedService } from '../../shared.service';
+import { SharedService, MeasurementRecord } from '../../shared.service';
+import { Subscription } from 'rxjs';
 
 interface MeasurementResult {
   date: string;
@@ -21,23 +22,25 @@ interface MeasurementResult {
   templateUrl: './results-table.component.html',
   styleUrls: ['./results-table.component.css']
 })
-export class ResultsTableComponent implements OnInit {
+export class ResultsTableComponent implements OnInit, OnDestroy {
   results: MeasurementResult[] = [];
+  private subscription!: Subscription;
 
   constructor(private sharedService: SharedService) {}
 
   ngOnInit(): void {
-    // Pre-fill table with 5 empty rows before measurements arrive
-    this.results = Array.from({ length: 12 }, (_, i) => ({
-      date: '2025.03.21',
-      time: '12:32',
-      id: '1234',
-      barcode: '5678',
-      operator: 'Teszt Béla',
-      clogged: '12',
-      partiallyClogged: '821',
-      clean: '48012',
-      result: 'OK'
-    }));
+    // Subscribe to measurement history updates from SharedService.
+    this.subscription = this.sharedService.measurementHistory$.subscribe(
+      (data: MeasurementRecord[]) => {
+        this.results = data;
+      }
+    );
+  }
+  
+  ngOnDestroy(): void {
+    // Unsubscribe to prevent memory leaks.
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
   }
 }

@@ -21,10 +21,13 @@ export class ControlPanelComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000/api';
 
   relayState: boolean = false;
+
   nozzleId: string = "";
   nozzleBarcode: string = "";
-  measurementActive: boolean = false;
+  operatorId: string = "";
+  ng_limit: number = 5;
 
+  measurementActive: boolean = false;
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;

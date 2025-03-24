@@ -3,9 +3,23 @@ import { BehaviorSubject } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { map, switchMap, tap } from 'rxjs/operators';
 
+//Older interface to store MeasurementResults, which are displayed on the control panel
 export interface MeasurementResult {
   label: string;
   value: number;
+}
+
+//New interface to contain measurement records to display in the table and save to DB
+export interface MeasurementRecord {
+  date: string;
+  time: string;
+  id: number | string;
+  barcode: string;
+  operator: string;
+  clogged: number;
+  partiallyClogged: number;
+  clean: number;
+  result: string;
 }
 
 
@@ -20,6 +34,10 @@ export class SharedService {
     { label: 'Részl. Eldugult', value: 0 },
     { label: 'Tiszta', value: 0 }
   ]);
+
+  private measurementHistorySubject = new BehaviorSubject<MeasurementRecord[]>([]);
+  public measurementHistory$ = this.measurementHistorySubject.asObservable();
+
   public measurementResults$ = this.measurementResultsSubject.asObservable();
 
   private cameraConnectionStatus = new BehaviorSubject<{ main: boolean; side: boolean }>({
@@ -43,6 +61,12 @@ export class SharedService {
   private saveDirectory: string = '';
 
   constructor(private http: HttpClient) {}
+
+  addMeasurementResult(record: MeasurementRecord): void {
+    const current = this.measurementHistorySubject.getValue();
+    // append the new record and emit the updated list
+    this.measurementHistorySubject.next([record, ...current]);
+  }
 
   setSaveDirectory(directory: string): void {
     this.saveDirectory = directory;
