@@ -91,18 +91,6 @@
   height: 98vh;
 }
 
-
-.login-popup {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  padding: 20px;
-  border: 1px solid #ddd;
-  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-}
-
 .logout-button {
   width: 100%;
   padding: 10px;
@@ -116,4 +104,3 @@
   color: red;
   font-size: 14px;
 }
-

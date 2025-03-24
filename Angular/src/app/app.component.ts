@@ -1,16 +1,15 @@
-import { Component, ViewChild, ElementRef, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ViewChild, ChangeDetectorRef, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Lightbox } from 'ngx-lightbox';
-import { MatSidenav } from '@angular/material/sidenav'; // ✅ Import MatSidenav
+import { MatSidenav } from '@angular/material/sidenav';
 import { CommonModule } from '@angular/common';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
-import { FormsModule } from '@angular/forms'; // ✅ Import FormsModule
+import { FormsModule } from '@angular/forms';
 
-
-// ✅ Import all standalone components explicitly
+// Import standalone components
 import { ImageViewerComponent } from './features/image-viewer/image-viewer.component';
 import { ControlPanelComponent } from './features/control-panel/control-panel.component';
 import { TurntableControlComponent } from './features/turntable-control/turntable-control.component';
@@ -19,12 +18,11 @@ import { CameraControlComponent } from './features/camera-control/camera-control
 import { ResultsTableComponent } from './features/results-table/results-table.component';
 import { ErrorPopupListComponent } from './components/error-popup-list/error-popup-list.component';
 import { BarcodeScannerControlComponent } from './features/barcode-scanner-control/barcode-scanner-control.component';
-
-
+import { LoginPopupComponent } from './components/login-popup/login-popup.component';
 
 @Component({
   selector: 'app-root',
-  standalone: true, // ✅ Mark as standalone
+  standalone: true,
   imports: [
     CommonModule, 
     MatSidenavModule, 
@@ -33,7 +31,7 @@ import { BarcodeScannerControlComponent } from './features/barcode-scanner-contr
     MatExpansionModule,
     FormsModule,
 
-    // ✅ Add standalone components to imports
+    // Standalone components
     ImageViewerComponent,
     ControlPanelComponent,
     TurntableControlComponent,
@@ -41,59 +39,48 @@ import { BarcodeScannerControlComponent } from './features/barcode-scanner-contr
     CameraControlComponent,
     ResultsTableComponent,
     ErrorPopupListComponent,
-    BarcodeScannerControlComponent,  
+    BarcodeScannerControlComponent,
+    LoginPopupComponent,
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
   title = 'Untitled';  
-  @ViewChild('sidenav') sidenav!: MatSidenav;  // ✅ Reference to sidenav
+  @ViewChild('sidenav') sidenav!: MatSidenav;
 
-  isAuthenticated = false; // ✅ Track if the user is logged in
-  isLoginPopupVisible = false; // ✅ Controls the login popup
-  username = '';
-  password = '';
+  isAuthenticated = false;
+  isLoginPopupVisible = false;
   loginError = '';
-
-  private readonly correctUsername = 'admin';
-  private readonly correctPassword = '1234';
 
   constructor(private http: HttpClient, private lightbox: Lightbox, private cdRef: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    // Check if the user was previously authenticated (session storage)
     this.isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
   }
 
-  /** ✅ This function runs when clicking the toggle button */
   toggleSettingsPanel(): void {
     if (this.isAuthenticated) {
-      this.sidenav.toggle(); // ✅ Open if already authenticated
+      this.sidenav.toggle();
     } else {
-      this.isLoginPopupVisible = true; // ✅ Show login form if not logged in
+      this.isLoginPopupVisible = true;
     }
   }
 
-  /** ✅ Handles login */
-  login(): void {
-    if (this.username === this.correctUsername && this.password === this.correctPassword) {
-      this.isAuthenticated = true;
-      sessionStorage.setItem('isAuthenticated', 'true'); // ✅ Store in session
-      this.isLoginPopupVisible = false;
-      this.sidenav.open(); // ✅ Open settings panel after login
-      this.loginError = '';
-    } else {
-      this.loginError = 'Hibás felhasználónév vagy jelszó!';
-    }
+  hideLoginPopup(): void {
+    this.isLoginPopupVisible = false;
   }
 
-  /** ✅ Logout function */
+  onLoginSuccess(credentials: { username: string; password: string }): void {
+    // Here you could use the credentials if needed.
+    this.isAuthenticated = true;
+    sessionStorage.setItem('isAuthenticated', 'true');
+    this.sidenav.open();
+  }
+
   logout(): void {
     this.isAuthenticated = false;
     sessionStorage.removeItem('isAuthenticated');
     this.sidenav.close();
-    this.username = '';
-    this.password = '';
   }
 }

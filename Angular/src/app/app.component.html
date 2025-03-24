@@ -48,15 +48,12 @@
   </mat-sidenav-container>
 </div>
 
-<!-- Login Popup -->
-<div *ngIf="isLoginPopupVisible" class="login-popup">
-  <h3>Bejelentkezés</h3>
-  <input type="text" [(ngModel)]="username" placeholder="Felhasználónév" />
-  <input type="password" [(ngModel)]="password" placeholder="Jelszó" />
-  <button (click)="login()">Bejelentkezés</button>
-  <p *ngIf="loginError" class="error">{{ loginError }}</p>
-</div>
-
+<app-login-popup
+  [isVisible]="isLoginPopupVisible"
+  [loginError]="loginError"
+  (loginSuccess)="onLoginSuccess($event)"
+  (closePopup)="hideLoginPopup()">
+</app-login-popup>
 
 <div style="display: none;">
   <app-barcode-scanner-control></app-barcode-scanner-control>

@@ -4,6 +4,5 @@
   "E1121": "Oldalsó kamera csatlakozási hiba",
   "E1201": "Asztalvezérlő csatlakozási hiba",
   "E1301": "Vonalkódolvasó csatlakozási hiba",
-  "GENERIC": "Váratlan hiba lépett fel",
-  "E9999": "Váratlan hiba lépett fel – UNIQUE_TEST"
+  "GENERIC": "Váratlan hiba lépett fel"
 }
