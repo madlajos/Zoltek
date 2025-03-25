@@ -18,33 +18,34 @@ export class MeasurementResultsPopupComponent {
   @Input() ngLimit!: number;
   @Output() closePopup = new EventEmitter<void>();
 
-  constructor(private sharedService: SharedService) {}  // inject SharedService
+  constructor(private sharedService: SharedService) {}
 
-
-  dismiss(): void {
-    // When OK is clicked, assemble the measurement record
+  // Compute the measurement record from the inputs.
+  get measurementRecord(): MeasurementRecord {
     const now = new Date();
     const pad2 = (n: number) => n.toString().padStart(2, '0');
-    const date = `${now.getFullYear()}.${pad2(now.getMonth()+1)}.${pad2(now.getDate())}`;
+    const date = `${now.getFullYear()}.${pad2(now.getMonth() + 1)}.${pad2(now.getDate())}`;
     const time = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-
     const cloggedCount = Number(this.results[0]) || 0;
-    const resultString = (cloggedCount <= this.ngLimit) ? "OK" : "NO";
-
-    const record: MeasurementRecord = {
+    // If the clogged count is within the limit, we mark it as "✔", otherwise "❌"
+    const resultString = (cloggedCount <= this.ngLimit) ? "✔" : "❌";
+    return {
       date,
       time,
-      id: this.nozzleId || "",
-      barcode: this.nozzleBarcode || "",
-      operator: this.operatorId || "",
+      id: this.nozzleId || "-",
+      barcode: this.nozzleBarcode || "-",
+      operator: this.operatorId || "-",
       clogged: this.results[0] ?? 0,
       partiallyClogged: this.results[1] ?? 0,
       clean: this.results[2] ?? 0,
       result: resultString
     };
-    this.sharedService.addMeasurementResult(record);
+  }
 
-    // Emit event to close the popup
+  dismiss(): void {
+    // When OK is clicked, add the computed measurement record.
+    this.sharedService.addMeasurementResult(this.measurementRecord);
+    // Emit event to close the popup.
     this.closePopup.emit();
   }
 }

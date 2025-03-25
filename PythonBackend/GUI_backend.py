@@ -876,39 +876,49 @@ def reset_results():
         app.logger.exception(f"Error resetting results: {e}")
         return jsonify({"error": str(e)}), 500
 
-    
+
+@app.route('/api/get-other-settings', methods=['GET'])
+def get_other_settings():
+    category = request.args.get('category')
+    if not category:
+        return jsonify({"error": "Category parameter is required."}), 400
+
+    settings_data = get_settings()
+    if category not in settings_data:
+        return jsonify({"error": f"Category '{category}' not found."}), 404
+
+    return jsonify({category: settings_data[category]}), 200
+
 @app.route('/api/update-other-settings', methods=['POST'])
 def update_other_settings():
     try:
         data = request.json
         category = data.get('category')           # e.g. 'size_limits'
-        setting_name = data.get('setting_name')   # e.g. 'class1'
-        setting_value = data.get('setting_value') # e.g. 123
+        setting_name = data.get('setting_name')     # e.g. 'ng_limit'
+        setting_value = data.get('setting_value')   # e.g. 123
 
         app.logger.info(f"Updating {category}.{setting_name} = {setting_value}")
 
-        # Grab the in-memory settings
+        # Retrieve the in-memory settings
         settings_data = get_settings()
-
-        # If the category (e.g., size_limits) doesn’t exist, initialize it
         if category not in settings_data:
             settings_data[category] = {}
 
-        # Update the chosen setting with the new value
-        settings_data[category][setting_name] = setting_value
+        # For consistency, you could add validation or conversion here if needed.
+        # For now, we'll just pass the new value as is.
+        updated_value = setting_value
 
-        # Optionally, you could do validation or type-casting here,
-        # e.g. ensuring it's an integer or within certain bounds
+        # Update the setting in the in-memory dict
+        settings_data[category][setting_name] = updated_value
 
-        # Save to disk
+        # Save the updated settings to disk
         save_settings()
 
         app.logger.info(f"{category}.{setting_name} updated and saved to settings.json")
 
-        # Return the updated (or validated) value to the frontend
         return jsonify({
             "message": f"{category}.{setting_name} updated and saved.",
-            "updated_value": setting_value
+            "updated_value": updated_value
         }), 200
 
     except Exception as e:

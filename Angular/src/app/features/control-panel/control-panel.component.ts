@@ -8,14 +8,14 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SharedService, MeasurementResult } from '../../shared.service';
 import { MeasurementResultsPopupComponent } from '../../components/measurement-results-popup/measurement-results-popup.component';
-
+import { SettingsUpdatesService } from '../../services/settings-updates.service';
 
 @Component({
   standalone: true,
   selector: 'app-control-panel',
   templateUrl: './control-panel.component.html',
   styleUrls: ['./control-panel.component.css'],
-  imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent, MeasurementResultsPopupComponent ]
+  imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent, MeasurementResultsPopupComponent]
 })
 export class ControlPanelComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000/api';
@@ -25,7 +25,7 @@ export class ControlPanelComponent implements OnInit {
   nozzleId: string = "";
   nozzleBarcode: string = "";
   operatorId: string = "";
-  ng_limit: number = 5;
+  ng_limit: number = 0;
 
   measurementActive: boolean = false;
   isResultsPopupVisible: boolean = false;
@@ -46,15 +46,38 @@ export class ControlPanelComponent implements OnInit {
     { label: 'Tiszta', value: 0 }
   ];
 
-  constructor(private http: HttpClient, private cdr: ChangeDetectorRef, private sharedService: SharedService) {}
+  constructor(
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef,
+    private sharedService: SharedService,
+    private settingsUpdatesService: SettingsUpdatesService
+  ) { }
 
   ngOnInit(): void {
     setInterval(() => {
       this.fetchBarcodeData();
     }, 3000);
 
-    this.sharedService.measurementResults$.subscribe((res) => {
-      this.results = res;
+    // Load initial size limits from backend.
+    this.http.get<{ size_limits: { [key: string]: number } }>(`${this.BASE_URL}/get-other-settings?category=size_limits`)
+      .subscribe({
+        next: response => {
+          if (response && response.size_limits) {
+            // Access ng_limit with bracket notation.
+            this.ng_limit = response.size_limits['ng_limit'];
+            console.log("ng_limit loaded initially:", this.ng_limit);
+          }
+        },
+        error: error => {
+          console.error("Error loading settings:", error);
+        }
+      });
+
+    // Subscribe to size limits updates via the shared service.
+    this.settingsUpdatesService.sizeLimits$.subscribe(limits => {
+      // Use bracket notation to access ng_limit.
+      this.ng_limit = limits['ng_limit'];
+      console.log("ng_limit updated via shared service:", this.ng_limit);
       this.cdr.detectChanges();
     });
   }
@@ -73,7 +96,6 @@ export class ControlPanelComponent implements OnInit {
     return this.results.map(r => r.value);
   }
   
-
   // Toggle Relay Function (unchanged)
   toggleRelay(): void {
     this.relayState = !this.relayState;
@@ -106,7 +128,6 @@ export class ControlPanelComponent implements OnInit {
     }
   }
 
-
   toggleMeasurement(): void {
     this.measurementActive = !this.measurementActive;
 
@@ -129,21 +150,20 @@ export class ControlPanelComponent implements OnInit {
     console.log("Results cleared, progress bar reset.");
 
     this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe(
-        (response: any) => {
-            console.log("Backend results reset:", response);
-            
-            if (response?.result_counts && this.results.length === response.result_counts.length) {
-                // Update values while retaining the original labels
-                this.results.forEach((result, index) => {
-                    result.value = response.result_counts[index];
-                });
-            }
-        },
-        (error) => {
-            console.error("Failed to reset backend results:", error);
+      (response: any) => {
+        console.log("Backend results reset:", response);
+        if (response?.result_counts && this.results.length === response.result_counts.length) {
+          // Update values while retaining the original labels
+          this.results.forEach((result, index) => {
+            result.value = response.result_counts[index];
+          });
         }
+      },
+      (error) => {
+        console.error("Failed to reset backend results:", error);
+      }
     );
-}
+  }
 
   fetchBarcodeData(): void {
     this.http.get<{ barcode: string }>(`${this.BASE_URL}/get-barcode`).subscribe(
@@ -228,8 +248,6 @@ export class ControlPanelComponent implements OnInit {
     ).subscribe();
   }
   
-  
-
   waitForTurntableDone(): Observable<any> {
     return new Observable(observer => {
       const checkStatus = () => {
@@ -254,28 +272,28 @@ export class ControlPanelComponent implements OnInit {
   }
 
   updateResultsUI(response: any): void {
-  if (response?.result_counts) {
-    if (!this.results || this.results.length !== response.result_counts.length) {
-      // Initialize with default labels if results are empty or different in length
-      this.results = response.result_counts.map((count: number, index: number) => ({
-        label: `Result ${index + 1}`,
-        value: count
-      }));
-    } else {
-      // Update values but retain original labels
-      this.results.forEach((result, index) => {
-        result.value = response.result_counts[index];
-      });
+    if (response?.result_counts) {
+      if (!this.results || this.results.length !== response.result_counts.length) {
+        // Initialize with default labels if results are empty or different in length
+        this.results = response.result_counts.map((count: number, index: number) => ({
+          label: `Result ${index + 1}`,
+          value: count
+        }));
+      } else {
+        // Update values but retain original labels
+        this.results.forEach((result, index) => {
+          result.value = response.result_counts[index];
+        });
+      }
+      this.cdr.detectChanges();
     }
-    this.cdr.detectChanges();
   }
-}
 
   // Tester Functions to analyse only parts of the images
   analyzeCenterCircle(): void {
     console.log("Analyzing Center Circle...");
     this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).pipe(
-      tap(response => console.log("analyze_center_circle Response:", response)),  // Log response
+      tap(response => console.log("analyze_center_circle Response:", response)),
       switchMap(() => {
         console.log("➡️ Calling update_results...");
         return this.http.post(`${this.BASE_URL}/update_results`, { mode: "center_circle" }, { headers: { 'Content-Type': 'application/json' } });
@@ -285,7 +303,7 @@ export class ControlPanelComponent implements OnInit {
         this.updateResultsUI(response);
       })
     ).subscribe({
-      error: (err) => console.error("Error in analyzeCenterCircle:", err)  // Log error if any
+      error: (err) => console.error("Error in analyzeCenterCircle:", err)
     });
   }
 

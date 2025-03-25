@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { interval, Subscription } from 'rxjs';
 import { ErrorNotificationService } from '../../services/error-notification.service';
+import { SettingsUpdatesService, SizeLimits } from '../../services/settings-updates.service';
 
 interface CameraSettings {
   Width: number;
@@ -16,7 +17,7 @@ interface CameraSettings {
   Gain: number;
   Gamma: number;
   FrameRate: number;
-  [key: string]: any; // Add index signature to allow dynamic property access
+  [key: string]: any; // Allow dynamic property access
 }
 
 @Component({
@@ -54,8 +55,8 @@ export class CameraControlComponent implements OnInit {
     'FrameRate'
   ];
 
-
-  sizeLimits: { [key: string]: number } = {
+  // Changed: Use the SizeLimits interface instead of a generic object.
+  sizeLimits: SizeLimits = {
     class1: 5,
     class2: 95,
     ng_limit: 15
@@ -67,7 +68,11 @@ export class CameraControlComponent implements OnInit {
   private readonly BASE_URL = 'http://localhost:5000/api';
   private settingsLoaded: boolean = false;
 
-  constructor(private http: HttpClient, public sharedService: SharedService,  private errorNotificationService: ErrorNotificationService ) {}
+  constructor(private http: HttpClient,
+    public sharedService: SharedService,
+    private errorNotificationService: ErrorNotificationService,
+    private settingsUpdatesService: SettingsUpdatesService
+  ) { }
 
   ngOnInit(): void {
     if (!this.settingsLoaded) {
@@ -99,6 +104,22 @@ export class CameraControlComponent implements OnInit {
       this.isSideStreaming = status.side;
       console.log(`Main Streaming: ${this.isMainStreaming}, Side Streaming: ${this.isSideStreaming}`);
     });
+
+    // Modified GET call to expect a SizeLimits object.
+    this.http.get<{ size_limits: SizeLimits }>(`${this.BASE_URL}/get-other-settings?category=size_limits`)
+      .subscribe({
+        next: response => {
+          if (response && response.size_limits) {
+            this.sizeLimits = response.size_limits;
+            // Publish the loaded settings to the shared service.
+            this.settingsUpdatesService.updateSizeLimits(this.sizeLimits);
+            console.log("Loaded size limits from backend:", this.sizeLimits);
+          }
+        },
+        error: error => {
+          console.error("Error loading size limits from backend:", error);
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -114,15 +135,15 @@ export class CameraControlComponent implements OnInit {
         next: (response: any) => {
           if (response.connected) {
             this.sharedService.setCameraConnectionStatus(cameraType, true);
-            // Remove any existing error for this camera
+            // Remove any existing error for this camera.
             const errCode = cameraType === 'main' ? this.MAIN_CAMERA_ERR_CODE : this.SIDE_CAMERA_ERR_CODE;
             this.errorNotificationService.removeError(errCode);
-            // If reconnection polling is active, stop it and resume normal polling
+            // If reconnection polling is active, stop it and resume normal polling.
             this.stopReconnectionPolling(cameraType);
             this.startConnectionPolling(cameraType);
           } else {
             this.sharedService.setCameraConnectionStatus(cameraType, false);
-            // Switch to reconnection polling
+            // Switch to reconnection polling.
             this.stopConnectionPolling(cameraType);
             this.startReconnectionPolling(cameraType);
           }
@@ -136,7 +157,6 @@ export class CameraControlComponent implements OnInit {
         }
       });
   }
-  
   
   startConnectionPolling(cameraType: 'main' | 'side'): void {
     if (cameraType === 'main' && !this.connectionPollingMain) {
@@ -229,7 +249,6 @@ export class CameraControlComponent implements OnInit {
     );
   }
   
-
   fetchCameraSettings(cameraType: 'main' | 'side'): void {
     this.http.get(`${this.BASE_URL}/get-camera-settings?type=${cameraType}`).subscribe(
       (settings: any) => {
@@ -305,7 +324,7 @@ export class CameraControlComponent implements OnInit {
     this.http.post(`${this.BASE_URL}/save-camera-settings?type=${cameraType}`, settings).subscribe(
       (response: any) => {
         console.log(`Settings for ${cameraType} camera saved successfully:`, response);
-        this.updateCameraSettingsOnInterface(response.updated_settings, cameraType); // Update the correct interface
+        this.updateCameraSettingsOnInterface(response.updated_settings, cameraType);
       },
       error => {
         console.error(`Error saving settings for ${cameraType} camera:`, error);
@@ -335,31 +354,46 @@ export class CameraControlComponent implements OnInit {
         console.error(`Error applying setting for ${cameraType} camera:`, error);
       }
     );
-}
+  }
 
-applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
-  let value = Number(this.sizeLimits[limitName]); // Explicitly convert to a number
-  console.log(`Applying size limit ${limitName}: ${value}`);
+  applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
+    let value = Number(this.sizeLimits[limitName]); // convert to number explicitly
+    console.log(`Applying size limit ${limitName}: ${value}`);
 
-  this.http.post(`${this.BASE_URL}/update-other-settings`, {
-    category: 'size_limits',
-    setting_name: limitName,
-    setting_value: value  // Now it's always a number
-  }).subscribe((response: any) => {
-    console.log(`Size limit applied successfully:`, response);
-
-    // Ensure we store it as a number again
-    this.sizeLimits[limitName] = Number(response.updated_value);
-  },
-  error => {
-    console.error(`Error applying size limit ${limitName}:`, error);
-  });
-}
+    this.http.post(`${this.BASE_URL}/update-other-settings`, {
+      category: 'size_limits',
+      setting_name: limitName,
+      setting_value: value
+    }).subscribe({
+      next: (response: any) => {
+        console.log(`Size limit applied successfully:`, response);
+        // Update the local value with the response.
+        this.sizeLimits[limitName] = Number(response.updated_value);
+        
+        // Optionally, reload all size limits from backend.
+        this.http.get<{ size_limits: SizeLimits }>(`${this.BASE_URL}/get-other-settings?category=size_limits`)
+          .subscribe({
+            next: resp => {
+              if (resp && resp.size_limits) {
+                this.sizeLimits = resp.size_limits;
+                console.log("Reloaded size limits:", this.sizeLimits);
+                // Publish the updated limits to the shared service.
+                this.settingsUpdatesService.updateSizeLimits(this.sizeLimits);
+              }
+            },
+            error: err => console.error("Error reloading settings:", err)
+          });
+      },
+      error: error => {
+        console.error(`Error applying size limit ${limitName}:`, error);
+      }
+    });
+  }
 
   handleKeyDown(event: KeyboardEvent, setting: string, cameraType: 'main' | 'side'): void {
     if (event.key === 'Enter') {
       console.log(`Enter pressed for ${setting} on ${cameraType} camera`);
-      this.applySetting(setting, cameraType);  // Pass both arguments
+      this.applySetting(setting, cameraType);
     }
   }
 
@@ -394,5 +428,4 @@ applySizeLimit(limitName: 'class1' | 'class2' | 'ng_limit'): void {
       }
     }
   }
-
 }
