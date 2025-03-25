@@ -347,6 +347,12 @@ def toggle_relay():
 @app.route('/api/get-barcode', methods=['GET'])
 def get_barcode():
     return jsonify({'barcode': globals.latest_barcode})
+
+@app.route('/api/clear-barcode', methods=['POST'])
+def clear_barcode():
+    globals.latest_barcode = ""
+    app.logger.info("Barcode cleared via API.")
+    return jsonify({'message': 'Barcode cleared'}), 200
     
 ### Camera-related functions ###
 def stop_camera_stream(camera_type):

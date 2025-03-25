@@ -93,11 +93,11 @@
 </div>
 
 <app-measurement-results-popup 
-*ngIf="isResultsPopupVisible"
-[results]="resultsValues" 
-[nozzleId]="nozzleId"
-[nozzleBarcode]="nozzleBarcode"
-[operatorId]="operatorId"
-[ngLimit]="ng_limit"
-(closePopup)="isResultsPopupVisible = false">
+  *ngIf="isResultsPopupVisible"
+  [results]="resultsValues" 
+  [nozzleId]="nozzleId"
+  [nozzleBarcode]="nozzleBarcode"
+  [operatorId]="operatorId"
+  [ngLimit]="ng_limit"
+  (closePopup)="onPopupClosed()">
 </app-measurement-results-popup>

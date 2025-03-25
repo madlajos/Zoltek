@@ -9,6 +9,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { SharedService, MeasurementResult } from '../../shared.service';
 import { MeasurementResultsPopupComponent } from '../../components/measurement-results-popup/measurement-results-popup.component';
 import { SettingsUpdatesService } from '../../services/settings-updates.service';
+import { BarcodeService } from '../../services/barcode.service';
+
 
 @Component({
   standalone: true,
@@ -50,13 +52,18 @@ export class ControlPanelComponent implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private sharedService: SharedService,
-    private settingsUpdatesService: SettingsUpdatesService
+    private settingsUpdatesService: SettingsUpdatesService,
+    private barcodeService: BarcodeService
   ) { }
 
   ngOnInit(): void {
-    setInterval(() => {
-      this.fetchBarcodeData();
-    }, 3000);
+    this.barcodeService.barcode$.subscribe(newBarcode => {
+      if (newBarcode) {
+        console.log("New barcode from service:", newBarcode);
+        this.nozzleBarcode = newBarcode;
+        this.cdr.detectChanges();
+      }
+    });
 
     // Load initial size limits from backend.
     this.http.get<{ size_limits: { [key: string]: number } }>(`${this.BASE_URL}/get-other-settings?category=size_limits`)
@@ -146,6 +153,11 @@ export class ControlPanelComponent implements OnInit {
     
     // Reset only the values while keeping the original labels
     this.results = this.results.map(res => ({ ...res, value: 0 }));
+
+    this.nozzleId = "";
+    this.nozzleBarcode = "";
+    this.barcodeService.clearBarcode();
+
     
     console.log("Results cleared, progress bar reset.");
 
@@ -165,17 +177,6 @@ export class ControlPanelComponent implements OnInit {
     );
   }
 
-  fetchBarcodeData(): void {
-    this.http.get<{ barcode: string }>(`${this.BASE_URL}/get-barcode`).subscribe(
-      (response) => {
-        console.log("Barcode received from API:", response.barcode);
-        this.nozzleBarcode = response.barcode;
-      },
-      (error) => {
-        console.error("Failed to fetch barcode!", error);
-      }
-    );
-  }
   
   startMeasurement(): void {
     console.log("Starting measurement cycle...");
@@ -287,6 +288,13 @@ export class ControlPanelComponent implements OnInit {
       }
       this.cdr.detectChanges();
     }
+  }
+
+  onPopupClosed(): void {
+    // Reset the measurement cycle.
+    this.stopMeasurement();
+    // Hide the popup.
+    this.isResultsPopupVisible = false;
   }
 
   // Tester Functions to analyse only parts of the images
