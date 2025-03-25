@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TurntableControlComponent } from '../turntable-control/turntable-control.component';
 import { Observable } from 'rxjs';
-import { catchError, throwError, switchMap, tap, finalize } from 'rxjs';
+import { catchError, throwError, switchMap, tap, takeUntil, finalize, Subject } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SharedService, MeasurementResult } from '../../shared.service';
@@ -19,7 +19,7 @@ import { BarcodeService } from '../../services/barcode.service';
   styleUrls: ['./control-panel.component.css'],
   imports: [CommonModule, FormsModule, MatIconModule, TurntableControlComponent, MeasurementResultsPopupComponent]
 })
-export class ControlPanelComponent implements OnInit {
+export class ControlPanelComponent implements OnInit, OnDestroy {
   private readonly BASE_URL = 'http://localhost:5000/api';
 
   relayState: boolean = false;
@@ -35,6 +35,8 @@ export class ControlPanelComponent implements OnInit {
   currentMeasurement: number = 0;
   totalMeasurements: number = 2;
   turntablePosition: number | string = '?';
+
+  private measurementStop$ = new Subject<void>();
 
   @ViewChild(TurntableControlComponent) turntableControl!: TurntableControlComponent;
 
@@ -87,6 +89,11 @@ export class ControlPanelComponent implements OnInit {
       console.log("ng_limit updated via shared service:", this.ng_limit);
       this.cdr.detectChanges();
     });
+  }
+
+  ngOnDestroy(): void {
+    this.measurementStop$.next();
+    this.measurementStop$.complete();
   }
 
   ngAfterViewInit(): void {
@@ -151,30 +158,32 @@ export class ControlPanelComponent implements OnInit {
     this.measurementActive = false;
     this.currentMeasurement = 0;
     
-    // Reset only the values while keeping the original labels
+    // Reset results while keeping original labels.
     this.results = this.results.map(res => ({ ...res, value: 0 }));
-
+    
+    // Clear barcode fields as needed.
     this.nozzleId = "";
     this.nozzleBarcode = "";
     this.barcodeService.clearBarcode();
-
     
-    console.log("Results cleared, progress bar reset.");
-
-    this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe(
-      (response: any) => {
+    console.log("Results cleared, progress bar reset, and barcode fields cleared.");
+  
+    // Emit a value to cancel the measurement chain.
+    this.measurementStop$.next();
+  
+    this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe({
+      next: (response: any) => {
         console.log("Backend results reset:", response);
         if (response?.result_counts && this.results.length === response.result_counts.length) {
-          // Update values while retaining the original labels
           this.results.forEach((result, index) => {
             result.value = response.result_counts[index];
           });
         }
       },
-      (error) => {
+      error: (error) => {
         console.error("Failed to reset backend results:", error);
       }
-    );
+    });
   }
 
   
@@ -196,22 +205,31 @@ export class ControlPanelComponent implements OnInit {
       }
     );
   
-    const startProcess = (mode: string) => this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
-      tap(() => console.log("Turntable homed successfully")),
-      tap(() => { this.currentMeasurement++; }),
-      switchMap(() => this.waitForTurntableDone()),
-      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "full" })),
-      tap((response: any) => this.updateResultsUI(response)),
-      catchError((err) => {
-        console.error("Measurement cycle error:", err);
-        this.stopMeasurement(); // Abort the measurement cycle on error
-        return throwError(() => err);
-      }),
-      finalize(() => this.performMeasurementCycle())
-    );
+    const startProcess = (mode: string) =>
+      this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
+        tap(() => console.log("Turntable homed successfully")),
+        tap(() => { this.currentMeasurement++; }),
+        switchMap(() => this.waitForTurntableDone()),
+        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
+        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
+        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+        switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "full" })),
+        tap((response: any) => this.updateResultsUI(response)),
+        // Cancel chain if measurement is stopped.
+        takeUntil(this.measurementStop$),
+        catchError((err) => {
+          console.error("Measurement cycle error:", err);
+          this.stopMeasurement(); // Abort cycle on error.
+          return throwError(() => err);
+        }),
+        finalize(() => {
+          if (this.measurementActive) {
+            this.performMeasurementCycle();
+          } else {
+            console.log("Measurement cycle cancelled, not continuing further.");
+          }
+        })
+      );
   
     if (!this.relayState) {
       this.toggleRelay();
@@ -222,7 +240,11 @@ export class ControlPanelComponent implements OnInit {
   }
 
   performMeasurementCycle(): void {
-    if (!this.measurementActive || this.currentMeasurement >= this.totalMeasurements) {
+    if (!this.measurementActive) {
+      console.log("Measurement cycle cancelled.");
+      return;
+    }
+    if (this.currentMeasurement >= this.totalMeasurements) {
       console.log("Measurement cycle completed.");
       this.showResultsPopup();
       return;
@@ -238,13 +260,18 @@ export class ControlPanelComponent implements OnInit {
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "slices" })),
       tap((response: any) => this.updateResultsUI(response)),
+      takeUntil(this.measurementStop$), // Cancel chain if measurement stopped.
       catchError((err) => {
         console.error("Error during measurement cycle:", err);
-        this.stopMeasurement(); // Abort cycle if any step fails
+        this.stopMeasurement();
         return throwError(() => err);
       }),
       finalize(() => {
-        this.performMeasurementCycle();
+        if (this.measurementActive) {
+          this.performMeasurementCycle();
+        } else {
+          console.log("Measurement cycle cancelled in finalize.");
+        }
       })
     ).subscribe();
   }
