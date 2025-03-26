@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TurntableControlComponent } from '../turntable-control/turntable-control.component';
-import { Observable } from 'rxjs';
-import { catchError, throwError, switchMap, tap, takeUntil, finalize, Subject } from 'rxjs';
+import { Observable, Subject, throwError } from 'rxjs';
+import { catchError, switchMap, tap, takeUntil, finalize } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SharedService, MeasurementResult } from '../../shared.service';
@@ -23,17 +23,21 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   private readonly BASE_URL = 'http://localhost:5000/api';
 
   relayState: boolean = false;
-
   nozzleId: string = "";
   nozzleBarcode: string = "";
   operatorId: string = "";
   ng_limit: number = 0;
 
+  isMainConnected: boolean = false;
+  isSideConnected: boolean = false;
+
+  measurementValidationTriggered: boolean = false;
+
   measurementActive: boolean = false;
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;
-  totalMeasurements: number = 18;
+  totalMeasurements: number = 2;
   turntablePosition: number | string = '?';
 
   private measurementStop$ = new Subject<void>();
@@ -60,11 +64,20 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.barcodeService.barcode$.subscribe(newBarcode => {
+      // If a measurement is active, ignore new barcodes.
+      if (this.measurementActive) {
+        return;
+      }
       if (newBarcode) {
         console.log("New barcode from service:", newBarcode);
         this.nozzleBarcode = newBarcode;
         this.cdr.detectChanges();
       }
+    });
+
+    this.sharedService.cameraConnectionStatus$.subscribe(status => {
+      this.isMainConnected = status.main;
+      this.isSideConnected = status.side;
     });
 
     // Load initial size limits from backend.
@@ -109,6 +122,31 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   get resultsValues(): number[] {
     return this.results.map(r => r.value);
   }
+
+  canStartMeasurement(): boolean {
+    if (!this.isMainConnected) {
+      console.error("Cannot start measurement: Main camera is not connected.");
+      return false;
+    }
+    if (!this.isSideConnected) {
+      console.error("Cannot start measurement: Side camera is not connected.");
+      return false;
+    }
+    if (!this.turntableControl) {
+      console.error("Cannot start measurement: Turntable controller is not available.");
+      return false;
+    }
+    // Check that either nozzleId or nozzleBarcode is provided.
+    if (!this.nozzleId && !this.nozzleBarcode) {
+      console.error("Cannot start measurement: Nozzle identifier is missing.");
+      return false;
+    }
+    if (!this.operatorId) {
+      console.error("Cannot start measurement: Operator ID is missing.");
+      return false;
+    }
+    return true;
+  }
   
   // Toggle Relay Function (unchanged)
   toggleRelay(): void {
@@ -143,12 +181,22 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   }
 
   toggleMeasurement(): void {
-    this.measurementActive = !this.measurementActive;
-
-    if (this.measurementActive) {
+    if (!this.measurementActive) { // Trying to start measurement.
+      if (!this.canStartMeasurement()) {
+        // Set the flag so that the empty fields will show a red outline.
+        this.measurementValidationTriggered = true;
+        // Optionally, you can force a change detection here.
+        this.cdr.detectChanges();
+        // Do not start measurement.
+        return;
+      }
+      // If validations pass, reset the flag.
+      this.measurementValidationTriggered = false;
+      this.measurementActive = true;
       console.log("Measurement cycle started.");
       this.startMeasurement();
-    } else {
+    } else { // Stop measurement.
+      this.measurementActive = false;
       console.log("Measurement cycle stopping...");
       this.stopMeasurement();
     }
@@ -161,10 +209,10 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     // Reset results while keeping original labels.
     this.results = this.results.map(res => ({ ...res, value: 0 }));
     
-    // Clear barcode fields as needed.
     this.nozzleId = "";
     this.nozzleBarcode = "";
     this.barcodeService.clearBarcode();
+    this.toggleRelay();
     
     console.log("Results cleared, progress bar reset, and barcode fields cleared.");
   
