@@ -64,7 +64,9 @@ def center_detect_small_dots_and_contours(masked_region, drawtf):
                                     (255, 255, 0), 1)
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             filename = f"result_circle_{timestamp}.jpg"
-            cv2.imwrite(filename, annotated_dots)
+            results_dir = os.path.join(os.getcwd(), "Results")
+            os.makedirs(results_dir, exist_ok=True)  # Make sure the folder exists
+            cv2.imwrite(os.path.join(results_dir, filename), annotated_dots)
             return dot_area_column_mapping, None  # Success
 
         return dot_area_column_mapping, None  # Success

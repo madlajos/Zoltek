@@ -1,14 +1,16 @@
+import os
 import logging
 
-# Configure logging
-LOG_FILE = "ImageAnalysis.log"  # Change this to your preferred log filename
+# Resolve path to project root or any consistent directory
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))  # directory where logger.py is
+LOG_FILE = os.path.join(ROOT_DIR, "ImageAnalysis.log")  # force log to save near logger.py
 
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(LOG_FILE, mode='a'),  # Append logs to file
-        logging.StreamHandler()  # Still show logs in console
+        logging.FileHandler(LOG_FILE, mode='a'),
+        logging.StreamHandler()
     ]
 )
 

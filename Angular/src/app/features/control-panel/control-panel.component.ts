@@ -33,7 +33,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;
-  totalMeasurements: number = 2;
+  totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
 
   private measurementStop$ = new Subject<void>();
