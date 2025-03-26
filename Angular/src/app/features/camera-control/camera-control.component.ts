@@ -130,33 +130,47 @@ export class CameraControlComponent implements OnInit {
   }
 
   checkCameraStatus(cameraType: 'main' | 'side'): void {
-    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`)
-      .subscribe({
-        next: (response: any) => {
-          if (response.connected) {
-            this.sharedService.setCameraConnectionStatus(cameraType, true);
-            // Remove any existing error for this camera.
-            const errCode = cameraType === 'main' ? this.MAIN_CAMERA_ERR_CODE : this.SIDE_CAMERA_ERR_CODE;
-            this.errorNotificationService.removeError(errCode);
-            // If reconnection polling is active, stop it and resume normal polling.
-            this.stopReconnectionPolling(cameraType);
-            this.startConnectionPolling(cameraType);
-          } else {
-            this.sharedService.setCameraConnectionStatus(cameraType, false);
-            // Switch to reconnection polling.
-            this.stopConnectionPolling(cameraType);
-            this.startReconnectionPolling(cameraType);
+  this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`)
+    .subscribe({
+      next: (response: any) => {
+        if (response.connected) {
+          this.sharedService.setCameraConnectionStatus(cameraType, true);
+          // Remove any existing error for this camera.
+          const errCode = cameraType === 'main' ? this.MAIN_CAMERA_ERR_CODE : this.SIDE_CAMERA_ERR_CODE;
+          this.errorNotificationService.removeError(errCode);
+          // Stop any reconnection polling and resume normal polling.
+          this.stopReconnectionPolling(cameraType);
+          this.startConnectionPolling(cameraType);
+          // If streaming is reported false or local flag is false, start streaming.
+          if (cameraType === 'main' && !this.isMainStreaming) {
+            console.log("Main camera connected but not streaming. Starting stream...");
+            this.startVideoStream('main');
+          } else if (cameraType === 'side' && !this.isSideStreaming) {
+            console.log("Side camera connected but not streaming. Starting stream...");
+            this.startVideoStream('side');
           }
-          console.log(`${cameraType.toUpperCase()} status - Connected: ${response.connected}, Streaming: ${response.streaming}`);
-        },
-        error: (err) => {
-          console.error(`Error checking ${cameraType} camera status:`, err);
+        } else {
+          // Camera not connected: update both connection and streaming status.
           this.sharedService.setCameraConnectionStatus(cameraType, false);
+          this.sharedService.setCameraStreamStatus(cameraType, false);
           this.stopConnectionPolling(cameraType);
           this.startReconnectionPolling(cameraType);
         }
-      });
-  }
+        console.log(`${cameraType.toUpperCase()} status - Connected: ${response.connected}, Streaming: ${response.streaming}`);
+      },
+      error: (err) => {
+        console.error(`Error checking ${cameraType} camera status:`, err);
+        // On error, assume both connection and streaming are lost.
+        this.sharedService.setCameraConnectionStatus(cameraType, false);
+        this.sharedService.setCameraStreamStatus(cameraType, false);
+        this.stopConnectionPolling(cameraType);
+        this.startReconnectionPolling(cameraType);
+      }
+    });
+}
+
+  
+  
   
   startConnectionPolling(cameraType: 'main' | 'side'): void {
     if (cameraType === 'main' && !this.connectionPollingMain) {

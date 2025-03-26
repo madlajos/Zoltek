@@ -211,27 +211,58 @@ def get_serial_device_status(device_name):
 # Turntable Functions
 @app.route('/api/home_turntable_with_image', methods=['POST'])
 def home_turntable():
+    camera_type = 'main'
     try:
         app.logger.info("Homing process initiated.")
-        camera_type = 'main'
 
         # Step 1: Grab the image quickly and release the camera
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
-
             if camera is None or not camera.IsOpen():
-                return jsonify({'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
-                                'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
-                                "popup": True}), 500
+                app.logger.error("Camera not connected or not open during homing.")
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
 
-            grab_result = retry_operation(lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
-                                          max_retries=3,
-                                          wait=2)
+            try:
+                grab_result = retry_operation(
+                    lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException),
+                    max_retries=3,
+                    wait=2
+                )
+            except Exception as grab_err:
+                app.logger.exception("Exception during image grab: " + str(grab_err))
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
 
-            if not grab_result.GrabSucceeded():
-                return jsonify({'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
-                                'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
-                                "popup": True}), 500
+            if grab_result is None:
+                app.logger.error("Grab result is None during homing.")
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
+
+            try:
+                if not grab_result.GrabSucceeded():
+                    app.logger.error("Grab result was unsuccessful during homing.")
+                    return jsonify({
+                        'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                        'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                        "popup": True
+                    }), 500
+            except Exception as e:
+                app.logger.exception("Exception while checking GrabSucceeded: " + str(e))
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.MAIN_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
 
             app.logger.info("Image grabbed successfully.")
             image = grab_result.Array
@@ -246,18 +277,32 @@ def home_turntable():
                 'code': error_msg,
                 'popup': True
             }), 500
+
         command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
         app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
 
         # Step 3: Send rotation command & retry confirmation
-        movement_success = retry_operation(lambda: porthandler.write_turntable(command),
-                                           max_retries=3,
-                                           wait=2)
+        try:
+            movement_success = retry_operation(
+                lambda: porthandler.write_turntable(command),
+                max_retries=3,
+                wait=2
+            )
+        except Exception as move_err:
+            app.logger.exception("Exception while sending rotation command: " + str(move_err))
+            return jsonify({
+                'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
 
         if not movement_success:
-            return jsonify({'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
-                            'code': ErrorCode.TURNTABLE_DISCONNECTED,
-                            'popup': True}), 500
+            app.logger.error("Rotation command not confirmed after retries.")
+            return jsonify({
+                'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
 
         app.logger.info("Rotation completed successfully.")
 
@@ -271,11 +316,15 @@ def home_turntable():
             "message": "Homing successful",
             "rotation": rotation_needed,
             "current_position": globals.turntable_position
-        })
+        }), 200
 
     except Exception as e:
+        # Mark the camera as disconnected on any unhandled exception.
+        globals.cameras[camera_type] = None
+        globals.stream_running[camera_type] = False
         app.logger.exception(f"Error during homing: {e}")
         return jsonify({"error": str(e), "popup": True}), 500
+
 
 @app.route('/api/move_turntable_relative', methods=['POST'])
 def move_turntable_relative():
@@ -290,7 +339,15 @@ def move_turntable_relative():
         app.logger.info(f"Sending command to turntable: {command}")
 
         # Send the command to the turntable.
-        porthandler.write_turntable(command, expect_response=False)
+        try:
+            porthandler.write_turntable(command, expect_response=False)
+        except Exception as write_err:
+            app.logger.exception("Failed to write turntable command: " + str(write_err))
+            return jsonify({
+                'error': "Turntable disconnected",
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
 
         # Update position only if the turntable is homed.
         if globals.turntable_homed:
@@ -332,7 +389,15 @@ def toggle_relay():
         app.logger.info(f"Sending command to turntable: {command}")
 
         # Send the command to the Arduino.
-        porthandler.write_turntable(command, expect_response=False)
+        try:
+            porthandler.write_turntable(command, expect_response=False)
+        except Exception as write_err:
+            app.logger.exception("Failed to write turntable command: " + str(write_err))
+            return jsonify({
+                'error': "Turntable disconnected",
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
         return jsonify({"message": f"Relay {'ON' if state else 'OFF'}"}), 200
     except Exception as e:
         app.logger.exception("Error in toggling relay")
@@ -671,30 +736,6 @@ def analyze_slice(process_func, camera_type, label):
         with globals.grab_locks[camera_type]:
             camera = globals.cameras.get(camera_type)
             if camera is None or not camera.IsOpen():
-                
-                error_code = (ErrorCode.MAIN_CAMERA_DISCONNECTED 
-                              if camera_type.lower() == 'main' 
-                              else ErrorCode.SIDE_CAMERA_DISCONNECTED)
-                app.logger.error(f"{camera_type.capitalize()} camera is not connected or open.")
-                return jsonify({
-                    "error": ERROR_MESSAGES.get(error_code),
-                    "code": error_code,
-                    "popup": True
-                }), 400
-                
-            # Retry grabbing the image up to 10 times
-            image = None
-            grab_result = retry_operation(lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
-                                          max_retries=10,
-                                          wait=1)
-            
-            if grab_result.GrabSucceeded():
-                image = grab_result.Array
-                if image is not None:
-                    grab_result.Release()
-                    globals.latest_image = image.copy()
-                    
-            else:
                 error_code = (ErrorCode.MAIN_CAMERA_DISCONNECTED 
                               if camera_type.lower() == 'main' 
                               else ErrorCode.SIDE_CAMERA_DISCONNECTED)
@@ -705,16 +746,57 @@ def analyze_slice(process_func, camera_type, label):
                     "popup": True
                 }), 400
 
-        # 1) Run the specified image processing function
+            # Retry grabbing the image up to 10 times
+            grab_result = retry_operation(
+                lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
+                max_retries=10,
+                wait=1
+            )
+
+            if grab_result is None:
+                app.logger.error("Grab result is None during " + label + " analysis.")
+                return jsonify({
+                    "error": ERROR_MESSAGES.get(ErrorCode.MAIN_CAMERA_DISCONNECTED),
+                    "code": ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 400
+
+            try:
+                if not grab_result.GrabSucceeded():
+                    app.logger.error("Grab result unsuccessful during " + label + " analysis.")
+                    return jsonify({
+                        "error": ERROR_MESSAGES.get(
+                            ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type.lower() == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
+                        ),
+                        "code": ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type.lower() == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                        "popup": True
+                    }), 400
+            except Exception as e:
+                app.logger.exception("Exception while checking GrabSucceeded during " + label + " analysis: " + str(e))
+                return jsonify({
+                    "error": ERROR_MESSAGES.get(
+                        ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type.lower() == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
+                    ),
+                    "code": ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type.lower() == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 400
+
+            app.logger.info("Image grabbed successfully for " + label + " analysis.")
+            image = grab_result.Array
+            grab_result.Release()
+            globals.latest_image = image.copy()
+
+        # Step 1: Run the specified image processing function
         new_dot_contours, error_msg = process_func(image)
         if new_dot_contours is None:
-            app.logger.error(f"Image processing failed in home_turntable_with_image: {error_msg}")
+            app.logger.error(f"Image processing failed during {label} analysis: {error_msg}")
             return jsonify({
-                "error": "asd",
+                "error": "Image analysis error",
                 "code": error_msg,
                 "popup": True
             }), 500
-            
+
+        # Convert to list if needed
         if isinstance(new_dot_contours, np.ndarray):
             new_dot_contours = new_dot_contours.tolist()
 
@@ -723,7 +805,7 @@ def analyze_slice(process_func, camera_type, label):
             for dot in new_dot_contours
         ]
 
-        # 2) Append new dots with stable IDs
+        # Step 2: Append new dots with stable IDs
         old_counter = globals.dot_id_counter
         for dot in new_dot_contours:
             x, y, col, area = dot
@@ -733,12 +815,12 @@ def analyze_slice(process_func, camera_type, label):
 
         globals.last_blob_counts[label] = len(new_dot_contours)
 
-        # 3) Classify entire dataset
+        # Step 3: Classify entire dataset
         result = calculate_statistics(globals.measurement_data)
         if "error" in result:
             app.logger.error(f"Calculation error in {label}: {result['error']}")
             return jsonify({
-                "error": "asd",
+                "error": "Image analysis failed",
                 "code": ErrorCode.IMAGE_ANALYSIS_FAILED,
                 "popup": True
             }), 500
@@ -746,7 +828,7 @@ def analyze_slice(process_func, camera_type, label):
         classified_dots = result["classified_dots"]  # (dot_id, x, y, col, area, cls)
         final_counts = result["result_counts"]
 
-        # 4) Identify newly added dot IDs
+        # Step 4: Identify newly added dot IDs
         newly_added_ids = set(range(old_counter, globals.dot_id_counter))
         latest_classified_dots = [
             d for d in classified_dots if d[0] in newly_added_ids
@@ -755,10 +837,10 @@ def analyze_slice(process_func, camera_type, label):
             (x, y, col, area, cls) for (dot_id, x, y, col, area, cls) in latest_classified_dots
         ]
 
-        # 5) Annotate and save the image
+        # Step 5: Annotate and save the image
         save_path = save_annotated_image(globals.latest_image, latest_for_annotation, label)
 
-        # 6) Logging & Return
+        # Step 6: Logging & Return
         app.logger.info(f"{label} analysis complete. {len(new_dot_contours)} new dots detected.")
         app.logger.info(f"Saved annotated image: {save_path}")
 
@@ -772,10 +854,11 @@ def analyze_slice(process_func, camera_type, label):
     except Exception as e:
         app.logger.exception(f"Error during {label} analysis: {e}")
         return jsonify({
-            "error": "asd",
+            "error": "Generic error during image analysis",
             "code": ErrorCode.GENERIC,
             "popup": True
         }), 500
+
     
     
 @app.route('/api/analyze_center_circle', methods=['POST'])
@@ -942,8 +1025,7 @@ def connect_camera_internal(camera_type):
     selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
     if not selected_device:
         error_code = ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
-        return {"error": f"Camera {camera_type} with serial {target_serial} not found", "code": error_code}
-
+        return {"error": f"Camera {camera_type} with serial {target_serial} not found", "code": error_code, "popup": True}
 
     # If already connected, return info.
     if globals.cameras.get(camera_type) and globals.cameras[camera_type].IsOpen():
@@ -953,12 +1035,23 @@ def connect_camera_internal(camera_type):
             "serial": selected_device.GetSerialNumber()
         }
 
-    globals.cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
-    globals.cameras[camera_type].Open()
+    try:
+        globals.cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
+        globals.cameras[camera_type].Open()
+    except Exception as e:
+        app.logger.exception(f"Failed to connect to camera {camera_type} on port {selected_device.GetDeviceInfo().GetPortName()}: {e}")
+        error_code = ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
+        return {
+            "error": "Camera not found. Please check USB connection.",
+            "code": error_code,
+            "popup": True
+        }
 
     if not globals.cameras[camera_type].IsOpen():
-        return {"error": f"Camera {camera_type} failed to open"}
+        app.logger.error(f"Camera {camera_type} failed to open after connection attempt.")
+        return {"error": f"Camera {camera_type} failed to open", "popup": True}
 
+    # Retrieve camera properties and apply settings.
     camera_properties[camera_type] = get_camera_properties(globals.cameras[camera_type])
     settings_data = get_settings()
     apply_camera_settings(camera_type, globals.cameras, camera_properties, settings_data)
@@ -968,6 +1061,7 @@ def connect_camera_internal(camera_type):
         "name": selected_device.GetModelName(),
         "serial": selected_device.GetSerialNumber()
     }
+
 
 def start_camera_stream_internal(camera_type, scale_factor=0.25):
     app.logger.info(f"Starting {camera_type} camera stream internally with scale factor {scale_factor}")
