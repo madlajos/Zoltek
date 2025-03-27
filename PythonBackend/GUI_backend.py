@@ -748,10 +748,10 @@ def analyze_slice(process_func, camera_type, label):
                     "popup": True
                 }), 400
 
-            # Retry grabbing the image up to 10 times
+            # Retry grabbing the image up to 10 times #TODO:CHECK IF THIS WORKS
             grab_result = retry_operation(
                 lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
-                max_retries=10,
+                max_retries=100,
                 wait=1
             )
 

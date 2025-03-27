@@ -198,7 +198,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
             return None, "E2321"
 
         _, thresh = cv2.threshold(cv2.resize(masked_region, None, fx=1, fy=1, interpolation=cv2.INTER_AREA),
-                                  130, 255, cv2.THRESH_BINARY)
+                                  50, 255, cv2.THRESH_BINARY)
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:

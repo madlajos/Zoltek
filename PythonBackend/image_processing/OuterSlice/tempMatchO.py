@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from GeneralProc.logger import logger
 
-def template_match_with_polygon(cropped_image, template, scale_factor=0.005):
+def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
 
         try:
             if template is None or cropped_image is None:

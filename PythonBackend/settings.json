@@ -22,14 +22,14 @@
         }
     },
     "size_limits": {
-        "class1": 5,
-        "class2": 95,
+        "class1": 3,
+        "class2": 60,
         "ng_limit": 15
     },
-	"sql_server":{
-		"server": "ZHUVM-MSSQL",
-		"db_name": "PF_Spinneret_Purity",
-		"username": "duzni_labor",
-		"password": "Duzn1L4b03"
-	}
+    "sql_server": {
+        "server": "ZHUVM-MSSQL",
+        "db_name": "PF_Spinneret_Purity",
+        "username": "duzni_labor",
+        "password": "Duzn1L4b03"
+    }
 }

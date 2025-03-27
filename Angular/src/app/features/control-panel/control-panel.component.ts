@@ -37,7 +37,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;
-  totalMeasurements: number = 2;
+  totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
 
   private measurementStop$ = new Subject<void>();
@@ -50,7 +50,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
   results: { label: string, value: number }[] = [
     { label: 'Eldugult', value: 0 },
-    { label: 'Részl. Eldugult', value: 0 },
+    { label: 'Részleges', value: 0 },
     { label: 'Tiszta', value: 0 }
   ];
 

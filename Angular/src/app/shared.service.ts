@@ -31,7 +31,7 @@ export class SharedService {
 
   private measurementResultsSubject = new BehaviorSubject<MeasurementResult[]>([
     { label: 'Eldugult', value: 0 },
-    { label: 'Részl. Eldugult', value: 0 },
+    { label: 'Részleges', value: 0 },
     { label: 'Tiszta', value: 0 }
   ]);
 

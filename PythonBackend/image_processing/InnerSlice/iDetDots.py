@@ -7,6 +7,7 @@ import pandas as pd
 from collections import defaultdict
 
 
+
 def generate_gradient_colors(n):
         colormap = plt.cm.get_cmap('jet', n)
         return [(int(255 * r), int(255 * g), int(255 * b)) for r, g, b, _ in colormap(np.linspace(0, 1, n))]
@@ -106,7 +107,7 @@ def det_cols(dot_centers, dot_areas, x_threshold=42):
             dot_areas = np.array(remaining_areas)
         return dot_area_column_mapping, columns, column_labels
     except Exception as e:
-        logger.error("E2226")
+        
         return None, None, "E2226"  # Error during column detection
 
 
@@ -147,7 +148,7 @@ def sort_cols(columns, dot_area_column_mapping):
         column_x_positions.sort()
         return column_x_positions, filtered_dot_area_column_mapping, num_columns, column_mapping, valid_column_indices
     except Exception as e:
-        logger.error("E2227: Error during column sorting: %s", e)
+       
         return None, None, None, "E2227"  # Error during column sorting
 
 def shift_column_labels_for_missing(missing_columns, x_to_col_number, filtered_dot_area_column_mapping):
@@ -215,7 +216,7 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
             for missing_x, (left_col, right_col) in zip(missing_columns, missing_column_pairs):
                 left_col_number = x_to_col_number.get(left_col, f"Unknown Col at {left_col}")
                 right_col_number = x_to_col_number.get(right_col, f"Unknown Col at {right_col}")
-                logger.info(
+                print(
                     f"Missing column at X={missing_x} is between column {left_col_number} (X={left_col}) and column {right_col_number} (X={right_col})")
 
 
@@ -297,5 +298,5 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
         return filtered_dot_area_column_mapping, annotated_dots, None
 
     except Exception as e:
-        logger.error("E2228")
+       
         return None, None, "E2228"  # General error during processing
