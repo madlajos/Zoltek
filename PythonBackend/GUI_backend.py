@@ -9,6 +9,8 @@ from cameracontrol import (apply_camera_settings,
                            validate_and_set_camera_param, get_camera_properties)
 import porthandler
 
+import pyodbc
+
 from image_processing import imageprocessing_main
 
 import threading
@@ -1014,7 +1016,102 @@ def update_other_settings():
         app.logger.exception("Failed to update other settings")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/connect_sql_database', methods=['GET'])
+def connect_sql_database():
+    try:
+        settings_data = get_settings()
+        sql_config = settings_data.get("sql_server")
+        if not sql_config:
+            return jsonify({"error": "SQL Server configuration not found."}), 400
 
+        server = sql_config.get("server")
+        database = sql_config.get("db_name")
+        username = sql_config.get("username")
+        password = sql_config.get("password")
+
+        connection_string = (
+            'DRIVER={ODBC Driver 17 for SQL Server};'
+            'SERVER=tcp:' + server + ',1433;'
+            'DATABASE=' + database + ';'
+            'UID=' + username + ';'
+            'PWD=' + password
+        )
+        
+        # Attempt to connect with a short timeout.
+        conn = pyodbc.connect(connection_string, timeout=15)
+        conn.close()
+        return jsonify({"message": "Connected to the database successfully!"}), 200
+    except Exception as e:
+        app.logger.exception("Failed to connect to the database.")
+        return jsonify({"error": str(e), "popup": True}), 500
+
+@app.route('/api/disconnect_sql_database', methods=['POST'])
+def disconnect_sql_database():
+    # If using a persistent connection, close it here.
+    app.logger.info("SQL database disconnected (if connection was persistent).")
+    return jsonify({"message": "SQL database disconnected successfully."}), 200
+
+@app.route('/api/save-measurement-result', methods=['POST'])
+def save_measurement_result():
+    try:
+        data = request.get_json()
+        # Retrieve fields from the JSON payload
+        measurement_date = data.get('date')
+        measurement_time = data.get('time')
+        spinneret_id = data.get('id')         # Changed key: previously MeasurementID
+        spinneret_barcode = data.get('barcode')  # Changed key: previously Barcode
+        operator = data.get('operator')
+        clogged = data.get('clogged')
+        partially_clogged = data.get('partiallyClogged')
+        clean = data.get('clean')
+        result = data.get('result')
+        
+        conn = get_db_connection()  # Assumes your get_db_connection reads dynamic settings
+        cursor = conn.cursor()
+        
+        insert_sql = """
+            INSERT INTO MeasurementResults 
+                (MeasurementDate, MeasurementTime, SpinneretID, SpinneretBarcode, Operator, Clogged, PartiallyClogged, Clean, Result)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.execute(insert_sql, measurement_date, measurement_time, spinneret_id, spinneret_barcode, operator, clogged, partially_clogged, clean, result)
+        conn.commit()
+        conn.close()
+        
+        app.logger.info("Measurement result saved to database.")
+        return jsonify({"message": "Measurement result saved successfully."}), 200
+        
+    except Exception as e:
+        app.logger.exception("Error saving measurement result to database: " + str(e))
+        return jsonify({"error": str(e), "popup": True}), 500
+
+
+    
+def get_db_connection():
+    from settings_manager import get_settings
+    settings_data = get_settings()
+    sql_config = settings_data.get("sql_server")
+    if not sql_config:
+        raise Exception("SQL Server configuration not found in settings.")
+
+    server = sql_config.get("server")
+    database = sql_config.get("db_name")
+    username = sql_config.get("username")
+    password = sql_config.get("password")
+
+    connection_string = (
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=tcp:' + server + ',1433;'
+        'DATABASE=' + database + ';'
+        'UID=' + username + ';'
+        'PWD=' + password
+    )
+
+    # Attempt to connect with a short timeout.
+    conn = pyodbc.connect(connection_string, timeout=15)
+    return conn
+    
+    
     
 ### Internal Helper Functions ### 
 def connect_camera_internal(camera_type):

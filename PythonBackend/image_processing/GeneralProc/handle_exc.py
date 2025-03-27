@@ -92,7 +92,7 @@ def img_ok_check(image, error_prefix='E00', downscale_factor=0.1, grid_size=(32,
             cv2.destroyAllWindows()
 
         # 7. Decision logic
-        if error_prefix in ('E20', 'E21', 'E22') and ratio > 0.28:
+        if error_prefix in ('E20', 'E21', 'E22') and ratio > 0.35:
             error_code = f"{error_prefix}08"
             logger.error(f"{error_code}")
             return None, error_code

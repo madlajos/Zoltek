@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedService, MeasurementRecord } from '../../shared.service';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-measurement-results-popup',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HttpClientModule],
   templateUrl: './measurement-results-popup.component.html',
   styleUrls: ['./measurement-results-popup.component.css']
 })
@@ -18,7 +19,10 @@ export class MeasurementResultsPopupComponent {
   @Input() ngLimit!: number;
   @Output() closePopup = new EventEmitter<void>();
 
-  constructor(private sharedService: SharedService) {}
+  // Declare BASE_URL for API calls.
+  BASE_URL: string = 'http://localhost:5000/api';
+
+  constructor(private sharedService: SharedService, private http: HttpClient) {}
 
   // Compute the measurement record from the inputs.
   get measurementRecord(): MeasurementRecord {
@@ -43,9 +47,23 @@ export class MeasurementResultsPopupComponent {
   }
 
   dismiss(): void {
-    // When OK is clicked, add the computed measurement record.
-    this.sharedService.addMeasurementResult(this.measurementRecord);
-    // Emit event to close the popup.
+    // 1. Construct or retrieve the measurement record
+    const record = this.measurementRecord;
+  
+    // 2. Save to database
+    this.http.post(`${this.BASE_URL}/save-measurement-result`, record).subscribe({
+      next: (resp: any) => {
+        console.log("Saved to DB:", resp);
+      },
+      error: (err: any) => {
+        console.error("DB save failed:", err);
+      }
+    });
+  
+    // 3. Also store in SharedService so the results table updates
+    this.sharedService.addMeasurementResult(record);
+  
+    // 4. Close the popup
     this.closePopup.emit();
   }
 }

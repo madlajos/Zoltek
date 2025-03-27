@@ -116,6 +116,45 @@ def fill_second_two_thirds(image_full, template_full, scale=0.25):
     first_row, last_row = non_black_rows[0], non_black_rows[-1]
 
     cropped_image = masked_image[first_row:last_row + 1, first_col:last_col + 1]
+
+    if len(cropped_image.shape) == 3:
+        gray_cropped = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray_cropped = cropped_image.copy()
+
+    # Detect white dots in cropped image
+    _, thresh_dots = cv2.threshold(gray_cropped, 10, 255, cv2.THRESH_BINARY)
+    contours_dots, _ = cv2.findContours(thresh_dots, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    dot_x = []
+    dot_y = []
+    for cnt in contours_dots:
+        area = cv2.contourArea(cnt)
+        if 5 < area < 500:
+            M = cv2.moments(cnt)
+            if M["m00"] == 0:
+                continue
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+            dot_x.append(cx)
+            dot_y.append(cy)
+
+    # Only crop if valid dots found
+    if dot_x and dot_y:
+        left = max(0, min(dot_x))
+        right = min(cropped_image.shape[1], max(dot_x))
+        top = max(0, min(dot_y))
+        bottom = min(cropped_image.shape[0], max(dot_y))
+
+        # Add a little padding if needed (optional)
+        pad = 5
+        left = max(0, left - pad)
+        right = min(cropped_image.shape[1], right + pad)
+        top = max(0, top - pad)
+        bottom = min(cropped_image.shape[0], bottom + pad)
+
+        # Final crop
+        cropped_image = cropped_image[top:bottom + 1, left:right + 1]
     return cropped_image, None
 
 

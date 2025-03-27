@@ -19,6 +19,7 @@ import { ResultsTableComponent } from './features/results-table/results-table.co
 import { ErrorPopupListComponent } from './components/error-popup-list/error-popup-list.component';
 import { BarcodeScannerControlComponent } from './features/barcode-scanner-control/barcode-scanner-control.component';
 import { LoginPopupComponent } from './components/login-popup/login-popup.component';
+import { SQLDatabaseComponent } from './components/sql-database/sql-database.component';
 
 @Component({
   selector: 'app-root',
@@ -41,6 +42,7 @@ import { LoginPopupComponent } from './components/login-popup/login-popup.compon
     ErrorPopupListComponent,
     BarcodeScannerControlComponent,
     LoginPopupComponent,
+    SQLDatabaseComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']

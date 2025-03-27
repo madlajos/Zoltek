@@ -5,7 +5,6 @@ import os
 import time
 import pandas as pd
 from collections import defaultdict
-from GeneralProc.logger import logger
 
 
 def generate_gradient_colors(n):
@@ -75,7 +74,7 @@ def det_sort_dots(masked_region, merge_distance=20):
 
 
 
-def det_cols(dot_centers, dot_areas, x_threshold=40):
+def det_cols(dot_centers, dot_areas, x_threshold=42):
     try:
         columns = []
         column_labels = {}
@@ -151,6 +150,29 @@ def sort_cols(columns, dot_area_column_mapping):
         logger.error("E2227: Error during column sorting: %s", e)
         return None, None, None, "E2227"  # Error during column sorting
 
+def shift_column_labels_for_missing(missing_columns, x_to_col_number, filtered_dot_area_column_mapping):
+    # Step 1: Collect (missing_x, after_col) pairs
+    missing_info = []
+    for missing_x in missing_columns:
+        # Find the nearest X to the left that exists in the column map
+        left_xs = [x for x in x_to_col_number.keys() if x < missing_x]
+        if not left_xs:
+            continue  # no valid left anchor
+        left_x = max(left_xs)
+        after_col = x_to_col_number[left_x]
+        missing_info.append((missing_x, after_col-1))
+
+    # Sort by after_col so we apply shifts in order
+    missing_info.sort(key=lambda m: m[1])
+
+    updated_mapping = []
+    for x, y, col, area in filtered_dot_area_column_mapping:
+        # Shift by counting how many missing columns are after this column index
+        shift = sum(1 for _, after_col in missing_info if col > after_col)
+        updated_mapping.append((x, y, col + shift, area))
+
+    return updated_mapping
+
 
 def islice_detect_small_dots_and_contours(masked_region, drawtf):
     try:
@@ -196,33 +218,32 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
                 logger.info(
                     f"Missing column at X={missing_x} is between column {left_col_number} (X={left_col}) and column {right_col_number} (X={right_col})")
 
-            for x_missing, label in missing_column_labels.items():
-                column_labels[x_missing] = label
 
-        no_missing = len(missing_columns)
-        next_column_number = max(column_mapping.values(), default=0) + 1
 
-        for missing_x, (left_col, right_col) in zip(missing_columns, missing_column_pairs):
-            left_col_number = x_to_col_number[left_col]
-            right_col_number = x_to_col_number[right_col]
+            filtered_dot_area_column_mapping = shift_column_labels_for_missing(
+                missing_columns, x_to_col_number, filtered_dot_area_column_mapping
+            )
+        # no_missing = len(missing_columns)
+        # next_column_number = max(column_mapping.values(), default=0) + 1
+        #
+        # for missing_x, (left_col, right_col) in zip(missing_columns, missing_column_pairs):
+        #     left_col_number = x_to_col_number[left_col]
+        #     right_col_number = x_to_col_number[right_col]
+        #
+        #     if missing_x not in x_to_col_number:
+        #         x_to_col_number[missing_x] = next_column_number
+        #         column_mapping[missing_x] = next_column_number
+        #         next_column_number += 1
+        #
+        #     filtered_dot_area_column_mapping.append((missing_x, -1, x_to_col_number[missing_x], 0))
 
-            if missing_x not in x_to_col_number:
-                x_to_col_number[missing_x] = next_column_number
-                column_mapping[missing_x] = next_column_number
-                next_column_number += 1
-
-            filtered_dot_area_column_mapping.append((missing_x, -1, x_to_col_number[missing_x], 0))
 
         filtered_dot_area_column_mapping = [
             (x, y, col, area) for x, y, col, area in filtered_dot_area_column_mapping if 1 <= col <= 50
         ]
 
-        filtered_dot_area_column_mapping.sort(key=lambda item: item[0])
 
-        column_dot_counts = {
-            col_idx: sum(1 for _, _, col, _ in filtered_dot_area_column_mapping if col == col_idx)
-            for col_idx in range(1, 50)  # Ensures only columns 1-50 are processed
-        }
+
         annotated_dots = cv2.cvtColor(masked_region, cv2.COLOR_GRAY2BGR)
 
 
@@ -262,7 +283,9 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
                 # Define the column names
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             filename = f"result_pizza_{timestamp}.jpg"
-            cv2.imwrite(filename, annotated_dots)
+            results_dir = os.path.join(os.getcwd(), "Results")
+            os.makedirs(results_dir, exist_ok=True)  # Make sure the folder exists
+            cv2.imwrite(os.path.join(results_dir, filename), annotated_dots)
         column_counts = {}
 
         # # Count occurrences of each column
@@ -271,8 +294,8 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
         #     column_counts[column_label] = column_counts.get(column_label, 0) + 1
         # output = "\n".join([f"Col {col}: {count} dots" for col, count in column_counts.items()])
         #print(output)
-        return filtered_dot_area_column_mapping, annotated_dots, column_dot_counts, None
+        return filtered_dot_area_column_mapping, annotated_dots, None
 
     except Exception as e:
         logger.error("E2228")
-        return None, None, None, "E2228"  # General error during processing
+        return None, None, "E2228"  # General error during processing

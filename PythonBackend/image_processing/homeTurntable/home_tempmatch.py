@@ -3,114 +3,157 @@ import os
 import numpy as np
 import cv2
 from GeneralProc import logger  # Assuming you already have this in your codebase
+from homeTurntable import *
+from concurrent.futures import ThreadPoolExecutor
 
-def det_dot_home(image):
+
+# Rotate the template and store versions
+def rotate_image(image, angle):
+    center = (image.shape[1] // 2, image.shape[0] // 2)
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
+
+    return cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
+
+
+def find_best_match_for_angle(angle, cropped_region, template_small):
+    """
+    Helper function to compute the correlation score for a given angle.
+    """
+    rotated = rotate_image(cropped_region, angle)
+    correlation = cv2.matchTemplate(rotated, template_small, cv2.TM_CCOEFF_NORMED).max()
+    return angle, correlation
+
+
+def find_best_match_and_angle(target_to_match, template_small):
+    result = cv2.matchTemplate(target_to_match, template_small, cv2.TM_CCOEFF_NORMED)
+    _, _, _, max_loc = cv2.minMaxLoc(result)
+    h, w = template_small.shape
+    top_left = max_loc
+    
+    padding = 0.25  # 25% extra around the match region
+
+    pad_h = int(h * padding)
+    pad_w = int(w * padding)
+
+    start_y = max(0, top_left[1] - pad_h)
+    end_y = min(target_to_match.shape[0], top_left[1] + h + pad_h)
+    start_x = max(0, top_left[0] - pad_w)
+    end_x = min(target_to_match.shape[1], top_left[0] + w + pad_w)
+
+    cropped_region = target_to_match[start_y:end_y, start_x:end_x]
+
+    def parallel_search(angle_list):
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(
+                executor.map(lambda angle: find_best_match_for_angle(angle, cropped_region, template_small),
+                             angle_list))
+        return results
+
+        # Coarse search (fast, wide scan)
+
+    coarse_angles = np.arange(-180, 180, 1)
+    coarse_results = parallel_search(coarse_angles)
+    best_coarse_angle, best_score = max(coarse_results, key=lambda x: x[1])
+
+    # Fine search (slow, focused scan)
+    fine_range = 5  # degrees around the best coarse match
+    fine_angles = np.arange(best_coarse_angle - fine_range, best_coarse_angle + fine_range, 0.1)
+    fine_results = parallel_search(fine_angles)
+    best_fine_angle, best_fine_score = max(fine_results, key=lambda x: x[1])
+    # Ambiguity check: Are 2 peaks near 90° apart and similar in score?
+
+    return best_fine_angle, best_fine_score
+
+
+def find_best_match_and_angle2(image, template):
+    result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+    _, _, _, max_loc = cv2.minMaxLoc(result)
+    h, w = template.shape
+    top_left = max_loc
+    cropped_region = image[top_left[1]:top_left[1] + h, top_left[0]:top_left[0] + w]
+
+    def parallel_search(angle_list):
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(
+                executor.map(lambda angle: find_best_match_for_angle(angle, cropped_region, template),
+                             angle_list))
+        return results
+
+        # Coarse search (fast, wide scan)
+
+    coarse_angles = np.arange(-180, 180, 1)
+    coarse_results = parallel_search(coarse_angles)
+    best_coarse_angle, best_score = max(coarse_results, key=lambda x: x[1])
+
+    # Fine search (slow, focused scan)
+    fine_range = 10  # degrees around the best coarse match
+    fine_angles = np.arange(best_coarse_angle - fine_range, best_coarse_angle + fine_range, 0.1)
+    fine_results = parallel_search(fine_angles)
+    best_fine_angle, best_fine_score = max(fine_results, key=lambda x: x[1])
+    # Ambiguity check: Are 2 peaks near 90° apart and similar in score?
+
+    return best_fine_angle, best_fine_score
+
+    # Track the best match across all templates
+
+def start_temp_match(templateL, templateS, image, scale_percent):
     try:
-        if image is None:
-            logger.error("E2015")
-            return None, "E2015"
+        best_angle = None
+        best_score = -float('inf')
+        best_rotation = 0
 
-        if len(image.shape) != 2:
-            logger.error("E2016 - Input image must be grayscale.")
-            return None, "E2016"
+        rotated_templatesL = {
+            0: templateL,
+            90: rotate_image(templateL, 90),
+            180: rotate_image(templateL, 180),
+            270: rotate_image(templateL, 270),
+        }
 
-        # Threshold to detect white regions
-        _, thresh = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY)
+        for rotation, template_variant in rotated_templatesL.items():
+            if template_variant is None:
+                logger.error(f"E2022 - Failed to rotate templateL at {rotation}°")
+                continue
+            angle, score = find_best_match_and_angle(image, template_variant)
+            if isinstance(score, str):  # An error code was returned
+                continue
+            if score > best_score:
+                best_score = score
+                best_angle = angle
+                best_rotation = rotation
 
-        # Find contours instead of blob detection
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        print(best_score)
 
-        output = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-        dot_count = 0
+        def preprocess(img, scale_percent):
+            return cv2.resize(img, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
 
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if 5 < area < 500:
-                M = cv2.moments(cnt)
-                if M["m00"] == 0:
+        if best_score < 0.44:
+            print('ok')
+            rotated_templatesS = {
+                0: preprocess(templateS, scale_percent),
+                90: preprocess(rotate_image(templateS, 90), scale_percent),
+                180: preprocess(rotate_image(templateS, 180), scale_percent),
+                270: preprocess(rotate_image(templateS, 270), scale_percent),
+            }
+
+            for rotation, template_variant2 in rotated_templatesS.items():
+                if template_variant2 is None:
+                    logger.error(f"E2023 - Failed to rotate templateS at {rotation}°")
                     continue
-                cx = int(M["m10"] / M["m00"])
-                cy = int(M["m01"] / M["m00"])
-                radius = int(np.sqrt(area / np.pi)) + 15
-                cv2.circle(output, (cx, cy), radius, (0, 0, 255), thickness=-1)
-                dot_count += 1
+                angle, score = find_best_match_and_angle2(image, template_variant2)
+                if isinstance(score, str):  # An error code was returned
+                    continue
+                if score > best_score:
+                    best_score = score
+                    best_angle = angle
+                    best_rotation = rotation
 
-        #print(f"Detected and marked {dot_count} white dots.")
-        return output, None
+            print(" Score too low — retrying fine search with small template")
+            print(f"New score with small template: {best_score:.3f}")
 
-    except cv2.error:
-        logger.error("E2017")
-        return None, "E2017"
-
-    except Exception as e:
-        logger.error("E2018")
-        return None, "E2018"
-
-
-
-def det_angle(image, show=False):
-    try:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Threshold to get black center gap
-        _, binary = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
-
-        # Focus only on central region
-        h, w = binary.shape
-        binary[:int(h * 0.15), :] = 0
-        binary[int(h * 0.85):, :] = 0
-        binary[:, :int(w * 0.15)] = 0
-        binary[:, int(w * 0.85):] = 0
-
-        # Find contours
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Filter contours near vertical center
-        center_x = w // 2
-        candidate_contours = []
-        for cnt in contours:
-            x, y, cw, ch = cv2.boundingRect(cnt)
-            contour_center_x = x + cw // 2
-            if abs(contour_center_x - center_x) < w * 0.2:
-                candidate_contours.append(cnt)
-
-        if not candidate_contours:
-            logger.error("E2019")
-            return None, "E2019"
-
-        contour = max(candidate_contours, key=cv2.contourArea)
-
-        # Fit a line
-        [vx, vy, x0, y0] = cv2.fitLine(contour, cv2.DIST_L2, 0, 0.01, 0.01)
-        scale = max(h, w)
-        pt1 = (int(x0 - vx * scale), int(y0 - vy * scale))
-        pt2 = (int(x0 + vx * scale), int(y0 + vy * scale))
-
-        output = image.copy()
-        cv2.line(output, pt1, pt2, (0, 255, 255), 2)
-
-        # Compute angle
-        angle_rad = math.atan2(vy, vx)
-        angle_deg = math.degrees(angle_rad)
-        if angle_deg < 0:
-            angle_deg += 180
-
-        print(f"Detected center gap angle: {angle_deg:.2f} degrees")
-
-        # Show or save
-        if show:
-            cv2.imshow("Final Line Fit", cv2.resize(output, None, fx=0.5, fy=0.5))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-
-        return angle_deg, None
-
-    except cv2.error as e:
-        logger.error("E2020")
-        return None, "E2020"
+        return best_angle, best_rotation, None
 
     except Exception as e:
-        logger.error("E2021")
-        return None, "E2021"
+        logger.error("E2024 - Error in start_temp_match")
+        return None, None, "E2024"
+
 
