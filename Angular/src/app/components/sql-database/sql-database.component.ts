@@ -12,7 +12,7 @@ import { timeout, catchError  } from 'rxjs/operators';
 @Component({
   selector: 'app-sql-database',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './sql-database.component.html',
   styleUrls: ['./sql-database.component.css']
 })
