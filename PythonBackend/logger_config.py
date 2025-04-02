@@ -16,7 +16,7 @@ def setup_logger():
     logger.addHandler(console_handler)
 
     # File handler (WARNING and above)
-    file_handler = RotatingFileHandler('zoltek_backend.log', maxBytes=10240, backupCount=1)
+    file_handler = RotatingFileHandler('zoltek_backend.log', maxBytes=10485760, backupCount=1)
     file_handler.setLevel(logging.WARNING)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
