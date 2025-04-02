@@ -1,12 +1,18 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { interval, Subscription, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+import { ErrorNotificationService } from '../../services/error-notification.service';
+import { timeout, catchError  } from 'rxjs/operators';
+
+
 
 @Component({
   selector: 'app-sql-database',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './sql-database.component.html',
   styleUrls: ['./sql-database.component.css']
 })
@@ -23,7 +29,13 @@ export class SQLDatabaseComponent implements OnInit {
   connected: boolean = false;
   connectionStatus: string = "Not Connected";
 
-  constructor(private http: HttpClient) { }
+  private connectionPolling: Subscription | undefined;
+
+  constructor(
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef,
+    private errorNotificationService: ErrorNotificationService
+  ) {}
 
   ngOnInit(): void {
     // Load SQL settings from backend.
@@ -41,6 +53,18 @@ export class SQLDatabaseComponent implements OnInit {
           console.error("Failed to load SQL Server settings:", err);
         }
       });
+
+    // Immediately try to connect to the database.
+    this.connectDatabase();
+
+    // Start polling connection status every 5 seconds.
+    this.startConnectionPolling();
+  }
+
+  ngOnDestroy(): void {
+    if (this.connectionPolling) {
+      this.connectionPolling.unsubscribe();
+    }
   }
 
   // Update a specific setting.
@@ -73,12 +97,19 @@ export class SQLDatabaseComponent implements OnInit {
           if (response.message) {
             this.connectionStatus = response.message;
             this.connected = true;
+            this.errorNotificationService.removeError("E1401");
           }
+          this.cdr.detectChanges();
         },
         error: err => {
           console.error("Failed to connect to SQL database:", err);
           this.connectionStatus = err.error?.error || "Connection failed";
           this.connected = false;
+          this.errorNotificationService.addError({
+            code: "E1401",
+            message: this.errorNotificationService.getMessage("E1401")
+          });
+          this.cdr.detectChanges();
         }
       });
   }
@@ -90,6 +121,11 @@ export class SQLDatabaseComponent implements OnInit {
         console.log("Disconnected from SQL database:", response);
         this.connected = false;
         this.connectionStatus = "Disconnected";
+        this.errorNotificationService.addError({
+          code: "E1401",
+          message: this.errorNotificationService.getMessage("E1401")
+        });
+        this.cdr.detectChanges();
       },
       error: err => {
         console.error("Failed to disconnect SQL database:", err);
@@ -105,4 +141,56 @@ export class SQLDatabaseComponent implements OnInit {
       this.connectDatabase();
     }
   }
+
+  startConnectionPolling(): void {
+  if (!this.connectionPolling) {
+    this.connectionPolling = interval(5000).pipe(
+      switchMap(() =>
+        // Append a timestamp to avoid caching.
+        this.http.get<{ message?: string, error?: string }>(
+          `${this.BASE_URL}/check-db-connection?ts=${new Date().getTime()}`
+        ).pipe(
+          timeout(3000),  // Use a shorter timeout
+          catchError(err => {
+            console.error("SQL Database polling encountered an error:", err);
+            // Return an object with an error property.
+            return of({ message: "", error: err.error?.error || "Connection failed (VPN offline)" });
+          })
+        )
+      )
+    ).subscribe({
+      next: response => {
+        if (response.message && response.message.trim() !== "") {
+          if (!this.connected) {
+            console.info("SQL Database reconnected.");
+            this.errorNotificationService.removeError("E1401");
+          }
+          this.connectionStatus = response.message;
+          this.connected = true;
+        } else if (response.error) {
+          console.error("SQL Database connection polling error response:", response.error);
+          this.connectionStatus = response.error;
+          this.connected = false;
+          this.errorNotificationService.addError({
+            code: "E1401",
+            message: this.errorNotificationService.getMessage("E1401")
+          });
+        }
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        console.error("SQL Database connection polling error (final):", err);
+        const fallbackError = "Connection failed (VPN offline)";
+        const errMsg = (err.error && err.error.error) ? err.error.error : (err.message || fallbackError);
+        this.connectionStatus = errMsg;
+        this.connected = false;
+        this.errorNotificationService.addError({
+          code: "E1401",
+          message: this.errorNotificationService.getMessage("E1401")
+        });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+}
 }

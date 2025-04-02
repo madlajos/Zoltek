@@ -2,6 +2,9 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedService, MeasurementRecord } from '../../shared.service';
 import { HttpClient } from '@angular/common/http';
+import { ErrorNotificationService } from '../../services/error-notification.service';
+import { timeout, catchError  } from 'rxjs/operators';
+import { interval, Subscription, of } from 'rxjs';
 
 @Component({
   selector: 'app-measurement-results-popup',
@@ -22,7 +25,7 @@ export class MeasurementResultsPopupComponent {
   // Declare BASE_URL for API calls.
   BASE_URL: string = 'http://localhost:5000/api';
 
-  constructor(private sharedService: SharedService, private http: HttpClient) {}
+  constructor(private sharedService: SharedService, private http: HttpClient, private errorNotificationService: ErrorNotificationService) {}
 
   // Compute the measurement record from the inputs.
   get measurementRecord(): MeasurementRecord {
@@ -47,23 +50,55 @@ export class MeasurementResultsPopupComponent {
   }
 
   dismiss(): void {
-    // 1. Construct or retrieve the measurement record
+    // 1. Construct the measurement record.
     const record = this.measurementRecord;
   
-    // 2. Save to database
-    this.http.post(`${this.BASE_URL}/save-measurement-result`, record).subscribe({
-      next: (resp: any) => {
-        console.log("Saved to DB:", resp);
+    // 2. Check the DB connection before saving.
+    this.http.get<{ message?: string, error?: string }>(
+      `${this.BASE_URL}/check-db-connection?ts=${new Date().getTime()}`
+    ).pipe(
+      timeout(3000),
+      catchError(err => {
+        console.error("DB connection check failed:", err);
+        // Normalize the error response.
+        return of({ message: "", error: err.error?.error || "Connection failed (VPN offline)" });
+      })
+    ).subscribe({
+      next: (checkResp) => {
+        if (checkResp.message && checkResp.message.trim() !== "") {
+          // Connection is OK.
+          this.http.post(`${this.BASE_URL}/save-measurement-result`, record).subscribe({
+            next: (resp: any) => {
+              console.log("Saved to DB:", resp);
+            },
+            error: (err: any) => {
+              console.error("DB save failed:", err);
+              this.errorNotificationService.addError({
+                code: "E1401",
+                message: this.errorNotificationService.getMessage("E1401")
+              });
+            }
+          });
+          this.sharedService.addMeasurementResult(record);
+        } else if (checkResp.error) {
+          console.error("Database connection not available; measurement not saved.");
+          this.errorNotificationService.addError({
+            code: "E1401",
+            message: this.errorNotificationService.getMessage("E1401")
+          });
+        }
+        // 3. Close the popup regardless of connection check outcome.
+        this.closePopup.emit();
       },
-      error: (err: any) => {
-        console.error("DB save failed:", err);
+      error: err => {
+        console.error("Error during DB connection check:", err);
+        this.errorNotificationService.addError({
+          code: "E1401",
+          message: this.errorNotificationService.getMessage("E1401")
+        });
+        // Ensure popup is dismissed.
+        this.closePopup.emit();
       }
     });
-  
-    // 3. Also store in SharedService so the results table updates
-    this.sharedService.addMeasurementResult(record);
-  
-    // 4. Close the popup
-    this.closePopup.emit();
   }
 }

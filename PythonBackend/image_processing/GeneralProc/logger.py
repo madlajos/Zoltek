@@ -6,7 +6,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))  # directory where logger.
 LOG_FILE = os.path.join(ROOT_DIR, "ImageAnalysis.log")  # force log to save near logger.py
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler(LOG_FILE, mode='a'),

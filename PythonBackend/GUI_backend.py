@@ -1022,7 +1022,11 @@ def connect_sql_database():
         settings_data = get_settings()
         sql_config = settings_data.get("sql_server")
         if not sql_config:
-            return jsonify({"error": "SQL Server configuration not found."}), 400
+            return jsonify({
+                "error": "SQL Server configuration not found.",
+                "code": ErrorCode.SQL_DB_ERROR,
+                "popup": True
+            }), 400
 
         server = sql_config.get("server")
         database = sql_config.get("db_name")
@@ -1034,16 +1038,23 @@ def connect_sql_database():
             'SERVER=tcp:' + server + ',1433;'
             'DATABASE=' + database + ';'
             'UID=' + username + ';'
-            'PWD=' + password
+            'PWD=' + password +';'
+            'Pooling=False;'
         )
         
         # Attempt to connect with a short timeout.
         conn = pyodbc.connect(connection_string, timeout=15)
         conn.close()
         return jsonify({"message": "Connected to the database successfully!"}), 200
+
     except Exception as e:
         app.logger.exception("Failed to connect to the database.")
-        return jsonify({"error": str(e), "popup": True}), 500
+        return jsonify({
+            "error": ERROR_MESSAGES[ErrorCode.SQL_DB_ERROR],
+            "code": ErrorCode.SQL_DB_ERROR,
+            "popup": True
+        }), 500
+
 
 @app.route('/api/disconnect_sql_database', methods=['POST'])
 def disconnect_sql_database():
@@ -1083,10 +1094,39 @@ def save_measurement_result():
         
     except Exception as e:
         app.logger.exception("Error saving measurement result to database: " + str(e))
-        return jsonify({"error": str(e), "popup": True}), 500
-
+        return jsonify({
+            "error": ERROR_MESSAGES[ErrorCode.SQL_DB_ERROR],
+            "code": ErrorCode.SQL_DB_ERROR,
+            "popup": True
+        }), 500
+        
+        
+@app.route('/api/check-db-connection', methods=['GET'])
+def check_db_connection():
+    try:
+        conn = get_db_connection()  # This now reads dynamic settings, with Pooling=False.
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        conn.close()
+        if result is not None:
+            return jsonify({"message": "Connected to the database successfully!"}), 200
+        else:
+            return jsonify({
+                "error": ERROR_MESSAGES[ErrorCode.SQL_DB_ERROR],
+                "code": ErrorCode.SQL_DB_ERROR,
+                "popup": True
+            }), 500
+    except Exception as e:
+        app.logger.exception("Failed to check database connection.")
+        return jsonify({
+            "error": ERROR_MESSAGES[ErrorCode.SQL_DB_ERROR],
+            "code": ErrorCode.SQL_DB_ERROR,
+            "popup": True
+        }), 500
 
     
+### Internal Helper Functions ### 
 def get_db_connection():
     from settings_manager import get_settings
     settings_data = get_settings()
@@ -1104,16 +1144,18 @@ def get_db_connection():
         'SERVER=tcp:' + server + ',1433;'
         'DATABASE=' + database + ';'
         'UID=' + username + ';'
-        'PWD=' + password
+        'PWD=' + password +';'
+        'Pooling=False;'
     )
 
-    # Attempt to connect with a short timeout.
-    conn = pyodbc.connect(connection_string, timeout=15)
-    return conn
-    
-    
-    
-### Internal Helper Functions ### 
+    try:
+        # Attempt to connect with a short timeout.
+        conn = pyodbc.connect(connection_string, timeout=15)
+        return conn
+    except Exception as e:
+        # Log error and re-raise if needed.
+        raise Exception("Failed to connect to SQL Server: " + str(e))
+
 def connect_camera_internal(camera_type):
     target_serial = CAMERA_IDS.get(camera_type)
     factory = pylon.TlFactory.GetInstance()
