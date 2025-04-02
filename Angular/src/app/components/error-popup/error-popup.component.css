@@ -11,6 +11,7 @@
     gap: 10px; /* Space between icon and text */
     box-shadow: 0px 4px 10px rgba(255, 0, 0, 0.4); /* 🔥 Red glow */
     border-left: 5px solid #b30000; /* Stronger left border */
+    position: relative;
   }
   
   .error-popup::before {
@@ -24,5 +25,24 @@
     gap: 10px; /* Maintain spacing */
     align-items: center; /* Center align */
     width: 100%;
+  }
+
+  .error-close {
+    background: none;
+    border: none;
+    color: white;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    position: absolute;
+    top: 24px;
+    right: 20px;
+    padding: 0 4px;
+    
+  }
+  
+  .error-close:hover {
+    color: #ddd;
   }
   
