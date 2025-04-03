@@ -37,7 +37,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;
-  totalMeasurements: number = 2;
+  totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
 
   private measurementStop$ = new Subject<void>();
@@ -261,6 +261,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
         switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
         switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
         switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+        switchMap(() => this.http.post(`${this.BASE_URL}/calculate-statistics?mode=full`, {})),
         switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "full" })),
         tap((response: any) => this.updateResultsUI(response)),
         // Cancel chain if measurement is stopped.
@@ -306,6 +307,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       tap(() => { this.currentMeasurement++; }),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/calculate-statistics?mode=slices`, {})),
       switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "slices" })),
       tap((response: any) => this.updateResultsUI(response)),
       takeUntil(this.measurementStop$), // Cancel chain if measurement stopped.

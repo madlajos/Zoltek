@@ -12,18 +12,34 @@ def calculate_statistics(dot_list, expected_counts=None):
     dot_list = [ [dot_id, x, y, col, area], ... ] from globals.measurement_data.
     
     We classify each dot into 1,2,3 based on area ratio.
-    If a dot is class 1 => remove it from measurement_data, increment locked_class1_count.
-
-    The final class 1 = newly found in this pass + locked_class1_count.
-    Returns a dict: {
-      "result_counts": [class1, class2, class3],
-      "classified_dots": [ (dot_id, x, y, col, area, cls), ... ]
-    }
+    If a dot is class 1, remove it from measurement_data and increment locked_class1_count.
+    
+    The final class1 = newly found in this pass + locked_class1_count.
+    Returns a dict:
+       {
+         "result_counts": [class1, class2, class3],
+         "classified_dots": [ (dot_id, x, y, col, area, cls), ... ]
+       }
     """
+    # Get size limits for classification.
     settings_data = get_settings()
     size_limits = settings_data.get("size_limits", {})
     class1_limit = size_limits.get("class1", 0) / 100
     class2_limit = size_limits.get("class2", 0) / 100
+
+    # Define mapping for expected counts.
+    expected_counts_map = {
+        "full": {"center_circle": 360, "center_slice": 510, "outer_slice": 2248},
+        "center_circle": {"center_circle": 360, "center_slice": 0, "outer_slice": 0},
+        "center_slice": {"center_circle": 0, "center_slice": 510, "outer_slice": 0},
+        "outer_slice": {"center_circle": 0, "center_slice": 0, "outer_slice": 2248},
+        "slices": {"center_circle": 0, "center_slice": 510, "outer_slice": 2248},
+    }
+    # If expected_counts is not provided or is a string, use mapping.
+    if expected_counts is None:
+        expected_counts = expected_counts_map["full"]
+    elif isinstance(expected_counts, str):
+        expected_counts = expected_counts_map.get(expected_counts, expected_counts_map["full"])
 
     try:
         # 1) Build a list of (dot_id, x, y, col, area)
@@ -32,43 +48,30 @@ def calculate_statistics(dot_list, expected_counts=None):
             dot_id, x, y, col, area = item
             data.append((dot_id, int(x), int(y), int(col), float(area)))
 
-        # Default or provided expected counts
-        default_expected_counts = {
-            "center_circle": 360,
-            "center_slice": 510,
-            "outer_slice": 2248
-        }
-        if not expected_counts:
-            expected_counts = default_expected_counts
-
-        # 2) Group by column
+        # 2) Group by column.
         columns = defaultdict(list)
         for (dot_id, x, y, col, area) in data:
             columns[col].append((dot_id, x, y, col, area))
 
-        # Compute column averages
+        # Compute column averages.
         column_averages = {}
         if 0 in columns:
             column_averages[0] = np.mean([d[4] for d in columns[0]])
-
         combined_areas = []
         for c in range(1, 11):
             if c in columns:
                 combined_areas += [d[4] for d in columns[c]]
         if combined_areas:
             column_averages["1-10"] = np.mean(combined_areas)
-
         for c in range(11, 128):
             if c in columns:
                 column_averages[c] = np.mean([d[4] for d in columns[c]])
 
-        # 3) Classify
+        # 3) Classify dots.
         class_counts = {1: 0, 2: 0, 3: 0}
         classified_with_id = []  # (dot_id, x, y, col, area, cls)
-
         for col_val, dots_in_col in columns.items():
             avg_area = column_averages.get(col_val, 1.0)
-
             for (dot_id, x, y, col, area) in dots_in_col:
                 ratio = (area / avg_area) if avg_area > 0 else 1
                 if ratio < class1_limit:
@@ -77,26 +80,20 @@ def calculate_statistics(dot_list, expected_counts=None):
                     ccls = 2
                 else:
                     ccls = 3
-
                 class_counts[ccls] += 1
                 classified_with_id.append((dot_id, x, y, col, area, ccls))
-
-        # Sort by dot_id if you like stable output
         classified_with_id.sort(key=lambda item: item[0])
 
-        # 4) Remove newly discovered Class 1 from measurement_data
+        # 4) Remove newly discovered Class 1 from measurement_data.
         class1_ids = {item[0] for item in classified_with_id if item[5] == 1}
         if class1_ids:
             removed_count = remove_class1_from_data(class1_ids)
             globals.locked_class1_count += removed_count
 
-        # 5) Final class1 = newly found + locked_class1_count
+        # 5) Final counts.
         final_class1 = class_counts[1] + globals.locked_class1_count
         final_counts = [final_class1, class_counts[2], class_counts[3]]
-
-        # Convert to final list for "classified_dots"
-        # Keep dot_id so the route can filter out newly added ones
-        classified_dots = classified_with_id  # (dot_id,x,y,col,area,ccls)
+        classified_dots = classified_with_id
 
         return {
             "result_counts": final_counts,
