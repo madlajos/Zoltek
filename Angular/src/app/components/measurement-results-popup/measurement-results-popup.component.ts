@@ -53,6 +53,9 @@ export class MeasurementResultsPopupComponent {
     // 1. Construct the measurement record.
     const record = this.measurementRecord;
   
+    this.sharedService.addMeasurementResult(record);
+
+
     // 2. Check the DB connection before saving.
     this.http.get<{ message?: string, error?: string }>(
       `${this.BASE_URL}/check-db-connection?ts=${new Date().getTime()}`
@@ -61,7 +64,7 @@ export class MeasurementResultsPopupComponent {
       catchError(err => {
         console.error("DB connection check failed:", err);
         // Normalize the error response.
-        return of({ message: "", error: err.error?.error || "Connection failed (VPN offline)" });
+        return of({ message: "", error: err.error?.error });
       })
     ).subscribe({
       next: (checkResp) => {
@@ -79,7 +82,6 @@ export class MeasurementResultsPopupComponent {
               });
             }
           });
-          this.sharedService.addMeasurementResult(record);
         } else if (checkResp.error) {
           console.error("Database connection not available; measurement not saved.");
           this.errorNotificationService.addError({
