@@ -53,8 +53,8 @@ def calculate_statistics(dot_list, expected_counts=None):
         for (dot_id, x, y, col, area) in data:
             columns[col].append((dot_id, x, y, col, area))
 
-        # Compute column averages.
-        column_averages = {}
+        # Column average calculation. Required if denominator is average area in statistics calculation.
+        """ column_averages = {}
         if 0 in columns:
             column_averages[0] = np.mean([d[4] for d in columns[0]])
         combined_areas = []
@@ -65,15 +65,29 @@ def calculate_statistics(dot_list, expected_counts=None):
             column_averages["1-10"] = np.mean(combined_areas)
         for c in range(11, 128):
             if c in columns:
-                column_averages[c] = np.mean([d[4] for d in columns[c]])
+                column_averages[c] = np.mean([d[4] for d in columns[c]]) """
+                
+        # Compute column max as denominator
+        column_reference = {}
+        if 0 in columns:
+            column_reference[0] = np.max([d[4] for d in columns[0]])
+        combined_areas = []
+        for c in range(1, 11):
+            if c in columns:
+                combined_areas += [d[4] for d in columns[c]]
+        if combined_areas:
+            column_reference["1-10"] = np.max(combined_areas)
+        for c in range(11, 128):
+            if c in columns:
+                column_reference[c] = np.max([d[4] for d in columns[c]])
 
         # 3) Classify dots.
         class_counts = {1: 0, 2: 0, 3: 0}
         classified_with_id = []  # (dot_id, x, y, col, area, cls)
         for col_val, dots_in_col in columns.items():
-            avg_area = column_averages.get(col_val, 1.0)
+            ref_value = column_reference.get(col_val, 1.0)
             for (dot_id, x, y, col, area) in dots_in_col:
-                ratio = (area / avg_area) if avg_area > 0 else 1
+                ratio = (area / ref_value) if ref_value > 0 else 1
                 if ratio < class1_limit:
                     ccls = 1
                 elif ratio <= class2_limit:
