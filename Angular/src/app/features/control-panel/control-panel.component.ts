@@ -181,22 +181,22 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   }
 
   toggleMeasurement(): void {
-    if (!this.measurementActive) { // Trying to start measurement.
+    if (!this.measurementActive) {
       if (!this.canStartMeasurement()) {
-        // Set the flag so that the empty fields will show a red outline.
+        //Check if conditions are met to start measurement
         this.measurementValidationTriggered = true;
-        // Optionally, you can force a change detection here.
         this.cdr.detectChanges();
-        // Do not start measurement.
         return;
       }
       // If validations pass, reset the flag.
       this.measurementValidationTriggered = false;
       this.measurementActive = true;
+      this.sharedService.setMeasurementActive(true);
       console.log("Measurement cycle started.");
       this.startMeasurement();
     } else { // Stop measurement.
       this.measurementActive = false;
+      this.sharedService.setMeasurementActive(false);
       console.log("Measurement cycle stopping...");
       this.stopMeasurement();
     }

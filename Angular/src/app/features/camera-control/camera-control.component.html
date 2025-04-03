@@ -15,21 +15,21 @@
           <td>Class 1 Limit (%)</td>
           <td>
             <input type="number" [(ngModel)]="sizeLimits['class1']" (blur)="applySizeLimit('class1')"
-                   class="styled-input" />
+                   class="styled-input" [disabled]="measurementActive" />
           </td>
         </tr>
         <tr>
           <td>Class 2 Limit (%)</td>
           <td>
             <input type="number" [(ngModel)]="sizeLimits['class2']" (blur)="applySizeLimit('class2')"
-                   class="styled-input" />
+                   class="styled-input" [disabled]="measurementActive" />
           </td>
         </tr>
         <tr>
           <td>Class 1 Count Limit</td>
           <td>
             <input type="number" [(ngModel)]="sizeLimits['ng_limit']" (blur)="applySizeLimit('ng_limit')"
-                   class="styled-input" />
+                   class="styled-input" [disabled]="measurementActive" />
           </td>
         </tr>
       </tbody>

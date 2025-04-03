@@ -35,6 +35,13 @@ export class SharedService {
     { label: 'Tiszta', value: 0 }
   ]);
 
+  private measurementActiveSubject = new BehaviorSubject<boolean>(false);
+  measurementActive$ = this.measurementActiveSubject.asObservable();
+
+  setMeasurementActive(active: boolean): void {
+    this.measurementActiveSubject.next(active);
+  }
+
   private measurementHistorySubject = new BehaviorSubject<MeasurementRecord[]>([]);
   public measurementHistory$ = this.measurementHistorySubject.asObservable();
 

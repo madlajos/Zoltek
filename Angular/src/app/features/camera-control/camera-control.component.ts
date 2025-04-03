@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { SharedService } from '../../shared.service';
 import { FormsModule } from '@angular/forms';
@@ -27,23 +27,12 @@ interface CameraSettings {
   styleUrls: ['./camera-control.component.css'],
   imports: [CommonModule, FormsModule, MatIconModule]
 })
-export class CameraControlComponent implements OnInit {
+
+export class CameraControlComponent implements OnInit, OnDestroy {
   mainCameraSettings: CameraSettings = {} as CameraSettings;
   sideCameraSettings: CameraSettings = {} as CameraSettings;
 
-  loadedFileName: string = '';
-  saveDirectory: string = 'C:\\Users\\Public\\Pictures';
-
-  connectionPollingMain: Subscription | undefined;
-  connectionPollingSide: Subscription | undefined;
-  reconnectionPollingMain: Subscription | undefined;
-  reconnectionPollingSide: Subscription | undefined;
-
-  isMainConnected: boolean = false;
-  isSideConnected: boolean = false;
-  isMainStreaming: boolean = false;
-  isSideStreaming: boolean = false;
-
+  private settingsLoaded: boolean = false;
   settingOrder: string[] = [
     'Width',
     'Height',
@@ -61,12 +50,27 @@ export class CameraControlComponent implements OnInit {
     class2: 95,
     ng_limit: 15
   };
+  
+  connectionPollingMain: Subscription | undefined;
+  connectionPollingSide: Subscription | undefined;
+  reconnectionPollingMain: Subscription | undefined;
+  reconnectionPollingSide: Subscription | undefined;
+
+  isMainConnected: boolean = false;
+  isSideConnected: boolean = false;
+  isMainStreaming: boolean = false;
+  isSideStreaming: boolean = false;
+
+  measurementActive: boolean = false;
+  private measurementActiveSub!: Subscription;
+
+  loadedFileName: string = '';
+  saveDirectory: string = 'C:\\Users\\Public\\Pictures';
 
   private readonly MAIN_CAMERA_ERR_CODE = "E1111";
   private readonly SIDE_CAMERA_ERR_CODE = "E1121";
 
   private readonly BASE_URL = 'http://localhost:5000/api';
-  private settingsLoaded: boolean = false;
 
   constructor(private http: HttpClient,
     public sharedService: SharedService,
@@ -91,6 +95,10 @@ export class CameraControlComponent implements OnInit {
   
     // Set the shared save directory
     this.sharedService.setSaveDirectory(this.saveDirectory);
+
+    this.measurementActiveSub = this.sharedService.measurementActive$.subscribe(active => {
+      this.measurementActive = active;
+    });
   
     // Subscribe to camera connection and streaming status
     this.sharedService.cameraConnectionStatus$.subscribe(status => {
@@ -127,6 +135,10 @@ export class CameraControlComponent implements OnInit {
     this.stopConnectionPolling('side');
     this.stopReconnectionPolling('main');
     this.stopReconnectionPolling('side');
+
+    if (this.measurementActiveSub) {
+      this.measurementActiveSub.unsubscribe();
+    }
   }
 
   checkCameraStatus(cameraType: 'main' | 'side'): void {

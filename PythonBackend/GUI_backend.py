@@ -461,10 +461,10 @@ def connect_camera():
     if "error" in result:
         error_code = result.get("code", ErrorCode.GENERIC)
         result["popup"] = True
-        # Replace the error message with the mapped message
         result["error"] = ERROR_MESSAGES.get(error_code, result["error"])
         return jsonify(result), 404
     return jsonify(result), 200
+
 
 
 @app.route('/api/disconnect-camera', methods=['POST'])
@@ -751,7 +751,7 @@ def analyze_slice(process_func, camera_type, label):
             # Retry grabbing the image up to 10 times #TODO:CHECK IF THIS WORKS
             grab_result = retry_operation(
                 lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
-                max_retries=100,
+                max_retries=10,
                 wait=1
             )
 
@@ -1066,26 +1066,35 @@ def disconnect_sql_database():
 def save_measurement_result():
     try:
         data = request.get_json()
-        # Retrieve fields from the JSON payload
+        # Retrieve measurement record fields from the JSON payload
         measurement_date = data.get('date')
         measurement_time = data.get('time')
-        spinneret_id = data.get('id')         # Changed key: previously MeasurementID
-        spinneret_barcode = data.get('barcode')  # Changed key: previously Barcode
+        spinneret_id = data.get('id')         # previously MeasurementID
+        spinneret_barcode = data.get('barcode')  # previously Barcode
         operator = data.get('operator')
         clogged = data.get('clogged')
         partially_clogged = data.get('partiallyClogged')
         clean = data.get('clean')
         result = data.get('result')
         
-        conn = get_db_connection()  # Assumes your get_db_connection reads dynamic settings
+        # Retrieve additional settings from settings.json.
+        settings_data = get_settings()
+        size_limits = settings_data.get("size_limits", {})
+        class1_limit = size_limits.get("class1", 0)
+        class2_limit = size_limits.get("class2", 0)
+        ng_limit = size_limits.get("ng_limit", 0)
+        
+        conn = get_db_connection()  # Reads dynamic settings; Pooling is disabled.
         cursor = conn.cursor()
         
         insert_sql = """
             INSERT INTO MeasurementResults 
-                (MeasurementDate, MeasurementTime, SpinneretID, SpinneretBarcode, Operator, Clogged, PartiallyClogged, Clean, Result)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (MeasurementDate, MeasurementTime, SpinneretID, SpinneretBarcode, Operator, 
+                 Clogged, PartiallyClogged, Clean, Result, Class1Limit, Class2Limit, NgLimit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cursor.execute(insert_sql, measurement_date, measurement_time, spinneret_id, spinneret_barcode, operator, clogged, partially_clogged, clean, result)
+        cursor.execute(insert_sql, measurement_date, measurement_time, spinneret_id, spinneret_barcode, operator,
+                         clogged, partially_clogged, clean, result, class1_limit, class2_limit, ng_limit)
         conn.commit()
         conn.close()
         
@@ -1099,7 +1108,6 @@ def save_measurement_result():
             "code": ErrorCode.SQL_DB_ERROR,
             "popup": True
         }), 500
-        
         
 @app.route('/api/check-db-connection', methods=['GET'])
 def check_db_connection():
@@ -1164,7 +1172,11 @@ def connect_camera_internal(camera_type):
     selected_device = next((device for device in devices if device.GetSerialNumber() == target_serial), None)
     if not selected_device:
         error_code = ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
-        return {"error": f"Camera {camera_type} with serial {target_serial} not found", "code": error_code, "popup": True}
+        return {
+            "error": f"Camera {camera_type} with serial {target_serial} not found",
+            "code": error_code,
+            "popup": True
+        }
 
     # If already connected, return info.
     if globals.cameras.get(camera_type) and globals.cameras[camera_type].IsOpen():
@@ -1178,10 +1190,12 @@ def connect_camera_internal(camera_type):
         globals.cameras[camera_type] = pylon.InstantCamera(factory.CreateDevice(selected_device))
         globals.cameras[camera_type].Open()
     except Exception as e:
-        app.logger.exception(f"Failed to connect to camera {camera_type} on port {selected_device.GetDeviceInfo().GetPortName()}: {e}")
+        # Use GetPortName() if available; otherwise, fallback.
+        port_name = selected_device.GetPortName() if hasattr(selected_device, "GetPortName") else "unknown"
+        app.logger.exception(f"Failed to connect to camera {camera_type} on port {port_name}: {e}")
         error_code = ErrorCode.MAIN_CAMERA_DISCONNECTED if camera_type == 'main' else ErrorCode.SIDE_CAMERA_DISCONNECTED
         return {
-            "error": "Camera not found. Please check USB connection.",
+            "error": ERROR_MESSAGES.get(error_code, "Camera not connected."),
             "code": error_code,
             "popup": True
         }
@@ -1200,6 +1214,7 @@ def connect_camera_internal(camera_type):
         "name": selected_device.GetModelName(),
         "serial": selected_device.GetSerialNumber()
     }
+
 
 
 def start_camera_stream_internal(camera_type, scale_factor=0.25):
