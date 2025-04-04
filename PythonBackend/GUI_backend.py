@@ -8,8 +8,10 @@ from pypylon import pylon
 from cameracontrol import (apply_camera_settings, 
                            validate_and_set_camera_param, get_camera_properties)
 import porthandler
-
+import os
 import pyodbc
+import csv
+from datetime import datetime
 
 from image_processing import imageprocessing_main
 
@@ -884,6 +886,46 @@ def save_annotated_image_endpoint():
         app.logger.exception("Error saving annotated image: " + str(e))
         return jsonify({
             "error": "Failed to save annotated image",
+            "code": ErrorCode.GENERIC,
+            "popup": True
+        }), 500
+        
+@app.route('/api/save_results_to_csv', methods=['POST'])
+def save_results_to_csv_endpoint():
+    try:
+        # Retrieve spinneret_id from the request payload if provided,
+        # otherwise use a default value.
+        data = request.get_json() or {}
+        spinneret_id = data.get("spinneret_id", "unknown")
+        
+        # Use the current date formatted as YYYYMMDD.
+        measurement_date = datetime.now().strftime("%Y%m%d")
+        
+        # Define the output directory and ensure it exists.
+        output_dir = "csv_results"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Construct the filename.
+        filename = os.path.join(output_dir, f"{spinneret_id}_{measurement_date}.csv")
+        
+        # Open the file and write globals.measurement_data into it.
+        # Assuming globals.measurement_data is a list of lists:
+        # [dot_id, x, y, col, area]
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            # Write header row.
+            writer.writerow(["Oszlop", "Terület", "Osztály"])
+            # Write each measurement row.
+            for row in globals.dot_results:
+                writer.writerow([row[3], row[4], row[5]])
+        
+        app.logger.info(f"Measurement results saved to CSV: {filename}")
+        return jsonify({"message": "CSV saved successfully", "filename": filename}), 200
+
+    except Exception as e:
+        app.logger.exception("Error saving measurement results to CSV: " + str(e))
+        return jsonify({
+            "error": ERROR_MESSAGES.get(ErrorCode.GENERIC, "Failed to save CSV"),
             "code": ErrorCode.GENERIC,
             "popup": True
         }), 500

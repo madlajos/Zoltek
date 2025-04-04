@@ -295,6 +295,11 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     }
     if (this.currentMeasurement >= this.totalMeasurements) {
       console.log("Measurement cycle completed.");
+
+      if (true) {
+        this.saveResultsToCsv();
+      }
+
       this.showResultsPopup();
       return;
     }
@@ -372,6 +377,30 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     this.stopMeasurement();
     // Hide the popup.
     this.isResultsPopupVisible = false;
+  }
+
+  saveResultsToCsv(): void {
+    // Use the available spinneret id (from nozzleId or nozzleBarcode)
+    const spinneretId = this.nozzleBarcode || this.nozzleId;
+    if (!spinneretId) {
+      console.error("Cannot save CSV: No spinneret ID provided.");
+      return;
+    }
+    // Prepare the payload. The endpoint will use the current date on the server to name the CSV.
+    const payload = {
+      spinneret_id: spinneretId
+      // You can add other parameters if needed.
+    };
+  
+    this.http.post(`${this.BASE_URL}/save_results_to_csv`, payload).subscribe({
+      next: (resp: any) => {
+        console.log("CSV saved successfully:", resp);
+        // Optionally update the UI with resp.filename, etc.
+      },
+      error: (err: any) => {
+        console.error("CSV saving failed:", err);
+      }
+    });
   }
 
   // Tester Functions to analyse only parts of the images

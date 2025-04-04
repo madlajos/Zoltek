@@ -108,6 +108,8 @@ def calculate_statistics(dot_list, expected_counts=None):
         final_class1 = class_counts[1] + globals.locked_class1_count
         final_counts = [final_class1, class_counts[2], class_counts[3]]
         classified_dots = classified_with_id
+        
+        globals.dot_results = classified_with_id
 
         return {
             "result_counts": final_counts,

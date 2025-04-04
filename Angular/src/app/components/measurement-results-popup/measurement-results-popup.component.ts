@@ -53,54 +53,24 @@ export class MeasurementResultsPopupComponent {
     // 1. Construct the measurement record.
     const record = this.measurementRecord;
   
+    // 2. Update the SharedService so the results table updates regardless of DB save success.
     this.sharedService.addMeasurementResult(record);
-
-
-    // 2. Check the DB connection before saving.
-    this.http.get<{ message?: string, error?: string }>(
-      `${this.BASE_URL}/check-db-connection?ts=${new Date().getTime()}`
-    ).pipe(
-      timeout(3000),
-      catchError(err => {
-        console.error("DB connection check failed:", err);
-        // Normalize the error response.
-        return of({ message: "", error: err.error?.error });
-      })
-    ).subscribe({
-      next: (checkResp) => {
-        if (checkResp.message && checkResp.message.trim() !== "") {
-          // Connection is OK.
-          this.http.post(`${this.BASE_URL}/save-measurement-result`, record).subscribe({
-            next: (resp: any) => {
-              console.log("Saved to DB:", resp);
-            },
-            error: (err: any) => {
-              console.error("DB save failed:", err);
-              this.errorNotificationService.addError({
-                code: "E1401",
-                message: this.errorNotificationService.getMessage("E1401")
-              });
-            }
-          });
-        } else if (checkResp.error) {
-          console.error("Database connection not available; measurement not saved.");
-          this.errorNotificationService.addError({
-            code: "E1401",
-            message: this.errorNotificationService.getMessage("E1401")
-          });
-        }
-        // 3. Close the popup regardless of connection check outcome.
-        this.closePopup.emit();
+  
+    // 3. Save to the database without a prior connection check.
+    this.http.post(`${this.BASE_URL}/save-measurement-result`, record).subscribe({
+      next: (resp: any) => {
+        console.log("Saved to DB:", resp);
       },
-      error: err => {
-        console.error("Error during DB connection check:", err);
+      error: (err: any) => {
+        console.error("DB save failed:", err);
         this.errorNotificationService.addError({
           code: "E1401",
           message: this.errorNotificationService.getMessage("E1401")
         });
-        // Ensure popup is dismissed.
-        this.closePopup.emit();
       }
     });
+  
+    // 4. Close the popup.
+    this.closePopup.emit();
   }
 }
