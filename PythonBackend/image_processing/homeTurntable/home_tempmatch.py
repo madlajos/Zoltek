@@ -123,34 +123,35 @@ def start_temp_match(templateL, templateS, image, scale_percent):
 
         print(best_score)
 
-        def preprocess(img, scale_percent):
-            return cv2.resize(img, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
+        # def preprocess(img, scale_percent):
+        #     return cv2.resize(img, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
 
-        if best_score < 0.44:
-            print('ok')
-            rotated_templatesS = {
-                0: preprocess(templateS, scale_percent),
-                90: preprocess(rotate_image(templateS, 90), scale_percent),
-                180: preprocess(rotate_image(templateS, 180), scale_percent),
-                270: preprocess(rotate_image(templateS, 270), scale_percent),
-            }
+        # if best_score < 0.44:
+        #     print('ok')
+        #     rotated_templatesS = {
+        #         0: preprocess(templateS, scale_percent),
+        #         90: preprocess(rotate_image(templateS, 90), scale_percent),
+        #         180: preprocess(rotate_image(templateS, 180), scale_percent),
+        #         270: preprocess(rotate_image(templateS, 270), scale_percent),
+        #     }
+        #
+        #     for rotation, template_variant2 in rotated_templatesS.items():
+        #         if template_variant2 is None:
+        #             logger.error(f"E2023 - Failed to rotate templateS at {rotation}°")
+        #             continue
+        #         angle, score = find_best_match_and_angle2(image, template_variant2)
+        #         if isinstance(score, str):  # An error code was returned
+        #             continue
+        #         if score > best_score:
+        #             best_score = score
+        #             best_angle = angle
+        #             best_rotation = rotation
+        #
+        #     print(" Score too low — retrying fine search with small template")
+        #     print(f"New score with small template: {best_score:.3f}")
+        #
 
-            for rotation, template_variant2 in rotated_templatesS.items():
-                if template_variant2 is None:
-                    logger.error(f"E2023 - Failed to rotate templateS at {rotation}°")
-                    continue
-                angle, score = find_best_match_and_angle2(image, template_variant2)
-                if isinstance(score, str):  # An error code was returned
-                    continue
-                if score > best_score:
-                    best_score = score
-                    best_angle = angle
-                    best_rotation = rotation
-
-            print(" Score too low — retrying fine search with small template")
-            print(f"New score with small template: {best_score:.3f}")
-
-        return best_angle, best_rotation, None
+        return best_angle, best_rotation,best_score, None
 
     except Exception as e:
         logger.error("E2024 - Error in start_temp_match")
