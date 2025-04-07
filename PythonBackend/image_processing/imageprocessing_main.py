@@ -64,6 +64,7 @@ def home_turntable_with_image(image):
         save_image(last_valid_image, 'E20')
         return None, emsg
 
+
     image, emsg = img_ok_check(image, 'E20')
     if emsg is not None:
         save_image(last_valid_image, 'E20')
@@ -96,11 +97,10 @@ def home_turntable_with_image(image):
 
         best_angle, best_rotation, best_Type3, emsg = start_temp_match(templateD_rescaled, templateS, image_rescaled,
                                                                        scale_percent)
+        emsg="E2400"
         if emsg is not None:
             save_image(last_valid_image, 'E20')
             return None, (emsg)
-
-
 
 
     final_angle = (best_angle + best_rotation) % 360  # Normalize angle to [0, 360)
