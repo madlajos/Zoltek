@@ -1,5 +1,4 @@
 ERRORCODE
-
 ------- HOME----------------------------------------------------------------------------------
 
 Error 2000: Home: Input image is None. Please provide a valid grayscale image.
@@ -13,22 +12,16 @@ Error 2008: Home: Image is too dark. Increase lighting.
 Error 2009: Home: Image is too bright. Reduce lighting.
 Error 2010: Home: Unexpected error in image check.
 Error 2011: Home: OpenCV error in rotate_image.
-Error 2012: `rotated_templates` is empty or not a valid dictionary.
-Error 2013: 'rotated_templates' is None. Cannot compute angles."
-Error 2014: `target_to_match` or `template_small` is None. Cannot compute match.
-Error 2015: Empty image provided for template matching.
-Error 2016: cropped_region` or `template_small` is None. Cannot compute match
-Error 2017: Rotation failed for angle {angle}. Skipping this angle.
-Error 2018: OpenCV error in find_best_match_for_angle(): {e}
-Error 2019: Unexpected error in find_best_match_for_angle()
-Error 2020: Error during parallel search
-Error 2021: Error in best angle calc(10)
-Error 2022: Error in best angle calc(5)
-Error 2023: Error in best angle calc(0.5)
-Error 2024: Error in template matching()
-Error 2025: Unexpected error in angle_det()
+Error 2012: Error in inital template matching for angle determination
+Error 2013: Error in center template match resize
+Error 2014: Error in center template match
+Error 2015: Error in the creation mask
+Error 2016: OpenCV error in mask procedure
+Error 2017: OpenCV error during dot detection
+Error 2018:  Unexpected error during line mask or dot analysis
 
 Error 2400: Unrecognizable type of sample
+
 
 -------- CIRCLE----------------------------------------------------------------------------------
 
