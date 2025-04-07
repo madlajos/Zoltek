@@ -26,6 +26,10 @@
         "class2": 60,
         "ng_limit": 15
     },
+    "save_settings": {
+        "save_csv": false,
+        "save_images": false
+    },
     "sql_server": {
         "server": "ZHUVM-MSSQL",
         "db_name": "PF_Spinneret_Purity",

@@ -27,6 +27,8 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   nozzleBarcode: string = "";
   operatorId: string = "";
   ng_limit: number = 0;
+  save_csv: boolean = false;
+  save_images: boolean = false;
 
   isMainConnected: boolean = false;
   isSideConnected: boolean = false;
@@ -37,7 +39,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;
-  totalMeasurements: number = 18;
+  totalMeasurements: number = 2;
   turntablePosition: number | string = '?';
 
   private measurementStop$ = new Subject<void>();
@@ -100,6 +102,31 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       // Use bracket notation to access ng_limit.
       this.ng_limit = limits['ng_limit'];
       console.log("ng_limit updated via shared service:", this.ng_limit);
+      this.cdr.detectChanges();
+    });
+
+
+    // Load initial save settings
+    this.http.get<{ save_settings: { [key: string]: boolean } }>(`${this.BASE_URL}/get-other-settings?category=save_settings`)
+      .subscribe({
+        next: response => {
+          if (response && response.save_settings) {
+            // Access save_csv and save_images with bracket notation.
+            this.save_csv = response.save_settings['save_csv'];
+            this.save_images = response.save_settings['save_images'];
+            console.log("Save settings loaded:", this.save_csv, this.save_images);
+          }
+        },
+        error: error => {
+          console.error("Error loading settings:", error);
+        }
+      });
+
+    // Subscribe to size limits updates via the shared service.
+    this.settingsUpdatesService.saveSettings$.subscribe(settings => {
+      this.save_csv = settings['save_csv'];
+      this.save_images = settings['save_images'];
+      console.log("saveSettings updated via shared service:", this.save_csv, this.save_images);
       this.cdr.detectChanges();
     });
   }
@@ -295,8 +322,11 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     }
     if (this.currentMeasurement >= this.totalMeasurements) {
       console.log("Measurement cycle completed.");
+      
+      this.measurementActive = false;
+      this.sharedService.setMeasurementActive(false);
 
-      if (true) {
+      if (this.save_csv) {
         this.saveResultsToCsv();
       }
 

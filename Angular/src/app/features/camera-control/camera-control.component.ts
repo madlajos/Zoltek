@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { interval, Subscription } from 'rxjs';
 import { ErrorNotificationService } from '../../services/error-notification.service';
-import { SettingsUpdatesService, SizeLimits } from '../../services/settings-updates.service';
+import { SettingsUpdatesService, SizeLimits, SaveSettings} from '../../services/settings-updates.service';
 
 interface CameraSettings {
   Width: number;
@@ -49,6 +49,11 @@ export class CameraControlComponent implements OnInit, OnDestroy {
     class1: 5,
     class2: 95,
     ng_limit: 15
+  };
+
+  saveSettings: SaveSettings = {
+    save_csv: false,
+    save_images: false
   };
   
   connectionPollingMain: Subscription | undefined;
@@ -126,6 +131,21 @@ export class CameraControlComponent implements OnInit, OnDestroy {
         },
         error: error => {
           console.error("Error loading size limits from backend:", error);
+        }
+      });
+
+      this.http.get<{ save_settings: SaveSettings }>(`${this.BASE_URL}/get-other-settings?category=save_settings`)
+      .subscribe({
+        next: response => {
+          if (response && response.save_settings) {
+            this.saveSettings = response.save_settings;
+            // Publish the loaded settings to the shared service.
+            this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
+            console.log("Loaded Save Settings from backend:");
+          }
+        },
+        error: error => {
+          console.error("Error loading Save Settings from backend:", error);
         }
       });
   }
@@ -340,24 +360,6 @@ export class CameraControlComponent implements OnInit, OnDestroy {
     );
   }
   
-  saveSettings(cameraType: 'main' | 'side'): void {
-    console.log(`Save Settings button clicked for ${cameraType} camera`);
-  
-    const settings = {
-      camera_params: cameraType === 'main' ? this.mainCameraSettings : this.sideCameraSettings
-    };
-  
-    this.http.post(`${this.BASE_URL}/save-camera-settings?type=${cameraType}`, settings).subscribe(
-      (response: any) => {
-        console.log(`Settings for ${cameraType} camera saved successfully:`, response);
-        this.updateCameraSettingsOnInterface(response.updated_settings, cameraType);
-      },
-      error => {
-        console.error(`Error saving settings for ${cameraType} camera:`, error);
-      }
-    );
-  }
-  
   applySetting(setting: string, cameraType: 'main' | 'side'): void {
     const value = cameraType === 'main' ? this.mainCameraSettings[setting] : this.sideCameraSettings[setting];
     console.log(`Applying setting ${setting}: ${value}`);
@@ -412,6 +414,28 @@ export class CameraControlComponent implements OnInit, OnDestroy {
       },
       error: error => {
         console.error(`Error applying size limit ${limitName}:`, error);
+      }
+    });
+  }
+
+  applySaveSetting(settingName: 'save_csv' | 'save_images'): void {
+    let value = Boolean(this.saveSettings[settingName]); // convert to number explicitly
+    console.log(`Applying save setting: ${settingName}to ${value}`);
+
+    this.http.post(`${this.BASE_URL}/update-other-settings`, {
+      category: 'save_settings',
+      setting_name: settingName,
+      setting_value: value
+    }).subscribe({
+      next: (response: any) => {
+        console.log(`Save settings applied successfully:`, response);
+        // Update the local value with the response.
+        this.saveSettings[settingName] = Boolean(response.updated_value);
+        this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
+
+      },
+      error: error => {
+        console.error(`Error save setting: ${settingName}:`, error);
       }
     });
   }

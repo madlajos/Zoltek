@@ -32,6 +32,13 @@
                    class="styled-input" [disabled]="measurementActive" />
           </td>
         </tr>
+        <tr>
+          <td>Save measurement data to CSV</td>
+          <td>
+            <input type="checkbox" [(ngModel)]="saveSettings['save_csv']" (change)="applySaveSetting('save_csv')"
+                   class="styled-input" [disabled]="measurementActive" />
+          </td>
+        </tr>
       </tbody>
     </table>
   </section>
