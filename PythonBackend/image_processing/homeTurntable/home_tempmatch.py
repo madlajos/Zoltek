@@ -94,7 +94,7 @@ def find_best_match_and_angle2(image, template):
 
     return best_fine_angle, best_fine_score
 
-    # Track the best match across all templates
+
 
 def start_temp_match(templateL, templateS, image, scale_percent):
     try:
