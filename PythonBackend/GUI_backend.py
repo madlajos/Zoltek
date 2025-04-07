@@ -282,7 +282,7 @@ def home_turntable():
                 'popup': True
             }), 500
 
-        command = f"{abs(rotation_needed + 10)},{1 if rotation_needed > 0 else 0}"
+        command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
         app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
 
         # Step 3: Send rotation command & retry confirmation
