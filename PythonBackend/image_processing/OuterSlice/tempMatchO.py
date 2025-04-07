@@ -50,9 +50,20 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             # ✅ **Crop all relevant images from the left**
             original_mask = original_mask[:, first_dot_x:]
             matched_region = matched_region[:, first_dot_x:]
-
+            top_left2 = (top_left[0] + first_dot_x, top_left[1])
             # ✅ **Now Apply Dilation After Cropping**
-            kernel = np.ones((220, 220), np.uint8)
+            # Get dimensions of the original mask
+            h, w = original_mask.shape
+
+            # Define scale factor (you can adjust this!)
+            kernel_scale = 0.11  # 10% of mask height
+
+            # Calculate kernel dimensions
+            kernel_height = max(1, int(h * kernel_scale))
+            kernel_width = max(1, int(h * kernel_scale * 0.5))  # narrower kernel for less horizontal spread
+
+            # Create the kernel
+            kernel = np.ones((kernel_height, kernel_width), np.uint8)
             expanded_mask = cv2.dilate(original_mask, kernel, iterations=1)
 
             # ✅ Resize mask to match `matched_region`
@@ -80,7 +91,7 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             cv2.putText(annotated_image, f"Scale: {scale_factor:.2f}", (top_left[0], top_left[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
-            return masked_polygon_region, annotated_image, expanded_mask_resized, None
+            return masked_polygon_region, annotated_image, expanded_mask_resized, (top_left2, bottom_right), None
 
         except FileNotFoundError as e:
             logger.error("E2317")

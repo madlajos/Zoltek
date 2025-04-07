@@ -65,7 +65,14 @@ def islice_template_match_with_polygon(cropped_image, template, start_x=0, start
 
         # ✅ **Step 5: Expand the Mask by 15 Pixels**
         try:
-            kernel = np.ones((50, 50), np.uint8)
+            # Dynamically size the kernel based on mask height
+            h, w = original_mask.shape
+            kernel_scale = 0.1  # 10% of mask height
+            kernel_height = max(1, int(h * kernel_scale))
+            kernel_width = max(1, int(h * kernel_scale * 0.5))  # narrower width
+
+            kernel = np.ones((kernel_height, kernel_width), np.uint8)
+
             expanded_mask = cv2.dilate(original_mask, kernel, iterations=1)
         except cv2.error as e:
             logger.error("E2219")  # Error Code for dilation failure
@@ -89,7 +96,7 @@ def islice_template_match_with_polygon(cropped_image, template, start_x=0, start
             logger.error("E2221")  # Error Code for bitwise operation failure
             return None, "E2221"
 
-        return masked_polygon_region, None  # Success
+        return masked_polygon_region, best_top_left, None  # Success
 
     except Exception as e:
         logger.error("E2222")  # General error code for unexpected failure

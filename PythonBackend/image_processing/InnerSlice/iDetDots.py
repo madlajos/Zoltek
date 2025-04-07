@@ -175,7 +175,7 @@ def shift_column_labels_for_missing(missing_columns, x_to_col_number, filtered_d
     return updated_mapping
 
 
-def islice_detect_small_dots_and_contours(masked_region, drawtf):
+def islice_detect_small_dots_and_contours(masked_region, drawtf, offset):
     try:
         dot_centers, dot_areas, masked_region = det_sort_dots(masked_region)
         if dot_centers is None:
@@ -242,7 +242,10 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
         filtered_dot_area_column_mapping = [
             (x, y, col, area) for x, y, col, area in filtered_dot_area_column_mapping if 1 <= col <= 50
         ]
-
+        filtered_dot_area_column_mapping_fin = [
+            (x + offset[0], y + offset[1], col, area)
+            for x, y, col, area in filtered_dot_area_column_mapping
+        ]
 
 
         annotated_dots = cv2.cvtColor(masked_region, cv2.COLOR_GRAY2BGR)
@@ -287,6 +290,8 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
             results_dir = os.path.join(os.getcwd(), "Results")
             os.makedirs(results_dir, exist_ok=True)  # Make sure the folder exists
             cv2.imwrite(os.path.join(results_dir, filename), annotated_dots)
+
+
         column_counts = {}
 
         # # Count occurrences of each column
@@ -295,7 +300,7 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf):
         #     column_counts[column_label] = column_counts.get(column_label, 0) + 1
         # output = "\n".join([f"Col {col}: {count} dots" for col, count in column_counts.items()])
         #print(output)
-        return filtered_dot_area_column_mapping, annotated_dots, None
+        return filtered_dot_area_column_mapping_fin, annotated_dots, None
 
     except Exception as e:
        
