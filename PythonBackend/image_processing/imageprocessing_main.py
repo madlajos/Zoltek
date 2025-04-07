@@ -26,9 +26,9 @@ def home_turntable_with_image(image):
     # Filenames and constant values:
     templateL_name = 'TempHomeL.jpg'
     templateS_name = 'TempHomeS.jpg'
-    templateC_name = 'TempType.jpg'
+    templateC_name = 'TempCenter.jpg'
     best_Type3=0
-    scale_percent = 9
+    scale_percent = 10
 
     image, emsg = imgin_check(image, 'E20')
     if emsg is not None:
@@ -70,53 +70,52 @@ def home_turntable_with_image(image):
         save_image(last_valid_image, 'E20')
         return None, (emsg)
 
-    with ThreadPoolExecutor() as executor:
-        future1 = executor.submit(start_temp_match, templateC_rescaled, templateS, image_rescaled, scale_percent)
-        future2 = executor.submit(start_temp_match, templateL_rescaled, templateS, image_rescaled, scale_percent)
-
-        best_angle, best_rotation, best_Type1, emsg1 = future1.result()
-        best_angle, best_rotation, best_Type2, emsg2 = future2.result()
-
-    # Error handling
-    if emsg1 is not None or emsg2 is not None:
-        save_image(last_valid_image, 'E20')
-        return None, emsg1 or emsg2
-
-    if best_Type2 and best_Type1 < 0.25:
-        print('40008 düzni')
-        # Filenames and constant values:
-        templateD_name = 'TempHomeD.jpg'
-        templateD, emsg = load_template(templateD_name, 'E20')
-        if emsg is not None:
-            save_image(last_valid_image, 'E20')
-            return None, emsg
-        templateD_rescaled, emsg = preprocess(templateD, scale_percent)
-        if emsg is not None:
-            save_image(last_valid_image, 'E20')
-            return None, emsg
-
-        best_angle, best_rotation, best_Type3, emsg = start_temp_match(templateD_rescaled, templateS, image_rescaled,
-                                                                       scale_percent)
-        emsg="E2400"
-        if emsg is not None:
-            save_image(last_valid_image, 'E20')
-            return None, (emsg)
-
-
+    best_angle, best_rotation, best_Type1, emsg1 = start_temp_match( templateL_rescaled, templateS, image_rescaled, scale_percent)
+    print(best_Type1)
+    print(best_angle)
     final_angle = (best_angle + best_rotation) % 360  # Normalize angle to [0, 360)
     print(final_angle)
     normalized_angle = ((final_angle + 180) % 360) - 180  # Converts to [-180, 180]
     print(normalized_angle)
-    print(f"Normalized alignment angle: {normalized_angle:.1f} degrees")
     if abs(normalized_angle) > 100:
         # Subtract 180 and reverse the sign of the original angle
         adjusted_angle = (180 - abs(normalized_angle)) * (-1 if normalized_angle > 0 else 1)
     else:
         adjusted_angle = normalized_angle
     print(adjusted_angle)
+    new, result, emsg = fill_second_two_thirds(image, templateC, normalized_angle)
+    if result is 'B':
+        adjusted_angle = adjusted_angle+10
+
+
+
+
+
+
+    if best_Type1 < 0.25:
+        # print('40008 düzni')
+        # # Filenames and constant values:
+        # templateD_name = 'TempHomeD.jpg'
+        # templateD, emsg = load_template(templateD_name, 'E20')
+        # if emsg is not None:
+        #     save_image(last_valid_image, 'E20')
+        #     return None, emsg
+        # templateD_rescaled, emsg = preprocess(templateD, scale_percent)
+        # if emsg is not None:
+        #     save_image(last_valid_image, 'E20')
+        #     return None, emsg
+
+        # best_anglev, best_rotationv, best_Type3, emsg = start_temp_match(templateD_rescaled, templateS, image_rescaled,
+        #                                                                scale_percent)
+        emsg="2400"
+        if emsg is not None:
+            save_image(last_valid_image, 'E20')
+            return None, (emsg)
+
+
     # Apply the angle threshold
-    if best_Type1>best_Type2 or best_Type3>best_Type2:
-        adjusted_angle=adjusted_angle+10
+    # if best_Type1>best_Type2 or best_Type3>best_Type2:
+        # adjusted_angle=adjusted_angle+10
     angle_threshold = 0.51  # Define the threshold for small changes
     if abs(adjusted_angle) <= angle_threshold:
         adjusted_angle = 0
@@ -129,16 +128,16 @@ def home_turntable_with_image(image):
 
 
     # # **Apply the rotation**
-    # (h, w) = image.shape[:2]
-    # center = (w // 2, h // 2)
-    # rotation_matrix = cv2.getRotationMatrix2D(center, adjusted_angle, 1.0)
-    # rotated_image = cv2.warpAffine(image, rotation_matrix, (w, h), flags=cv2.INTER_LINEAR,
-    #                                borderMode=cv2.BORDER_REPLICATE)
-    # rotated_target2 = cv2.resize(rotated_image, None, fx=0.2, fy=0.2,
-    #                              interpolation=cv2.INTER_AREA)
-    # cv2.imshow("RotatedImage", rotated_target2)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    rotation_matrix = cv2.getRotationMatrix2D(center, adjusted_angle, 1.0)
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (w, h), flags=cv2.INTER_LINEAR,
+                                   borderMode=cv2.BORDER_REPLICATE)
+    rotated_target2 = cv2.resize(rotated_image, None, fx=0.2, fy=0.2,
+                                 interpolation=cv2.INTER_AREA)
+    cv2.imshow("RotatedImage", rotated_target2)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     # Ignore small orientation changes
 
     return 0 if abs(adjusted_angle) <= 0.51 else adjusted_angle, None
