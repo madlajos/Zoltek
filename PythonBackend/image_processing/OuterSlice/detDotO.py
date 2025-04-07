@@ -347,7 +347,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
             results_dir = os.path.join(os.getcwd(), "Results")
             os.makedirs(results_dir, exist_ok=True)  # Make sure the folder exists
 
-            cv2.imwrite(os.path.join(results_dir, filename), annotated_dots)
+            cv2.imwrite(os.path.join(results_dir, filename), annotated_dots_sorted)
 
         return data, annotated_dots, sorted_columns, best_match, None
     except Exception as e:
