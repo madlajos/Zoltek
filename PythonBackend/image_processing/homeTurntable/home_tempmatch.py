@@ -154,7 +154,7 @@ def start_temp_match(templateL, templateS, image, scale_percent):
         return best_angle, best_rotation,best_score, None
 
     except Exception as e:
-        logger.error("E2024 - Error in start_temp_match")
+        logger.error("E2024")
         return None, None, "E2024"
 
 
