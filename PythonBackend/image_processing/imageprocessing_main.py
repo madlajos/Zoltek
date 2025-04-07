@@ -4,15 +4,10 @@ from .GeneralProc import *
 from .Center import *
 from .InnerSlice import *
 from .OuterSlice import *
-from concurrent.futures import ThreadPoolExecutor
-import numpy as np
-import time
-import os
 
-
-DRAW_CENTER_DOTS = True
-DRAW_INNER_DOTS = True
-DRAW_OUTER_DOTS = True
+DRAW_CENTER_DOTS = False
+DRAW_INNER_DOTS = False
+DRAW_OUTER_DOTS = False
 
 def home_turntable_with_image(image):
     """
@@ -30,26 +25,29 @@ def home_turntable_with_image(image):
     best_Type3=0
     scale_percent = 10
 
+    # Validate input_image
     image, emsg = imgin_check(image, 'E20')
     if emsg is not None:
         save_image(last_valid_image, 'E20')
         return None, (emsg)
+
     # Validate template image
     templateL, emsg = load_template(templateL_name, 'E20')
     if emsg is not None:
         save_image(last_valid_image, 'E20')
         return None, emsg
-    # Validate template image
+
     templateS, emsg = load_template(templateS_name, 'E20')
     if emsg is not None:
         save_image(last_valid_image, 'E20')
         return None, emsg
+
     templateC, emsg = load_template(templateC_name, 'E20')
     if emsg is not None:
         save_image(last_valid_image, 'E20')
         return None, emsg
 
-
+    # Rescale images
     image_rescaled,emsg = preprocess(image, scale_percent)
     if emsg is not None:
         save_image(last_valid_image, 'E20')
@@ -59,75 +57,50 @@ def home_turntable_with_image(image):
     if emsg is not None:
         save_image(last_valid_image, 'E20')
         return None, emsg
+
     templateC_rescaled, emsg = preprocess(templateC, scale_percent)
     if emsg is not None:
         save_image(last_valid_image, 'E20')
         return None, emsg
 
-
+    # Check dot distribution and brightness
     image, emsg = img_ok_check(image, 'E20')
     if emsg is not None:
         save_image(last_valid_image, 'E20')
-        return None, (emsg)
+        return None, emsg
 
-    best_angle, best_rotation, best_Type1, emsg1 = start_temp_match( templateL_rescaled, templateS, image_rescaled, scale_percent)
-    print(best_Type1)
-    print(best_angle)
+    # Match template
+    best_angle, best_rotation, best_Type1, emsg = start_temp_match(templateL_rescaled, templateS, image_rescaled, scale_percent)
+
+    if best_Type1 < 0.25:
+        emsg = "2400"
+        if emsg is not None:
+            save_image(last_valid_image, 'E24')
+            logger.error("E2400")
+            return None, emsg
+
+    # Determine initial angle
     final_angle = (best_angle + best_rotation) % 360  # Normalize angle to [0, 360)
-    print(final_angle)
     normalized_angle = ((final_angle + 180) % 360) - 180  # Converts to [-180, 180]
-    print(normalized_angle)
     if abs(normalized_angle) > 100:
         # Subtract 180 and reverse the sign of the original angle
         adjusted_angle = (180 - abs(normalized_angle)) * (-1 if normalized_angle > 0 else 1)
     else:
         adjusted_angle = normalized_angle
-    print(adjusted_angle)
+
+    # Refine angle for sample type
+
     new, result, emsg = fill_second_two_thirds(image, templateC, normalized_angle)
     if result is 'B':
         adjusted_angle = adjusted_angle+10
 
-
-
-
-
-
-    if best_Type1 < 0.25:
-        # print('40008 düzni')
-        # # Filenames and constant values:
-        # templateD_name = 'TempHomeD.jpg'
-        # templateD, emsg = load_template(templateD_name, 'E20')
-        # if emsg is not None:
-        #     save_image(last_valid_image, 'E20')
-        #     return None, emsg
-        # templateD_rescaled, emsg = preprocess(templateD, scale_percent)
-        # if emsg is not None:
-        #     save_image(last_valid_image, 'E20')
-        #     return None, emsg
-
-        # best_anglev, best_rotationv, best_Type3, emsg = start_temp_match(templateD_rescaled, templateS, image_rescaled,
-        #                                                                scale_percent)
-        emsg="2400"
-        if emsg is not None:
-            save_image(last_valid_image, 'E20')
-            return None, (emsg)
-
-
-    # Apply the angle threshold
-    # if best_Type1>best_Type2 or best_Type3>best_Type2:
-        # adjusted_angle=adjusted_angle+10
     angle_threshold = 0.51  # Define the threshold for small changes
     if abs(adjusted_angle) <= angle_threshold:
         adjusted_angle = 0
         print("Small orientation change detected. Alignment skipped.")
 
-
-    print(f"Best alignment angle: {adjusted_angle:.1f} degrees")
-
     print('Home process finished successfully.\n''Adjusted angle is ' + str(0 if abs(adjusted_angle) <= 0.51 else adjusted_angle))
-
-
-    # # **Apply the rotation**
+    # **Apply the rotation**
     (h, w) = image.shape[:2]
     center = (w // 2, h // 2)
     rotation_matrix = cv2.getRotationMatrix2D(center, adjusted_angle, 1.0)
@@ -138,7 +111,6 @@ def home_turntable_with_image(image):
     cv2.imshow("RotatedImage", rotated_target2)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    # Ignore small orientation changes
 
     return 0 if abs(adjusted_angle) <= 0.51 else adjusted_angle, None
 
@@ -189,6 +161,7 @@ def process_center(image):
     return dot_contours, None
 
 
+
 #PROCESS CENTER CAMERA - INNER SLICE
 
 def process_inner_slice(image):
@@ -233,19 +206,6 @@ def process_inner_slice(image):
                                                                        polygon_offset[1]))
 
     print('InnerSlice: '+ str(len(dot_contours)) + ' dots found!\n' + str(510-len(dot_contours)) + ' dots missing.')
-    # print(dot_contours)
-    # ✅ Redraw dot contours on the polygon region (masked_region)
-    # debug_polygon_draw = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    #
-    # for (x, y, col_label, area) in dot_contours:
-    #     cv2.circle(debug_polygon_draw, (x, y), 3, (0, 255, 255), -1)  # Dot center
-    #     cv2.circle(debug_polygon_draw, (x, y), int(np.sqrt(area / np.pi)), (0, 0, 255), 1)  # Outline
-    #     cv2.putText(debug_polygon_draw, f"{col_label}", (x + 5, y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-    #
-    # # Show or return this debug image
-    # cv2.imshow("Redrawn Dots on Polygon Region", cv2.resize(debug_polygon_draw,None, fx=0.4, fy=0.4, interpolation=cv2.INTER_AREA))
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
 
     return dot_contours, None
 
@@ -292,18 +252,6 @@ def start_side_slice(image):
     # Shift dot coordinates from polygon region to original image space
     shifted_dot_contours = [
         (x + top_left[0], y + top_left[1], col, area)
-        for (x, y, col, area) in dot_contours
-    ]
-    # # ✅ Redraw dot contours on the polygon region (masked_region)
-    # debug_polygon_draw = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    #
-    # for x, y, col, area in shifted_dot_contours:
-    #     cv2.circle(debug_polygon_draw, (int(x), int(y)), 3, (0, 255, 255), -1)
-    #     cv2.putText(debug_polygon_draw, f"Col {col}", (int(x) + 5, int(y) - 5),
-    #                 cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-    # # Show or return this debug image
-    # cv2.imshow("Redrawn Dots on Polygon Region", cv2.resize(debug_polygon_draw,None, fx=0.4, fy=0.4, interpolation=cv2.INTER_AREA))
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+        for (x, y, col, area) in dot_contours]
 
     return shifted_dot_contours, None
