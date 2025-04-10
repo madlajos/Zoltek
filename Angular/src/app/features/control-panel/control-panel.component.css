@@ -6,7 +6,7 @@
   padding: 15px;
   border-radius: 10px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  display: flex;
+  display: grid;
   flex-direction: column;
   align-items: flex-start;
   position: relative; /* Needed for absolute positioning */
@@ -21,13 +21,13 @@
 
 .control-panel-content {
   display: grid;
-  grid-template-columns: 0.9fr 0.9fr;
-  gap: -10px;
+  grid-template-columns: 0.3fr 0.3fr;
   align-items: start;
+  margin-right: 15%;
 }
 
 .input-box {
-  width: 65%;
+  width: 60%;
   padding: 5px;
   background-color: var(--default-grey);
   border: 1px solid  var(--border-grey);
@@ -155,8 +155,7 @@ input::-webkit-inner-spin-button {
 }
 
 /* ---- New CSS for Measurement Elements ---- */
-
-/* Measurement Controls Container (now placed after the textboxes) */
+/* Measurement Controls Container */
 .measurement-controls {
   width: 100%;
   margin: 10px 0;
@@ -182,8 +181,6 @@ input::-webkit-inner-spin-button {
   color: white;
   margin-top: 20px;
 }
-
-
 
 /* Default inactive state for measurement button */
 .measurement-off {
@@ -302,8 +299,7 @@ input::-webkit-inner-spin-button {
 .company-logo {
   margin-top: 30px;
   width: 100%;
-  text-align: center;
-  margin-left: -220px;
+  margin-left: 10px;
 }
 
 .company-logo img {

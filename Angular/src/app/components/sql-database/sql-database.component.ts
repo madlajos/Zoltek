@@ -154,7 +154,7 @@ export class SQLDatabaseComponent implements OnInit {
           catchError(err => {
             console.error("SQL Database polling encountered an error:", err);
             // Return an object with an error property.
-            return of({ message: "", error: err.error?.error || "Connection failed (VPN offline)" });
+            return of({ message: "", error: err.error?.error || "Connection failed" });
           })
         )
       )
@@ -180,7 +180,7 @@ export class SQLDatabaseComponent implements OnInit {
       },
       error: err => {
         console.error("SQL Database connection polling error (final):", err);
-        const fallbackError = "Connection failed (VPN offline)";
+        const fallbackError = "Connection failed";
         const errMsg = (err.error && err.error.error) ? err.error.error : (err.message || fallbackError);
         this.connectionStatus = errMsg;
         this.connected = false;

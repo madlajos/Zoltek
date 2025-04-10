@@ -74,7 +74,7 @@ td button:hover {
 }
 
 /* ─────────────────────────────────── */
-/* 🔹 User Settings Styles (New Additions) */
+/* User Settings Styles (New Additions) */
 /* ─────────────────────────────────── */
 
 .user-settings {
@@ -98,7 +98,7 @@ td button:hover {
 
 /* Styling User Settings Inputs */
 .user-settings-table input {
-  width: 60%;
+  width: 30%;
   padding: 3px;
   font-size: 12px;
   border-radius: 3px;
@@ -107,8 +107,18 @@ td button:hover {
   color: #fff;
 }
 
+.user-settings-table th:nth-child(1),
+.user-settings-table td:nth-child(1) {
+  width: 60%;
+}
+
+.user-settings-table th:nth-child(2),
+.user-settings-table td:nth-child(2) {
+  width: 40%;
+}
+
 /* ─────────────────────────────────── */
-/* 🔹 Section Headers (User & Developer Settings) */
+/* Section Headers (User & Developer Settings) */
 /* ─────────────────────────────────── */
 
 .user-settings h3,
@@ -124,7 +134,7 @@ td button:hover {
 }
 
 /* ─────────────────────────────────── */
-/* 🔹 Divider between User & Developer Settings */
+/* Divider between User & Developer Settings */
 /* ─────────────────────────────────── */
 .divider {
   border: none;
@@ -134,7 +144,7 @@ td button:hover {
 }
 
 /* ─────────────────────────────────── */
-/* 🔹 Developer Settings Section */
+/* Developer Settings Section */
 /* ─────────────────────────────────── */
 
 .developer-settings {

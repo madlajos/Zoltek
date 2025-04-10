@@ -33,9 +33,16 @@
           </td>
         </tr>
         <tr>
-          <td>Save measurement data to CSV</td>
+          <td>Save Data to CSV</td>
           <td>
             <input type="checkbox" [(ngModel)]="saveSettings['save_csv']" (change)="applySaveSetting('save_csv')"
+                   class="styled-input" [disabled]="measurementActive" />
+          </td>
+        </tr>
+        <tr>
+          <td>Save Analysed Images</td>
+          <td>
+            <input type="checkbox" [(ngModel)]="saveSettings['save_images']" (change)="applySaveSetting('save_images')"
                    class="styled-input" [disabled]="measurementActive" />
           </td>
         </tr>

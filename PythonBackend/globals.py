@@ -29,7 +29,7 @@ grab_locks = {
 }
 
 # Image Analysis Results
-x_end = 2814
+x_end = 2394
 dot_id_counter = 1  # Used for stable IDs, incremented each time we add a dot
 measurement_data = []  # Will store [dot_id, x, y, col, area]
 locked_class1_count = 0  # Once a dot is deemed class 1, or missing, it’s locked in
@@ -41,7 +41,7 @@ last_blob_counts = {
     "center_slice": 0,
     "outer_slice": 0
 }
-
+last_saved_count = 0
 latest_image = None
 
 size_limits = {

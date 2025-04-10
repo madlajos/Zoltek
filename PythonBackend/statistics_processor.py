@@ -139,11 +139,10 @@ def save_annotated_image(image, classified_dots, output_dir="output_images"):
     print(f"Starting to draw {len(classified_dots)} dots!")
     i = 0
     for dot in classified_dots:
-        x, y, col, area, cls = dot
+        dot_id, x, y, col, area, ccls, locked = dot
         radius = max(1, int(np.sqrt(area / np.pi)))  # Ensure minimum size
-        cv2.circle(annotated_img, (x, y), radius, colors.get(cls, (255, 255, 255)), 1)
-        i = i+1
-
+        cv2.circle(annotated_img, (x, y), radius, colors.get(ccls, (255, 255, 255)), 1)
+        i = i + 1
 
     # Save the image
     filename = os.path.join(output_dir, f"annotated_{int(time.time())}.png")

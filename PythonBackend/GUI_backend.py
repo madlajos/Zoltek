@@ -232,9 +232,9 @@ def home_turntable():
 
             try:
                 grab_result = retry_operation(
-                    lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException),
-                    max_retries=3,
-                    wait=2
+                    lambda: attempt_frame_grab(camera, camera_type),
+                    max_retries=10,
+                    wait=1
                 )
             except Exception as grab_err:
                 app.logger.exception("Exception during image grab: " + str(grab_err))
@@ -751,7 +751,7 @@ def grab_camera_image(camera_type):
 
             # Retry grabbing the image up to 10 times.
             grab_result = retry_operation(
-                lambda: camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException), 
+                lambda: attempt_frame_grab(camera, camera_type),
                 max_retries=10,
                 wait=1
             )
@@ -790,8 +790,9 @@ def grab_camera_image(camera_type):
 
             app.logger.info("Image grabbed successfully for camera " + camera_type)
             image = grab_result.Array
-            grab_result.Release()
             globals.latest_image = image.copy()
+            grab_result.Release()
+            
             return image, None, None
 
     except Exception as e:
@@ -851,7 +852,34 @@ def analyze_slice(process_func, camera_type, label):
             "error": "Generic error during image analysis",
             "code": ErrorCode.GENERIC,
             "popup": True
-        }), 500
+        }), 500   
+    
+@app.route('/api/analyze_center_circle', methods=['POST'])
+def analyze_center_circle():
+    app.logger.info("Center circle analysis started.")
+    return analyze_slice(
+        process_func = imageprocessing_main.process_center,
+        camera_type='main',
+        label='center_circle',
+    )
+
+@app.route('/api/analyze_center_slice', methods=['POST'])
+def analyze_center_slice():
+    app.logger.info("Center slice analysis started.")
+    return analyze_slice(
+        process_func = imageprocessing_main.process_inner_slice,
+        camera_type='main',
+        label='center_slice',
+    )
+
+@app.route('/api/analyze_outer_slice', methods=['POST'])
+def analyze_outer_slice():
+    app.logger.info("Outer slice analysis started.")
+    return analyze_slice(
+        process_func = imageprocessing_main.start_side_slice,
+        camera_type='side',
+        label='outer_slice',
+    )
 
 @app.route('/api/calculate-statistics', methods=['GET', 'POST'])
 def calculate_statistics_endpoint():
@@ -879,8 +907,17 @@ def save_annotated_image_endpoint():
     try:
         data = request.get_json()
         label = data.get('label', 'default')
-        classified_dots = data.get('classified_dots', [])
-        save_path = save_annotated_image(globals.latest_image, classified_dots, label)
+        
+        if not hasattr(globals, 'last_saved_count'):
+            globals.last_saved_count = 0
+
+        # Get only the new dots added since the last annotated image was saved.
+        new_dots = globals.dot_results[globals.last_saved_count:]
+        
+        # Update the counter for the next call.
+        globals.last_saved_count = len(globals.dot_results)
+        
+        save_path = save_annotated_image(globals.latest_image, new_dots, label)
         return jsonify({"message": "Annotated image saved", "image_path": save_path}), 200
     except Exception as e:
         app.logger.exception("Error saving annotated image: " + str(e))
@@ -929,34 +966,7 @@ def save_results_to_csv_endpoint():
             "code": ErrorCode.GENERIC,
             "popup": True
         }), 500
-    
-    
-@app.route('/api/analyze_center_circle', methods=['POST'])
-def analyze_center_circle():
-    app.logger.info("Center circle analysis started.")
-    return analyze_slice(
-        process_func = imageprocessing_main.process_center,
-        camera_type='main',
-        label='center_circle',
-    )
 
-@app.route('/api/analyze_center_slice', methods=['POST'])
-def analyze_center_slice():
-    app.logger.info("Center slice analysis started.")
-    return analyze_slice(
-        process_func = imageprocessing_main.process_inner_slice,
-        camera_type='main',
-        label='center_slice',
-    )
-
-@app.route('/api/analyze_outer_slice', methods=['POST'])
-def analyze_outer_slice():
-    app.logger.info("Outer slice analysis started.")
-    return analyze_slice(
-        process_func = imageprocessing_main.start_side_slice,
-        camera_type='side',
-        label='outer_slice',
-    )
 
 
 ### Statistics-related functions ###
@@ -1205,6 +1215,15 @@ def check_db_connection():
 
     
 ### Internal Helper Functions ### 
+def attempt_frame_grab(camera, camera_type):
+    # Attempt to retrieve the image result.
+    grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+    # Check if the frame grab was successful.
+    if not grab_result.GrabSucceeded():
+        grab_result.Release()
+        raise Exception(f"Grab result unsuccessful for camera {camera_type}")
+    return grab_result
+
 def get_db_connection():
     from settings_manager import get_settings
     settings_data = get_settings()

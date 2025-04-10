@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TurntableControlComponent } from '../turntable-control/turntable-control.component';
-import { Observable, Subject, throwError } from 'rxjs';
+import { Observable, Subject, throwError, map, of } from 'rxjs';
 import { catchError, switchMap, tap, takeUntil, finalize } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -39,7 +39,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   isResultsPopupVisible: boolean = false;
 
   currentMeasurement: number = 0;
-  totalMeasurements: number = 2;
+  totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
 
   private measurementStop$ = new Subject<void>();
@@ -175,20 +175,6 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     return true;
   }
   
-  // Toggle Relay Function (unchanged)
-  toggleRelay(): void {
-    this.relayState = !this.relayState;
-    const payload = { state: this.relayState ? 1 : 0 };
-    this.http.post(`${this.BASE_URL}/toggle-relay`, payload).subscribe(
-      (response: any) => {
-        console.log(`Relay ${this.relayState ? 'ON' : 'OFF'}`, response);
-      },
-      (error) => {
-        console.error('Error toggling relay:', error);
-        this.relayState = !this.relayState;
-      }
-    );
-  }
 
   // Rotate Up/Down Functions (unchanged)
   moveTurntable(degrees: number): void {
@@ -265,101 +251,141 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   startMeasurement(): void {
     console.log("Starting measurement cycle...");
   
-    // Reset backend results first
-    this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe(
-      (response: any) => {
-        console.log("Backend results reset:", response);
-        if (response?.result_counts && this.results.length === response.result_counts.length) {
-          this.results.forEach((result, index) => {
-            result.value = response.result_counts[index];
-          });
-        }
-      },
-      (error) => {
-        console.error("Failed to reset backend results:", error);
-      }
-    );
-  
-    const startProcess = (mode: string) =>
-      this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
-        tap(() => console.log("Turntable homed successfully")),
-        tap(() => { this.currentMeasurement++; }),
-        switchMap(() => this.waitForTurntableDone()),
-        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_circle`, {})),
-        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
-        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
-        switchMap(() => this.http.post(`${this.BASE_URL}/calculate-statistics?mode=full`, {})),
-        switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "full" })),
-        tap((response: any) => this.updateResultsUI(response)),
-        // Cancel chain if measurement is stopped.
-        takeUntil(this.measurementStop$),
-        catchError((err) => {
-          console.error("Measurement cycle error:", err);
-          this.stopMeasurement(); // Abort cycle on error.
-          return throwError(() => err);
-        }),
-        finalize(() => {
-          if (this.measurementActive) {
-            this.performMeasurementCycle();
-          } else {
-            console.log("Measurement cycle cancelled, not continuing further.");
-          }
-        })
-      );
+    // Reset backend results first.
+    this.resetBackendResults();
   
     if (!this.relayState) {
+      // Call the working toggleRelay() that returns void.
       this.toggleRelay();
-      setTimeout(() => startProcess("full").subscribe(), 500);
+  
+      // Wait a short period for the relay toggle to complete, then start the cycle.
+      setTimeout(() => {
+        this.executeCycle('full').subscribe({
+          error: (err: any) => console.error("Cycle startup error:", err)
+        });
+      }, 500);
     } else {
-      startProcess("full").subscribe();
+      this.executeCycle('full').subscribe({
+        error: (err: any) => console.error("Cycle startup error:", err)
+      });
     }
   }
 
-  performMeasurementCycle(): void {
-    if (!this.measurementActive) {
-      console.log("Measurement cycle cancelled.");
-      return;
+  private executeCycle(cycleMode: 'full' | 'slices'): Observable<any> {
+    let init$: Observable<any>;
+    
+    if (cycleMode === 'full') {
+      init$ = this.http.post(`${this.BASE_URL}/home_turntable_with_image`, {}).pipe(
+        tap(() => console.log("Turntable homed successfully")),
+        tap(() => this.currentMeasurement++)
+      );
+    } else {
+      init$ = this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).pipe(
+        tap(() => console.log("Turntable rotated 20°")),
+        tap(() => this.currentMeasurement++)
+      );
     }
-    if (this.currentMeasurement >= this.totalMeasurements) {
-      console.log("Measurement cycle completed.");
-      
-      this.measurementActive = false;
-      this.sharedService.setMeasurementActive(false);
-
-      if (this.save_csv) {
-        this.saveResultsToCsv();
-      }
-
-      this.showResultsPopup();
-      return;
-    }
-  
-    console.log(`Starting measurement ${this.currentMeasurement + 1} of ${this.totalMeasurements}...`);
-  
-    this.http.post(`${this.BASE_URL}/move_turntable_relative`, { degrees: 20 }).pipe(
-      tap(() => console.log("Turntable rotated 20°")),
+    
+    return init$.pipe(
       switchMap(() => this.waitForTurntableDone()),
-      tap(() => { this.currentMeasurement++; }),
-      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/calculate-statistics?mode=slices`, {})),
-      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: "slices" })),
+      switchMap(() => this.runAnalysis(cycleMode)),
+      // Optionally, update overall statistics & UI after the analysis chain.
+      switchMap(() => this.http.post(`${this.BASE_URL}/calculate-statistics?mode=${cycleMode}`, {})),
+      switchMap(() => this.http.post(`${this.BASE_URL}/update_results`, { mode: cycleMode })),
       tap((response: any) => this.updateResultsUI(response)),
-      takeUntil(this.measurementStop$), // Cancel chain if measurement stopped.
-      catchError((err) => {
-        console.error("Error during measurement cycle:", err);
+      takeUntil(this.measurementStop$),
+      catchError((err: any) => {
+        console.error("Measurement cycle error:", err);
         this.stopMeasurement();
+        this.measurementActive = false;
+        this.sharedService.setMeasurementActive(false);
+        
         return throwError(() => err);
       }),
       finalize(() => {
-        if (this.measurementActive) {
-          this.performMeasurementCycle();
+        if (!this.measurementActive) {
+          console.log("Measurement cycle cancelled");
+        } else if (this.currentMeasurement < this.totalMeasurements) {
+          // Continue with the next measurement using 'slices' mode.
+          this.executeCycle('slices').subscribe();
         } else {
-          console.log("Measurement cycle cancelled in finalize.");
+          this.completeMeasurementCycle();
         }
       })
-    ).subscribe();
+    );
   }
+
+  private runAnalysis(cycleMode: 'full' | 'slices'): Observable<any> {
+    if (cycleMode === 'full') {
+      // For a full cycle, include center_circle analysis.
+      return this.http.post(`${this.BASE_URL}/analyze_center_circle`, {}).pipe(
+        switchMap(result => this.conditionalSave(result, 'center_circle')),
+        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_center_slice`, {})),
+        switchMap(result => this.conditionalSave(result, 'center_slice')),
+        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+        switchMap(result => this.conditionalSave(result, 'outer_slice'))
+      );
+    } else {
+      // For subsequent cycles, only run the slice analyses.
+      return this.http.post(`${this.BASE_URL}/analyze_center_slice`, {}).pipe(
+        switchMap(result => this.conditionalSave(result, 'center_slice')),
+        switchMap(() => this.http.post(`${this.BASE_URL}/analyze_outer_slice`, {})),
+        switchMap(result => this.conditionalSave(result, 'outer_slice'))
+      );
+    }
+  }
+
+  private conditionalSave<T>(result: T, analysisMode: string): Observable<T> {
+    if (this.save_images) {
+      return this.http.post(`${this.BASE_URL}/calculate-statistics?mode=${analysisMode}`, {}).pipe(
+        switchMap(() => this.http.post(`${this.BASE_URL}/save-annotated-image`, {})),
+        map(() => result)
+      );
+    } else {
+      return of(result);
+    }
+  }
+  
+  private completeMeasurementCycle(): void {
+    console.log("Measurement cycle completed.");
+    this.measurementActive = false;
+    this.sharedService.setMeasurementActive(false);
+  
+    if (this.save_csv) {
+      this.saveResultsToCsv();
+    }
+  
+    this.showResultsPopup();
+  }
+
+  toggleRelay(): void {
+    this.relayState = !this.relayState;
+    const payload = { state: this.relayState ? 1 : 0 };
+    this.http.post(`${this.BASE_URL}/toggle-relay`, payload).subscribe(
+      (response: any) => {
+        console.log(`Relay ${this.relayState ? 'ON' : 'OFF'}`, response);
+      },
+      (error: any) => {
+        console.error('Error toggling relay:', error);
+        this.relayState = !this.relayState;
+      }
+    );
+  }
+  
+
+  resetBackendResults(): void {
+    this.http.post(`${this.BASE_URL}/reset_results`, {}).subscribe({
+      next: (response: any) => {
+        console.log("Backend results reset:", response);
+        // If the response contains an array of counts, update UI.
+        if (response?.result_counts && this.results.length === response.result_counts.length) {
+          this.results.forEach((result, index) => result.value = response.result_counts[index]);
+        }
+      },
+      error: (error) => console.error("Failed to reset backend results:", error)
+    });
+  }
+  
   
   waitForTurntableDone(): Observable<any> {
     return new Observable(observer => {
