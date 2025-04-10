@@ -57,7 +57,20 @@ input::-webkit-inner-spin-button {
 /* Relay Button - Portrait */
 .relay-button {
   width: 80px;  
-  height: 100px; 
+  height: 50px; 
+  border: 2px solid transparent; /* Default no outline */
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--default-grey); /* Default */
+  transition: all 0.1s ease-in-out; /* Smooth transition for depth effect */
+}
+
+.save-raw-button {
+  width: 80px;  
+  height: 50px; 
   border: 2px solid transparent; /* Default no outline */
   border-radius: 5px;
   cursor: pointer;
@@ -69,11 +82,13 @@ input::-webkit-inner-spin-button {
 }
 
 /* Relay Button Hover - Add Custom Border */
-.relay-button:hover {
+.relay-button:hover,
+.save-raw-button:hover {
   border: 2px solid var(--border-grey);  /* Grey outline */
 }
 
-.relay-off:hover {
+.relay-off:hover,
+.save-raw-button:hover {
   background-color: var(--hover-grey); /* Darker grey when hovering while OFF */
 }
 
@@ -83,8 +98,26 @@ input::-webkit-inner-spin-button {
 
 /* Lamp Button Images */
 .relay-button img {
-  width: 54px;  /* Adjust size */
-  height: 71px;
+  width: 34px;  /* Adjust size */
+  height: auto;
+  margin-bottom: 2px;
+}
+
+.save-raw-button img {
+  width: 46px;  /* Adjust size */
+  height: auto;
+}
+
+.button-container {
+  display: flex;
+  gap: 14px; /* Adjust the gap between the two columns as needed */
+}
+
+.button-container .left-col,
+.button-container .right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px; /* Adjust the vertical spacing within each column */
 }
 
 /* Relay ON - Always Show Outline */
@@ -119,8 +152,8 @@ input::-webkit-inner-spin-button {
 
 /* Side Buttons */
 .side-button {
-  flex: 1;
-  width: 100px; 
+  width: 80px; 
+  height: 50px;
   font-size: 14px;
   border: none;
   border-radius: 5px;
@@ -137,8 +170,8 @@ input::-webkit-inner-spin-button {
 
 /* Button Images */
 .side-button img {
-  width: 70px; /* Resize icons */
-  height: 19px;
+  width: 60px; /* Resize icons */
+  height: auto;
 }
 
 /* Hover Effect */
@@ -148,7 +181,8 @@ input::-webkit-inner-spin-button {
 }
 
 /* Simulate Pressed-In Effect for Side Buttons */
-.side-button:active {
+.side-button:active,
+.save-raw-button:active {
   background-color: var(--main-blue); /* Darker when clicked */
   box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.6);
   transform: translateY(3px); /* Move slightly down */
@@ -306,9 +340,8 @@ input::-webkit-inner-spin-button {
   max-width: 150px;
 }
 
-
 .error-outline {
   border: 1px solid red;
-  box-shadow: 0 0 8px 2px rgba(255, 0, 0, 0.2); /* Outer red glow */
-  border-radius: 5px; /* match your input’s corner radius, if any */
+  box-shadow: 0 0 8px 2px rgba(255, 0, 0, 0.2);
+  border-radius: 5px;
 }

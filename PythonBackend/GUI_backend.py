@@ -23,7 +23,10 @@ from statistics_processor import calculate_statistics, save_annotated_image
 from logger_config import setup_logger, CameraError, SerialError  # Import custom exceptions if defined in logger_config.py
 setup_logger()  # This sets up the root logger with our desired configuration.
 from error_codes import ErrorCode, ERROR_MESSAGES
-
+import tkinter as tk
+from tkinter import filedialog
+from multiprocessing import Process, Queue
+import multiprocessing
 
 app = Flask(__name__)
 app.secret_key = 'Zoltek'
@@ -880,6 +883,65 @@ def analyze_outer_slice():
         camera_type='side',
         label='outer_slice',
     )
+    
+    
+@app.route('/api/save_raw_image', methods=['POST'])
+def save_raw_image_endpoint():
+    try:
+        # Use the new function that runs in its own process.
+        folder = select_folder_in_process()
+        if not folder:
+            app.logger.info("User cancelled folder selection. Aborting raw image save operation.")
+            # Return a 200 response indicating cancellation, so no error pops up.
+            return jsonify({"message": "Folder selection cancelled. No images saved."}), 200
+
+        target_folder = folder
+        if not os.path.exists(target_folder):
+            os.makedirs(target_folder)
+
+        # Generate a timestamp string.
+        now = datetime.now().strftime("%Y%m%d%H%M%S")
+
+        # Grab main camera image.
+        main_image, error_response, status_code = grab_camera_image('main')
+        if main_image is None:
+            app.logger.error("Grab result is None for camera main")
+            return jsonify({
+                "error": ERROR_MESSAGES.get(ErrorCode.MAIN_CAMERA_DISCONNECTED, "Main camera disconnected"),
+                "code": ErrorCode.MAIN_CAMERA_DISCONNECTED,
+                "popup": True
+            }), 400
+
+        # Grab side camera image.
+        side_image, error_response_side, status_code_side = grab_camera_image('side')
+        if side_image is None:
+            app.logger.error("Grab result is None for camera side")
+            return jsonify({
+                "error": ERROR_MESSAGES.get(ErrorCode.SIDE_CAMERA_DISCONNECTED, "Side camera disconnected"),
+                "code": ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                "popup": True
+            }), 400
+
+        center_filename = os.path.join(target_folder, f"{now}_center.jpg")
+        side_filename = os.path.join(target_folder, f"{now}_side.jpg")
+
+        cv2.imwrite(center_filename, main_image)
+        cv2.imwrite(side_filename, side_image)
+
+        app.logger.info("Raw images saved successfully: %s, %s", center_filename, side_filename)
+        return jsonify({
+            "message": "Raw images saved successfully",
+            "center_filename": center_filename,
+            "side_filename": side_filename
+        }), 200
+
+    except Exception as e:
+        app.logger.exception("Error saving raw image: " + str(e))
+        return jsonify({
+            "error": ERROR_MESSAGES.get(ErrorCode.GENERIC),
+            "code": ErrorCode.GENERIC,
+            "popup": True
+        }), 500
 
 @app.route('/api/calculate-statistics', methods=['GET', 'POST'])
 def calculate_statistics_endpoint():
@@ -1215,6 +1277,23 @@ def check_db_connection():
 
     
 ### Internal Helper Functions ### 
+def folder_dialog_target(q: Queue):
+    """Target function to run the Tkinter folder dialog."""
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window.
+    folder = filedialog.askdirectory(title="Képmentés mappája")
+    root.destroy()
+    q.put(folder)
+
+def select_folder_in_process() -> str:
+    """Runs the folder selection in a separate process and returns the selected folder."""
+    q = Queue()
+    # Use the top-level function 'folder_dialog_target' as the target.
+    p = Process(target=folder_dialog_target, args=(q,))
+    p.start()
+    p.join()  # Wait for the process to finish.
+    return q.get()
+
 def attempt_frame_grab(camera, camera_type):
     # Attempt to retrieve the image result.
     grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
@@ -1378,8 +1457,11 @@ def initialize_serial_devices():
         threading.Thread(target=barcode_scanner_listener, name="BarcodeListener", daemon=True).start()
 
         
-if __name__ == '__main__':      
+if __name__ == '__main__':
+    multiprocessing.freeze_support()
+    
     load_settings()
     initialize_cameras()
     initialize_serial_devices()
+
     app.run(debug=True, use_reloader=False)

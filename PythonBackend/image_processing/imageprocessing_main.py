@@ -108,9 +108,9 @@ def home_turntable_with_image(image):
                                    borderMode=cv2.BORDER_REPLICATE)
     rotated_target2 = cv2.resize(rotated_image, None, fx=0.2, fy=0.2,
                                  interpolation=cv2.INTER_AREA)
-    cv2.imshow("RotatedImage", rotated_target2)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.imshow("RotatedImage", rotated_target2)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
     return 0 if abs(adjusted_angle) <= 0.51 else adjusted_angle, None
 

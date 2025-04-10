@@ -87,9 +87,9 @@ def img_ok_check(image, error_prefix='E00', downscale_factor=0.1, grid_size=(32,
             heatmap_big = cv2.resize(heatmap_norm, (w, h), interpolation=cv2.INTER_NEAREST)
             heatmap_color = cv2.applyColorMap(heatmap_big, cv2.COLORMAP_JET)
             overlay = cv2.addWeighted(cv2.cvtColor(image, cv2.COLOR_GRAY2BGR), 0.7, heatmap_color, 0.6, 0)
-            cv2.imshow("Dot Density Heatmap", cv2.resize(overlay, None, fx=0.1, fy=0.1))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            #cv2.imshow("Dot Density Heatmap", cv2.resize(overlay, None, fx=0.1, fy=0.1))
+            #cv2.waitKey(0)
+            #cv2.destroyAllWindows()
 
         # 7. Decision logic
         if error_prefix in ('E20', 'E21', 'E22') and ratio > 0.35:

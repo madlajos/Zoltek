@@ -41,7 +41,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   currentMeasurement: number = 0;
   totalMeasurements: number = 18;
   turntablePosition: number | string = '?';
-
+  
   private measurementStop$ = new Subject<void>();
 
   @ViewChild(TurntableControlComponent) turntableControl!: TurntableControlComponent;
@@ -174,7 +174,20 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     }
     return true;
   }
-  
+
+  // Function to save raw image using the selected folder.
+  saveRawImage(): void {
+    // When the button is pressed, the backend handles folder selection.
+    this.http.post(`${this.BASE_URL}/save_raw_image`, {})
+      .subscribe({
+        next: (response: any) => {
+          console.log("Raw images saved successfully:", response);
+        },
+        error: (error: any) => {
+          console.error("Error saving raw images:", error);
+        }
+      });
+  }
 
   // Rotate Up/Down Functions (unchanged)
   moveTurntable(degrees: number): void {

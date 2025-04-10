@@ -3,18 +3,29 @@
 
   <!-- Top-Right Buttons remain unchanged -->
   <div class="button-container">
-    <!-- Relay Toggle Button -->
-    <button (click)="toggleRelay()"
-            [ngClass]="relayState ? 'relay-on' : 'relay-off'"
-            class="relay-button"
-            [disabled]="measurementActive">
-      <img [src]="relayState ? '/assets/images/lamp_on.png' : '/assets/images/lamp_off.png'" alt="Lamp State">
-    </button>
-    <div class="side-buttons">
+    <!-- Left Column: Relay & Save -->
+    <div class="left-col">
+      <!-- Relay Toggle Button -->
+      <button (click)="toggleRelay()"
+              [ngClass]="relayState ? 'relay-on' : 'relay-off'"
+              class="relay-button"
+              [disabled]="measurementActive">
+        <img [src]="relayState ? '/assets/images/lamp_on.png' : '/assets/images/lamp_off.png'" alt="Lamp State">
+      </button>
+    
+      <!-- Save Raw Image Button -->
+      <button (click)="saveRawImage()" class="save-raw-button" [disabled]="measurementActive">
+        <img src="/assets/images/save_raw_img.png" alt="Save Image">
+      </button>
+    </div>
+  
+    <!-- Right Column: Rotations -->
+    <div class="right-col">
       <!-- Rotate Up -->
       <button class="side-button" (click)="moveTurntable(-20)" [disabled]="measurementActive">
         <img src="/assets/images/rotate_up.png" alt="Rotate Up">
       </button>
+    
       <!-- Rotate Down -->
       <button class="side-button" (click)="moveTurntable(20)" [disabled]="measurementActive">
         <img src="/assets/images/rotate_down.png" alt="Rotate Down">
