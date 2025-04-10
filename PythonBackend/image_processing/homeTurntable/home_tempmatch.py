@@ -94,7 +94,7 @@ def find_best_match_and_angle2(image, template):
 
     return best_fine_angle, best_fine_score
 
-    # Track the best match across all templates
+
 
 def start_temp_match(templateL, templateS, image, scale_percent):
     try:
@@ -111,7 +111,7 @@ def start_temp_match(templateL, templateS, image, scale_percent):
 
         for rotation, template_variant in rotated_templatesL.items():
             if template_variant is None:
-                logger.error(f"E2022 - Failed to rotate templateL at {rotation}°")
+                logger.error(f"E2011")
                 continue
             angle, score = find_best_match_and_angle(image, template_variant)
             if isinstance(score, str):  # An error code was returned
@@ -121,40 +121,10 @@ def start_temp_match(templateL, templateS, image, scale_percent):
                 best_angle = angle
                 best_rotation = rotation
 
-        print(best_score)
-
-        def preprocess(img, scale_percent):
-             return cv2.resize(img, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
-
-        if best_score < 0.44:
-             print('ok')
-             rotated_templatesS = {
-                 0: preprocess(templateS, scale_percent),
-                 90: preprocess(rotate_image(templateS, 90), scale_percent),
-                 180: preprocess(rotate_image(templateS, 180), scale_percent),
-                 270: preprocess(rotate_image(templateS, 270), scale_percent),
-             }
-        
-             for rotation, template_variant2 in rotated_templatesS.items():
-                 if template_variant2 is None:
-                     logger.error(f"E2023 - Failed to rotate templateS at {rotation}°")
-                     continue
-                 angle, score = find_best_match_and_angle2(image, template_variant2)
-                 if isinstance(score, str):
-                     continue
-                 if score > best_score:
-                     best_score = score
-                     best_angle = angle
-                     best_rotation = rotation
-        
-             print(" Score too low — retrying fine search with small template")
-             print(f"New score with small template: {best_score:.3f}")
-        
-
         return best_angle, best_rotation,best_score, None
 
     except Exception as e:
-        logger.error("E2024")
-        return None, None, "E2024"
+        logger.error("E2012")
+        return None, None, None, "E2012"
 
 
