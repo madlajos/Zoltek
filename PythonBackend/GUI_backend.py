@@ -9,6 +9,7 @@ from cameracontrol import (apply_camera_settings,
                            validate_and_set_camera_param, get_camera_properties)
 import porthandler
 import os
+import sys
 import pyodbc
 import csv
 from datetime import datetime
@@ -1001,7 +1002,7 @@ def calculate_statistics_endpoint():
 def save_annotated_image_endpoint():
     try:
         data = request.get_json()
-        label = data.get('label', 'default')
+        label = data.get('label', 'annotated_images')
         
         if not hasattr(globals, 'last_saved_count'):
             globals.last_saved_count = 0
@@ -1031,10 +1032,10 @@ def save_results_to_csv_endpoint():
         spinneret_id = data.get("spinneret_id", "unknown")
         
         # Use the current date formatted as YYYYMMDD.
-        measurement_date = datetime.now().strftime("%Y%m%d")
+        measurement_date = datetime.now().strftime("%Y%m%d%H%M%S")
         
         # Define the output directory and ensure it exists.
-        output_dir = "csv_results"
+        output_dir = os.path.join(get_base_path(), "csv_results")
         os.makedirs(output_dir, exist_ok=True)
         
         # Construct the filename.
@@ -1310,6 +1311,14 @@ def check_db_connection():
 
     
 ### Internal Helper Functions ### 
+def get_base_path():
+    # In frozen mode, sys.executable gives the path of the exe;
+    # os.path.dirname(sys.executable) returns its folder.
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(__file__)
+
+
 def folder_dialog_target(q: Queue):
     """Target function to run the Tkinter folder dialog."""
     root = tk.Tk()
@@ -1497,4 +1506,4 @@ if __name__ == '__main__':
     initialize_cameras()
     initialize_serial_devices()
 
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=False, use_reloader=False)

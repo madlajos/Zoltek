@@ -2,14 +2,25 @@ import json
 import os
 import threading
 import logging
+import sys
 
-DEFAULT_SETTINGS_PATH = os.path.join(os.path.dirname(__file__), 'settings.json')
+
+
 
 # In case multiple threads read/write settings at once:
 _settings_lock = threading.Lock()
 
 # This variable will hold our settings after we load from JSON
 _cached_settings = {}
+
+def get_base_path():
+    # In frozen mode, sys.executable gives the path of the exe;
+    # os.path.dirname(sys.executable) returns its folder.
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(__file__)
+
+DEFAULT_SETTINGS_PATH = os.path.join(get_base_path(), 'settings.json')
 
 def load_settings(settings_path=DEFAULT_SETTINGS_PATH):
     global _cached_settings

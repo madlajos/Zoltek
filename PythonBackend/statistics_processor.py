@@ -1,11 +1,19 @@
 import numpy as np
 import os
+import sys
 import cv2
 import time
 import globals
 from collections import defaultdict
 from settings_manager import get_settings
+from datetime import datetime
 
+def get_base_path():
+    # In frozen mode, sys.executable gives the path of the exe;
+    # os.path.dirname(sys.executable) returns its folder.
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(__file__)
 
 def calculate_statistics(dot_list, expected_counts=None):
     """
@@ -110,7 +118,7 @@ def calculate_statistics(dot_list, expected_counts=None):
         return {"error": str(e)}
     
 
-def save_annotated_image(image, classified_dots, output_dir="output_images"):
+def save_annotated_image(image, classified_dots, output_dir=None):
     """
     Draws classified blobs on the original image and saves it.
 
@@ -119,6 +127,9 @@ def save_annotated_image(image, classified_dots, output_dir="output_images"):
         classified_dots (list): List of newly detected blobs with classification: [x, y, column, area, class]
         output_dir (str): Directory to save the images.
     """
+    if output_dir is None:
+        output_dir = os.path.join(get_base_path(), "annotated images")
+    
     if image is None:
         print("No image available to annotate.")
         return None
@@ -144,8 +155,9 @@ def save_annotated_image(image, classified_dots, output_dir="output_images"):
         cv2.circle(annotated_img, (x, y), radius, colors.get(ccls, (255, 255, 255)), 1)
         i = i + 1
 
+    
     # Save the image
-    filename = os.path.join(output_dir, f"annotated_{int(time.time())}.png")
+    filename = os.path.join(output_dir, f"annotated_{datetime.now().strftime("%Y%m%d%H%M%S")}.png")
     cv2.imwrite(filename, annotated_img)
     print(f"Annotated image saved: {filename}")
     return filename
