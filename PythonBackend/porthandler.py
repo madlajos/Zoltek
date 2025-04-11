@@ -213,6 +213,37 @@ def write_turntable(command, timeout=10, expect_response=True):
     turntable_waiting_for_done = False
     return False
 
+def query_turntable(command, timeout=5):
+    """
+    Sends a query command to the turntable and returns its reply as a string.
+    """
+    global turntable
+    if turntable is None or not turntable.is_open:
+        raise Exception("Turntable is not connected or available.")
+    
+    formatted_command = f"{command}\n"
+    turntable.reset_input_buffer()
+    turntable.reset_output_buffer()
+    turntable.write(formatted_command.encode())
+    turntable.flush()
+    logging.info(f"Query sent to turntable: {formatted_command.strip()}")
+
+    start_time = time.time()
+    received_data = ""
+    while time.time() - start_time < timeout:
+        if turntable.in_waiting > 0:
+            received_chunk = turntable.read(turntable.in_waiting).decode(errors='ignore')
+            received_data += received_chunk
+            logging.info(f"Received from turntable: {received_chunk.strip()}")
+            # Assume the response ends with a newline.
+            if "\n" in received_data:
+                # Return the first line from the response.
+                return received_data.strip().split("\n")[0]
+        time.sleep(0.05)
+
+    logging.warning("Timeout waiting for turntable query response.")
+    return None
+
 def write_barcode_scanner(data):
     """
     Sends data to the barcode scanner if needed.

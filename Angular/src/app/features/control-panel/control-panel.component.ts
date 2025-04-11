@@ -129,6 +129,8 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       console.log("saveSettings updated via shared service:", this.save_csv, this.save_images);
       this.cdr.detectChanges();
     });
+
+    this.getRelayState();
   }
 
   ngOnDestroy(): void {
@@ -175,6 +177,22 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     return true;
   }
 
+
+  getRelayState(): void {
+    this.http.get(`${this.BASE_URL}/get-relay`)
+      .subscribe({
+        next: (response: any) => {
+          // Expecting response.state to be 1 or 0.
+          this.relayState = response.state === 1;
+          console.log("Relay state obtained:", response.state);
+        },
+        error: (error: any) => {
+          console.error("Error getting relay state:", error);
+          // Optionally, handle error (set default value or show message).
+        }
+      });
+  }
+  
   // Function to save raw image using the selected folder.
   saveRawImage(): void {
     // When the button is pressed, the backend handles folder selection.

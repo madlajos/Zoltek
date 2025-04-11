@@ -378,6 +378,39 @@ def move_turntable_relative():
         }), 500
 
 
+@app.route('/api/get-relay', methods=['GET'])
+def get_relay_state():
+    try:
+        command = "RELAY?"
+        app.logger.info(f"Sending relay query command: {command}")
+        try:
+            # Here we assume that porthandler.query_turntable is available.
+            # It should send the command and return the response (e.g. "1" or "0")
+            response = porthandler.query_turntable(command, timeout=2000)
+        except Exception as query_err:
+            app.logger.exception("Failed to query relay state: " + str(query_err))
+            return jsonify({
+                'error': "Turntable disconnected",
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
+
+        # Process the response.
+        # Default to off ("0") if response is empty.
+        state_str = response.strip() if response else "0"
+        # Convert to integer (1 or 0)
+        state = 1 if state_str == "1" else 0
+
+        return jsonify({"state": state}), 200
+
+    except Exception as e:
+        app.logger.exception("Error in getting relay state: " + str(e))
+        return jsonify({
+            'error': ERROR_MESSAGES.get(ErrorCode.TURNTABLE_DISCONNECTED),
+            'code': ErrorCode.TURNTABLE_DISCONNECTED,
+            'popup': True
+        }), 500
+
 @app.route('/api/toggle-relay', methods=['POST'])
 def toggle_relay():
     try:

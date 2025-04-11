@@ -76,6 +76,14 @@ void handleSerial() {
       return;
     }
 
+    // Handle relay query command "RELAY?"
+    if (command == "RELAY?") {
+      // Reply with "1" if relayState is true (ON) and "0" otherwise.
+      Serial.println(relayState ? "1" : "0");
+      Serial.flush();  
+      return;
+    }
+
     // Identify device
     if (command == "IDN?") {
       Serial.println("TTBL");
