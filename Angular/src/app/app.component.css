@@ -82,13 +82,13 @@
 
 .control-panel-container {
   width: 600px;      /* Ensures it doesn't shrink too much */
-  height: 98vh;
+  height: 90vh;
 }
 
 .results-table-container {
   margin-left: 28px;
   width: 814px;      /* Optional: Adjust max width */
-  height: 98vh;
+  height: 90vh;
 }
 
 .logout-button {
