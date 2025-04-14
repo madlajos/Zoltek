@@ -1,4 +1,7 @@
 import cv2
+import numpy as np
+import math
+from scipy.optimize import minimize_scalar
 from .homeTurntable import *
 from .GeneralProc import *
 from .Center import *
@@ -6,7 +9,7 @@ from .InnerSlice import *
 from .OuterSlice import *
 
 DRAW_CENTER_DOTS = False
-DRAW_INNER_DOTS = False
+DRAW_INNER_DOTS = True
 DRAW_OUTER_DOTS = False
 
 def home_turntable_with_image(image):
@@ -23,7 +26,7 @@ def home_turntable_with_image(image):
     templateS_name = 'TempHomeS.jpg'
     templateC_name = 'TempCenter.jpg'
     best_Type3=0
-    scale_percent = 10
+    scale_percent = 5
 
     # Validate input_image
     image, emsg = imgin_check(image, 'E20')
@@ -76,7 +79,7 @@ def home_turntable_with_image(image):
         emsg = "2400"
         if emsg is not None:
             save_image(last_valid_image, 'E24')
-            logger.error("E2400")
+            #logger.error("E2400")
             return None, emsg
 
     # Determine initial angle
@@ -114,7 +117,93 @@ def home_turntable_with_image(image):
 
     return 0 if abs(adjusted_angle) <= 0.51 else adjusted_angle, None
 
+def home_check(image):
+    """
+    Check home with side camera image
+    Input: Side camera image
+    Output: Applied angle correction
+    """
+    last_valid_image = image.copy()
+    template_name = 'TempOSlice.jpg'
 
+    image, emsg = imgin_check(image, 'E25')
+    if emsg is not None:
+        save_image(last_valid_image, 'E25')
+        return None, emsg
+
+    image, emsg = img_ok_check(image, 'E25')
+    if emsg is not None:
+        save_image(last_valid_image, 'E25')
+        return None, emsg
+
+    template, emsg = load_template(template_name, 'E23')
+    if emsg is not None:
+        save_image(last_valid_image, 'E23')
+        return None, emsg
+
+    polygon_region, annotated_image, polygon_mask, (top_left2, bottom_right), emsg = template_match_with_polygon(
+        image, template)
+    if emsg is not None:
+        save_image(last_valid_image, 'E23')
+        return None, emsg
+    # Step 1: Get top and bottom rows in the cropped polygon
+    # Assume top_left2 and bottom_right are from template_match_with_polygon
+    crop_offset_y = top_left2[1]  # y-offset of polygon in original image
+
+    # Get top and bottom of non-white content (in local/cropped coordinates)
+    non_white_rows = np.where(np.any(polygon_region > 100, axis=1))[0]
+    top_row = non_white_rows[0] + crop_offset_y
+    bottom_row = non_white_rows[-1] + crop_offset_y
+    print(top_row)
+    print(bottom_row)
+
+    # Calculate vertical center of non-white content in global coordinates
+    non_white_center = (top_row + bottom_row) / 2
+    print(non_white_center)
+    # Compare to image center (from full image!)
+    image_center = image.shape[0] / 2
+    print(image_center)
+    imbalance = non_white_center - image_center
+    rows_per_degree = 30
+    estimated_angle = imbalance / rows_per_degree
+
+    if abs(estimated_angle) < 0.1:
+        estimated_angle = 0.0
+
+    max_rotation = 10.0
+    optimal_angle = max(-max_rotation, min(estimated_angle, max_rotation))
+    dead_zone = 3  # pixels
+    if abs(estimated_angle) < (dead_zone / rows_per_degree):
+        estimated_angle = 0.0
+
+    max_rotation = 5.0
+    optimal_angle =-( max(-max_rotation, min(estimated_angle, max_rotation)))
+    print(f"Estimated rotation angle: {optimal_angle:.4f} degrees")
+
+    # Assume you're rotating 'image'
+    (h, w) = image.shape[:2]
+
+    # ✅ Make sure you compute the center from the full image
+    center = (w / 2, h / 2)
+
+    # ✅ Generate the rotation matrix using correct center
+    rotation_matrix = cv2.getRotationMatrix2D(center, optimal_angle, 1.0)
+
+    # ✅ Apply the warpAffine using same size (w, h)
+    rotated_image = cv2.warpAffine(
+        image, rotation_matrix, (w, h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REPLICATE
+    )
+
+
+    # Show resized image for preview
+    rotated_preview = cv2.resize(rotated_image, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_AREA)
+    cv2.imshow("RotatedImage", rotated_preview)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    return optimal_angle, None
 
 #PROCESS CENTER CAMERA - CIRCLE
 

@@ -87,7 +87,7 @@ def find_first_column(dot_centers, x_threshold=0):
 
         return np.array(first_column), remaining_dots, None
     except:
-        logger.logger('E2323')
+     #   logger.logger('E2323')
         return None, None, 'E2323'
 
 
@@ -194,7 +194,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
         # Apply threshold to find dots
 
         if masked_region is None or masked_region.size == 0:
-            logger.error("E2321")
+         #   logger.error("E2321")
             return None, "E2321"
 
         _, thresh = cv2.threshold(cv2.resize(masked_region, None, fx=1, fy=1, interpolation=cv2.INTER_AREA),
@@ -202,7 +202,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
-            logger.error("E2322")
+          #  logger.error("E2322")
             return None, "E2322"
 
         dot_areas = np.array([cv2.contourArea(cnt) for cnt in contours])
@@ -212,7 +212,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
         dot_centers = np.column_stack((centers[valid_contours], dot_areas[valid_contours]))
 
         if len(dot_centers) < 2:
-            logger.error("E2323")
+            #logger.error("E2323")
             return None, "E2323"
 
         # **Step 1: Detect All Columns Iteratively**
@@ -351,5 +351,5 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
 
         return data, annotated_dots, sorted_columns, best_match, None
     except Exception as e:
-        logger.error('E2327')
+        #logger.error('E2327')
         return None, None, None, None, "E2327"

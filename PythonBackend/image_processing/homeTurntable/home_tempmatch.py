@@ -2,7 +2,7 @@ import math
 import os
 import numpy as np
 import cv2
-from GeneralProc import logger  # Assuming you already have this in your codebase
+#from GeneralProc import logger  # Assuming you already have this in your codebase
 from homeTurntable import *
 from concurrent.futures import ThreadPoolExecutor
 
@@ -29,7 +29,7 @@ def find_best_match_and_angle(target_to_match, template_small):
     _, _, _, max_loc = cv2.minMaxLoc(result)
     h, w = template_small.shape
     top_left = max_loc
-    
+
     padding = 0.25  # 25% extra around the match region
 
     pad_h = int(h * padding)
@@ -81,7 +81,7 @@ def find_best_match_and_angle2(image, template):
 
         # Coarse search (fast, wide scan)
 
-    coarse_angles = np.arange(-180, 180, 1)
+    coarse_angles = np.arange(-180, 180, 0.1)
     coarse_results = parallel_search(coarse_angles)
     best_coarse_angle, best_score = max(coarse_results, key=lambda x: x[1])
 
@@ -94,14 +94,13 @@ def find_best_match_and_angle2(image, template):
 
     return best_fine_angle, best_fine_score
 
-
+    # Track the best match across all templates
 
 def start_temp_match(templateL, templateS, image, scale_percent):
     try:
         best_angle = None
         best_score = -float('inf')
         best_rotation = 0
-
         rotated_templatesL = {
             0: templateL,
             90: rotate_image(templateL, 90),
@@ -111,7 +110,7 @@ def start_temp_match(templateL, templateS, image, scale_percent):
 
         for rotation, template_variant in rotated_templatesL.items():
             if template_variant is None:
-                logger.error(f"E2011")
+ #               logger.error(f"E2011")
                 continue
             angle, score = find_best_match_and_angle(image, template_variant)
             if isinstance(score, str):  # An error code was returned
@@ -121,10 +120,10 @@ def start_temp_match(templateL, templateS, image, scale_percent):
                 best_angle = angle
                 best_rotation = rotation
 
-        return best_angle, best_rotation,best_score, None
+        return best_angle, best_rotation, best_score, None
 
     except Exception as e:
-        logger.error("E2012")
+ #       logger.error("E2012")
         return None, None, None, "E2012"
 
 

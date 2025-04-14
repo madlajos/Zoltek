@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 import time
 import os
-import logging
+#import logging
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
 
 def center_detect_small_dots_and_contours(masked_region, drawtf):
     """Detects small dots and contours in a masked region with error handling."""
@@ -12,21 +12,21 @@ def center_detect_small_dots_and_contours(masked_region, drawtf):
     try:
         # Validate Input**
         if masked_region is None:
-            logger.error("E2116")
+          #  logger.error("E2116")
             return None, "E2116"
 
         # ✅ **2️⃣ Apply Thresholding (Error-Proofed)**
         try:
             _, thresh = cv2.threshold(masked_region, 100, 255, cv2.THRESH_BINARY)
         except cv2.error as e:
-            logger.error("E2117")
+           # logger.error("E2117")
             return None, "E2117"
 
         # ✅ **3️⃣ Detect Contours (Error Handling)**
         try:
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         except cv2.error as e:
-            logger.error("E2118")
+            #logger.error("E2118")
             return None, "E2118"
 
         # ✅ **4️⃣ Process Contours Efficiently**
@@ -41,7 +41,7 @@ def center_detect_small_dots_and_contours(masked_region, drawtf):
                         cY = int(M["m01"] / M["m00"])
                         dot_area_column_mapping.append((cX, cY, 0, area))
             except cv2.error as e:
-                logger.error("E2119")
+              #  logger.error("E2119")
                 return None, "E2119"
 
         if drawtf == True:
@@ -72,7 +72,7 @@ def center_detect_small_dots_and_contours(masked_region, drawtf):
         return dot_area_column_mapping, None  # Success
 
     except Exception as e:
-        logger.error('E2120')
+        #logger.error('E2120')
         return None, "E2120"
 
 
