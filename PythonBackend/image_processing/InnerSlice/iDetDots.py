@@ -19,7 +19,7 @@ import numpy as np
 
 def det_sort_dots(masked_region, merge_distance=20):
     try:
-        _, thresh = cv2.threshold(masked_region, 130, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(masked_region, 100, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     except cv2.error as e:
         print("E2223")  # Use logging if needed

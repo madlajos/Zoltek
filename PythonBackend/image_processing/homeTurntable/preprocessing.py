@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
-from GeneralProc.logger import logger
-import globals
+#from GeneralProc.logger import logger
+from GeneralProc.config import app_state
 import math
 
 
@@ -13,7 +13,7 @@ def preprocess(image, scale_percent):
         image=cv2.resize(image, None, fx=scale_percent / 100, fy=scale_percent / 100, interpolation=cv2.INTER_AREA)
         return image, None
     except cv2.error as e:
-        logger.error("E2011")
+#        logger.error("E2011")
         return None, "E2011"
 
 
@@ -34,12 +34,14 @@ def crop_second_two_thirds(image):
     """Crop an image.
         Input: Scaled Grayscale image
         Output: Cropped image"""
-    print(globals.x_end)
+    print(app_state.x_end)
     try:
-        cropped_image = image[:, :globals.x_end]
+        cropped_image = image[:, :app_state.x_end]
         return cropped_image, None
-    except:
-        return None, "E2211"
+    except Exception as e:
+        # Optionally log the error message with details
+        # logger.error(f"E2211: Cropping failed - {str(e)}")
+          return None, "E2211"
 
 
 def fill_second_two_thirds(image, template,best_angle, padding_ratio=0.25):
@@ -49,14 +51,14 @@ def fill_second_two_thirds(image, template,best_angle, padding_ratio=0.25):
         small_image = cv2.resize(image, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
         small_template = cv2.resize(template, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
     except cv2.error as e:
-        logger.error("E2013")
+        #logger.error("E2013")
         return None, None, "E2013"
 
     try:
         result = cv2.matchTemplate(small_image, small_template, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, small_top_left = cv2.minMaxLoc(result)
     except cv2.error as e:
-        logger.error("E2014")
+        #logger.error("E2014")
         return None, None, "E2014"
 
     top_left_x = round(small_top_left[0] / scale_factor)
@@ -91,7 +93,7 @@ def fill_second_two_thirds(image, template,best_angle, padding_ratio=0.25):
 
     nonzero_coords = np.column_stack(np.where(mask_layer > 0))
     if len(nonzero_coords) == 0:
-        logger.error("E2015")
+        #logger.error("E2015")
         return None, None, "E2015"
 
     # Apply the mask
@@ -110,7 +112,7 @@ def fill_second_two_thirds(image, template,best_angle, padding_ratio=0.25):
         cv2.circle(masked_image, (center_x_local , center_y_local ), 5, (0, 0, 255), -1)  # red dot
 
     except cv2.error as e:
-        logger.error("E2016")
+        #logger.error("E2016")
         return None, None, "E2016"
 
     # Angle in degrees and convert to radians
@@ -163,10 +165,10 @@ def fill_second_two_thirds(image, template,best_angle, padding_ratio=0.25):
         print(f"Sample TYPE: {result} (Found: {dot_count})")
 
     except cv2.error as e:
-        logger.error("E2017")
+        #logger.error("E2017")
         return None, None, "E2017"
     except Exception as e:
-        logger.error("E2018")
+        #logger.error("E2018")
         return None, None, "E2018"
 
     return masked_image, result, None

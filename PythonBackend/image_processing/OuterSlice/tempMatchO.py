@@ -6,7 +6,7 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
 
         try:
             if template is None or cropped_image is None:
-                logger.error("E2311")
+                #logger.error("E2311")
                 return None, None, None, "E2311"
 
             # ✅ **Step 1: Downscale Images for Faster Matching**
@@ -15,7 +15,7 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             small_template = cv2.resize(template, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
 
             if small_cropped.size == 0 or small_template.size == 0:
-                logger.error("E2312")
+              #  logger.error("E2312")
                 return None, None, None, "E2312"
 
             # ✅ **Step 2: Run Template Matching on Smaller Images**
@@ -30,7 +30,7 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             bottom_right = (top_left[0] + best_template_width, top_left[1] + best_template_height)
 
             if bottom_right[0] > cropped_image.shape[1] or bottom_right[1] > cropped_image.shape[0]:
-                logger.error("E2313")
+                #logger.error("E2313")
                 return None, None, None, "E2313"
 
             matched_region = cropped_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
@@ -40,7 +40,7 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             original_mask[template > 10] = 1  # Threshold the mask, NOT the image
 
             if original_mask.sum() == 0:
-                logger.error("E2314")
+              #  logger.error("E2314")
                 return None, None, None, "E2314"
             # ✅ **Find the first white pixel from the left across the entire mask**
 
@@ -75,14 +75,14 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
 
             # ✅ Check if the mask is empty after processing
             if expanded_mask_resized.sum() == 0:
-                logger.error("E2315")
+              #  logger.error("E2315")
                 return None, None, None, "E2315"
 
             # ✅ Apply resized mask to `matched_region`
             masked_polygon_region = cv2.bitwise_and(matched_region, matched_region, mask=expanded_mask_resized)
 
             if masked_polygon_region.sum() == 0:
-                logger.error("E2316")
+              #  logger.error("E2316")
                 return None, None, None, "E2316"
 
             # ✅ **Annotate the matched polygon on the cropped image**
@@ -94,19 +94,19 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             return masked_polygon_region, annotated_image, expanded_mask_resized, (top_left2, bottom_right), None
 
         except FileNotFoundError as e:
-            logger.error("E2317")
+         #   logger.error("E2317")
             return None, None, None, "E2317"
 
         except ValueError as e:
-            logger.error("E2318")
+         #   logger.error("E2318")
             return None, None, None, "E2318"
 
         except IndexError as e:
-            logger.error("E2319")
+         #   logger.error("E2319")
             return None, None, None, "E2319"
 
         except Exception as e:
-            logger.error("E2320")
+         #   logger.error("E2320")
             return None, None, None, "E2320"  # General unknown error
 
 

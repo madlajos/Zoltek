@@ -1,4 +1,4 @@
-from GeneralProc.logger import logger
+#from GeneralProc.logger import logger
 import os
 import numpy as np
 import cv2
@@ -9,17 +9,17 @@ def imgin_check(image, error_prefix):
     """Validate that the input is a grayscale NumPy image and return unique error codes per caller."""
     if image is None:
         error_code = f"{error_prefix}00"
-        logger.error(error_code)
+       # logger.error(error_code)
         return None, error_code
 
     if not isinstance(image, np.ndarray):
         error_code = f"{error_prefix}02"
-        logger.error(error_code)
+        #logger.error(error_code)
         return None, error_code
 
     if len(image.shape) != 2:
         error_code = f"{error_prefix}03"
-        logger.error(error_code)
+        #logger.error(error_code)
         return None, error_code
 
     return image, None
@@ -40,20 +40,20 @@ def template_check(template_path, error_prefix):
         return template, None
 
     except FileNotFoundError as e:
-        logger.error(e)
+        #logger.error(e)
         return None, str(e)
 
     except PermissionError as e:
-        logger.error(e)
+        #logger.error(e)
         return None, str(e)
 
     except ValueError as e:
-        logger.error(e)
+        #logger.error(e)
         return None, str(e)
 
     except Exception as e:
         error_code = f"{error_prefix}07"
-        logger.error(f"{error_prefix}07")
+        #logger.error(f"{error_prefix}07")
         return None, error_code
 
 
@@ -94,11 +94,11 @@ def img_ok_check(image, error_prefix='E00', downscale_factor=0.1, grid_size=(32,
         # 7. Decision logic
         if error_prefix in ('E20', 'E21', 'E22') and ratio > 0.35:
             error_code = f"{error_prefix}08"
-            logger.error(f"{error_code}")
+         #   logger.error(f"{error_code}")
             return None, error_code
         elif ratio > 0.40:
             error_code = f"{error_prefix}08"
-            logger.error(f"{error_code}")
+          #  logger.error(f"{error_code}")
             return None, error_code
 
         mean_brightness = np.mean(image.ravel())
@@ -106,20 +106,20 @@ def img_ok_check(image, error_prefix='E00', downscale_factor=0.1, grid_size=(32,
         if error_prefix == 'E23':
             if mean_brightness > 30:  # Too bright
                 error_code = f"{error_prefix}09"
-                logger.error(error_code)
+           #     logger.error(error_code)
                 return None, error_code
             else:
                 return image, None
         else:
             if mean_brightness > 30:  # Too bright
                 error_code = f"{error_prefix}09"
-                logger.error(error_code)
+            #    logger.error(error_code)
                 return None, error_code
             else:
                 return image, None
 
     except Exception as e:
-        logger.error(f"{error_prefix}10")
+        #logger.error(f"{error_prefix}10")
         return None, f"{error_prefix}10"
 
 
