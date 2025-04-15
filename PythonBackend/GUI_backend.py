@@ -56,8 +56,6 @@ if not hasattr(globals, 'measurement_data'):
 if not hasattr(globals, 'result_counts'):
     globals.result_counts = [0, 0, 0]  # One counter per result class.
 
-
-
 ### Error handling and logging ###
 @app.errorhandler(Exception)
 def handle_global_exception(error):
@@ -219,13 +217,12 @@ def get_serial_device_status(device_name):
 # Turntable Functions
 @app.route('/api/home_turntable_with_image', methods=['POST'])
 def home_turntable():
-    camera_type = 'main'
     try:
         app.logger.info("Homing process initiated.")
 
         # Step 1: Grab the image quickly and release the camera
-        with globals.grab_locks[camera_type]:
-            camera = globals.cameras.get(camera_type)
+        with globals.grab_locks['main']:
+            camera = globals.cameras.get('main')
             if camera is None or not camera.IsOpen():
                 app.logger.error("Camera not connected or not open during homing.")
                 return jsonify({
@@ -236,7 +233,7 @@ def home_turntable():
 
             try:
                 grab_result = retry_operation(
-                    lambda: attempt_frame_grab(camera, camera_type),
+                    lambda: attempt_frame_grab(camera, 'main'),
                     max_retries=10,
                     wait=1
                 )
@@ -313,13 +310,106 @@ def home_turntable():
             }), 500
 
         app.logger.info("Rotation completed successfully.")
+        
+        
+        # Step 4: Grab side image quickly and release the camera
+        with globals.grab_locks['side']:
+            camera = globals.cameras.get('side')
+            if camera is None or not camera.IsOpen():
+                app.logger.error("Camera not connected or not open during homing.")
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.SIDE_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
 
-        # Step 4: Update global position after homing
+            try:
+                grab_result = retry_operation(
+                    lambda: attempt_frame_grab(camera, 'side'),
+                    max_retries=10,
+                    wait=1
+                )
+            except Exception as grab_err:
+                app.logger.exception("Exception during image grab: " + str(grab_err))
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.SIDE_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
+
+            if grab_result is None:
+                app.logger.error("Grab result is None during homing.")
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.SIDE_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
+
+            try:
+                if not grab_result.GrabSucceeded():
+                    app.logger.error("Grab result was unsuccessful during homing.")
+                    return jsonify({
+                        'error': ERROR_MESSAGES[ErrorCode.SIDE_CAMERA_DISCONNECTED],
+                        'code': ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                        "popup": True
+                    }), 500
+            except Exception as e:
+                app.logger.exception("Exception while checking GrabSucceeded: " + str(e))
+                return jsonify({
+                    'error': ERROR_MESSAGES[ErrorCode.SIDE_CAMERA_DISCONNECTED],
+                    'code': ErrorCode.SIDE_CAMERA_DISCONNECTED,
+                    "popup": True
+                }), 500
+
+            app.logger.info("Image grabbed successfully.")
+            image = grab_result.Array
+            grab_result.Release()
+
+        # Step 5: Process the image and calculate rotation
+        rotation_needed, error_msg = imageprocessing_main.home_check(image)
+        if rotation_needed is None:
+            app.logger.error(f"Image processing failed in home_turntable_with_image: {error_msg}")
+            return jsonify({
+                'error': "image_analysis_error",
+                'code': error_msg,
+                'popup': True
+            }), 500
+
+        command = f"{abs(rotation_needed)},{1 if rotation_needed > 0 else 0}"
+        app.logger.info(f"Image processing complete. Rotation needed: {rotation_needed}")
+
+        # Step 6: Send rotation command & retry confirmation
+        try:
+            movement_success = retry_operation(
+                lambda: porthandler.write_turntable(command),
+                max_retries=3,
+                wait=2
+            )
+        except Exception as move_err:
+            app.logger.exception("Exception while sending rotation command: " + str(move_err))
+            return jsonify({
+                'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
+
+        if not movement_success:
+            app.logger.error("Rotation command not confirmed after retries.")
+            return jsonify({
+                'error': ERROR_MESSAGES[ErrorCode.TURNTABLE_DISCONNECTED],
+                'code': ErrorCode.TURNTABLE_DISCONNECTED,
+                'popup': True
+            }), 500
+
+        app.logger.info("Rotation completed successfully.")
+
+
+        # Step 7: Update global position after homing
         globals.turntable_position = 0
         globals.turntable_homed = True
         app.logger.info("Homing completed successfully. Position set to 0.")
 
-        # Step 5: Return success response
+        # Step 8: Return success response
         return jsonify({
             "message": "Homing successful",
             "rotation": rotation_needed,
@@ -328,8 +418,8 @@ def home_turntable():
 
     except Exception as e:
         # Mark the camera as disconnected on any unhandled exception.
-        globals.cameras[camera_type] = None
-        globals.stream_running[camera_type] = False
+        globals.cameras['main'] = None
+        globals.stream_running['main'] = False
         app.logger.exception(f"Error during homing: {e}")
         return jsonify({"error": str(e), "popup": True}), 500
 

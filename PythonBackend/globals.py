@@ -29,7 +29,7 @@ grab_locks = {
 }
 
 # Image Analysis Results
-x_end = 2394
+x_end = 0
 dot_id_counter = 1  # Used for stable IDs, incremented each time we add a dot
 measurement_data = []  # Will store [dot_id, x, y, col, area]
 locked_class1_count = 0  # Once a dot is deemed class 1, or missing, it’s locked in

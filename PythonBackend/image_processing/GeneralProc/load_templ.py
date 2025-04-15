@@ -12,7 +12,7 @@ def load_template(template_name, error_prefix):
         else:
             # Running as .py
             script_dir = os.path.dirname(os.path.abspath(__file__))
-
+            
         template_folder = os.path.join(script_dir, "Templates")
         template_path = os.path.join(template_folder, template_name)
 

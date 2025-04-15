@@ -10,12 +10,12 @@
               [ngClass]="relayState ? 'relay-on' : 'relay-off'"
               class="relay-button"
               [disabled]="measurementActive">
-        <img [src]="relayState ? '/assets/images/lamp_on.png' : '/assets/images/lamp_off.png'" alt="Lamp State">
+        <img [src]="relayState ? '/assets/lamp_on.png' : '/assets/lamp_off.png'" alt="Lamp State">
       </button>
     
       <!-- Save Raw Image Button -->
       <button (click)="saveRawImage()" class="save-raw-button" [disabled]="measurementActive">
-        <img src="/assets/images/save_raw_img.png" alt="Save Image">
+        <img src="/assets/save_raw_img.png" alt="Save Image">
       </button>
     </div>
   
@@ -23,12 +23,12 @@
     <div class="right-col">
       <!-- Rotate Up -->
       <button class="side-button" (click)="moveTurntable(-20)" [disabled]="measurementActive">
-        <img src="/assets/images/rotate_up.png" alt="Rotate Up">
+        <img src="/assets/rotate_up.png" alt="Rotate Up">
       </button>
     
       <!-- Rotate Down -->
       <button class="side-button" (click)="moveTurntable(20)" [disabled]="measurementActive">
-        <img src="/assets/images/rotate_down.png" alt="Rotate Down">
+        <img src="/assets/rotate_down.png" alt="Rotate Down">
       </button>
     </div>
   </div>
@@ -105,7 +105,7 @@
 
   <!-- Company Logo -->
   <div class="company-logo">
-    <img src="assets/images/logo.png" alt="Company Logo">
+    <img src="assets/logo.png" alt="Company Logo">
   </div>
 
   <app-turntable-control style="display: none;"></app-turntable-control>

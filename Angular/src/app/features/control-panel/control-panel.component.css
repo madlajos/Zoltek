@@ -302,7 +302,7 @@ input::-webkit-inner-spin-button {
   display: flex;
   justify-content: space-around;
   width: 100%;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 /* Each Result Block */
@@ -326,11 +326,11 @@ input::-webkit-inner-spin-button {
 /* Result Block Value */
 .result-value {
   font-size: 2em;
-  margin-top: 5px;
 }
 
 /* Company Logo */
 .company-logo {
+  margin-bottom: 0px;
   margin-top: 6px;
   width: 100%;
   margin-left: 10px;
