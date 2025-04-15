@@ -130,7 +130,9 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     });
 
-    this.getRelayState();
+    setTimeout(() => {
+      this.getRelayState();
+    }, 10000);
   }
 
   ngOnDestroy(): void {
@@ -180,16 +182,18 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
   getRelayState(): void {
     this.http.get(`${this.BASE_URL}/get-relay`)
-      .subscribe({
-        next: (response: any) => {
-          // Expecting response.state to be 1 or 0.
-          this.relayState = response.state === 1;
-          console.log("Relay state obtained:", response.state);
-        },
-        error: (error: any) => {
+      .pipe(
+        catchError((error: any) => {
           console.error("Error getting relay state:", error);
-          // Optionally, handle error (set default value or show message).
-        }
+          // Optionally, you can return a default response so the error doesn't propagate.
+          // For example, consider the relay off.
+          return of({ state: 0 });
+        })
+      )
+      .subscribe((response: any) => {
+        // Expecting response.state to be 1 or 0.
+        this.relayState = response.state === 1;
+        console.log("Relay state obtained:", response.state);
       });
   }
   

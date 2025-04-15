@@ -12,6 +12,30 @@ export interface SaveSettings {
   save_images: boolean;
 }
 
+export interface CameraSettings {
+  Width: number;
+  Height: number;
+  OffsetX: number;
+  OffsetY: number;
+  ExposureTime: number;
+  Gain: number;
+  Gamma: number;
+  FrameRate: number;
+  [key: string]: number;
+}
+
+const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
+  Width: 4200,
+  Height: 2160,
+  OffsetX: 0,
+  OffsetY: 0,
+  ExposureTime: 20000,
+  Gain: 0,
+  Gamma: 1,
+  FrameRate: 20
+};
+
+
 @Injectable({
   providedIn: 'root'
 })
@@ -27,10 +51,15 @@ export class SettingsUpdatesService {
     save_csv: false,
     save_images: false
   });
+
+  private mainCameraSettingsSubject = new BehaviorSubject<CameraSettings>(DEFAULT_CAMERA_SETTINGS);
+  private sideCameraSettingsSubject = new BehaviorSubject<CameraSettings>(DEFAULT_CAMERA_SETTINGS);
   
   // Expose the observable for components to subscribe to.
   sizeLimits$ = this.sizeLimitsSubject.asObservable();
   saveSettings$ = this.saveSettingsSubject.asObservable();
+  mainCameraSettings$ = this.mainCameraSettingsSubject.asObservable();
+  sideCameraSettings$ = this.sideCameraSettingsSubject.asObservable();
 
   // Call this method to update the current size limits.
   updateSizeLimits(newLimits: SizeLimits): void {
@@ -39,5 +68,13 @@ export class SettingsUpdatesService {
 
   updateSaveSettings(newSettings: SaveSettings): void {
     this.saveSettingsSubject.next(newSettings);
+  }
+
+  updateMainCameraSettings(newSettings: CameraSettings): void {
+    this.mainCameraSettingsSubject.next(newSettings);
+  }
+
+  updateSideCameraSettings(newSettings: CameraSettings): void {
+    this.sideCameraSettingsSubject.next(newSettings);
   }
 }

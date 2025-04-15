@@ -105,3 +105,12 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
   transition: background-color 0.3s;
 }
 
+input:focus, textarea:focus, select:focus {
+  outline: 1px solid white !important;
+  box-shadow: none !important;
+}
+
+::ng-deep input:focus {
+  outline: 1px solid white !important;
+  box-shadow: none !important;
+}

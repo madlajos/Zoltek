@@ -1,13 +1,18 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { interval, Subscription, of } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, catchError, timeout } from 'rxjs/operators';
 import { ErrorNotificationService } from '../../services/error-notification.service';
-import { timeout, catchError  } from 'rxjs/operators';
 
 
+interface SQLServerSettings {
+  server: string;
+  db_name: string;
+  username: string;
+  password: string;
+}
 
 @Component({
   selector: 'app-sql-database',
@@ -16,7 +21,10 @@ import { timeout, catchError  } from 'rxjs/operators';
   templateUrl: './sql-database.component.html',
   styleUrls: ['./sql-database.component.css']
 })
-export class SQLDatabaseComponent implements OnInit {
+
+
+
+export class SQLDatabaseComponent implements OnInit, OnDestroy {
   private readonly BASE_URL = 'http://localhost:5000/api';
 
   // Local model for SQL Server settings.
@@ -30,6 +38,8 @@ export class SQLDatabaseComponent implements OnInit {
   connectionStatus: string = "Not Connected";
 
   private connectionPolling: Subscription | undefined;
+  // Unified polling subscription for SQL settings:
+  private sqlSettingsPollingSub: Subscription | undefined;
 
   constructor(
     private http: HttpClient,
@@ -38,26 +48,40 @@ export class SQLDatabaseComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Load SQL settings from backend.
-    this.http.get<{ sql_server: any }>(`${this.BASE_URL}/get-other-settings?category=sql_server`)
-      .subscribe({
-        next: response => {
-          if (response && response.sql_server) {
-            this.server = response.sql_server.server;
-            this.db_name = response.sql_server.db_name;
-            this.username = response.sql_server.username;
-            this.password = response.sql_server.password;
-          }
-        },
-        error: err => {
-          console.error("Failed to load SQL Server settings:", err);
-        }
-      });
+    // Start a unified polling subscription for SQL settings.
+    this.sqlSettingsPollingSub = interval(500).pipe(
+      switchMap(() =>
+        this.http.get<{ sql_server: SQLServerSettings } | {}>(`${this.BASE_URL}/get-other-settings?category=sql_server`)
+          .pipe(
+            timeout(3000),
+            catchError(err => {
+              console.error("Error polling SQL settings:", err);
+              return of({}); // return an empty object so polling continues
+            })
+          )
+      )
+    ).subscribe(response => {
+      if (response && ('sql_server' in response) && response.sql_server && response.sql_server.server && response.sql_server.server.trim() !== "") {
+        // Update the local model.
+        this.server = response.sql_server.server;
+        this.db_name = response.sql_server.db_name;
+        this.username = response.sql_server.username;
+        this.password = response.sql_server.password;
+        console.log("Polled and loaded SQL settings:", response.sql_server);
+        // Stop polling now that we have valid settings.
+        this.sqlSettingsPollingSub?.unsubscribe();
+        // Trigger change detection so the interface updates.
+        this.cdr.detectChanges();
+      } else {
+        console.log("SQL settings not yet valid.");
+      }
+    });
+    
 
     // Immediately try to connect to the database.
     this.connectDatabase();
 
-    // Start polling connection status every 5 seconds.
+    // Start polling the connection status every 5 seconds.
     this.startConnectionPolling();
   }
 
@@ -65,9 +89,12 @@ export class SQLDatabaseComponent implements OnInit {
     if (this.connectionPolling) {
       this.connectionPolling.unsubscribe();
     }
+    if (this.sqlSettingsPollingSub) {
+      this.sqlSettingsPollingSub.unsubscribe();
+    }
   }
 
-  // Update a specific setting.
+  // Update a specific SQL setting.
   updateSetting(settingName: string, value: any): void {
     this.http.post(`${this.BASE_URL}/update-other-settings`, {
       category: "sql_server",
@@ -143,54 +170,53 @@ export class SQLDatabaseComponent implements OnInit {
   }
 
   startConnectionPolling(): void {
-  if (!this.connectionPolling) {
-    this.connectionPolling = interval(5000).pipe(
-      switchMap(() =>
-        // Append a timestamp to avoid caching.
-        this.http.get<{ message?: string, error?: string }>(
-          `${this.BASE_URL}/check-db-connection?ts=${new Date().getTime()}`
-        ).pipe(
-          timeout(3000),  // Use a shorter timeout
-          catchError(err => {
-            console.error("SQL Database polling encountered an error:", err);
-            // Return an object with an error property.
-            return of({ message: "", error: err.error?.error || "Connection failed" });
-          })
+    if (!this.connectionPolling) {
+      this.connectionPolling = interval(5000).pipe(
+        switchMap(() =>
+          // Append a timestamp to avoid caching.
+          this.http.get<{ message?: string, error?: string }>(
+            `${this.BASE_URL}/check-db-connection?ts=${new Date().getTime()}`
+          ).pipe(
+            timeout(3000),
+            catchError(err => {
+              console.error("SQL Database polling encountered an error:", err);
+              return of({ message: "", error: err.error?.error || "Connection failed" });
+            })
+          )
         )
-      )
-    ).subscribe({
-      next: response => {
-        if (response.message && response.message.trim() !== "") {
-          if (!this.connected) {
-            console.info("SQL Database reconnected.");
-            this.errorNotificationService.removeError("E1401");
+      ).subscribe({
+        next: response => {
+          if (response.message && response.message.trim() !== "") {
+            if (!this.connected) {
+              console.info("SQL Database reconnected.");
+              this.errorNotificationService.removeError("E1401");
+            }
+            this.connectionStatus = response.message;
+            this.connected = true;
+          } else if (response.error) {
+            console.error("SQL Database connection polling error response:", response.error);
+            this.connectionStatus = response.error;
+            this.connected = false;
+            this.errorNotificationService.addError({
+              code: "E1401",
+              message: this.errorNotificationService.getMessage("E1401")
+            });
           }
-          this.connectionStatus = response.message;
-          this.connected = true;
-        } else if (response.error) {
-          console.error("SQL Database connection polling error response:", response.error);
-          this.connectionStatus = response.error;
+          this.cdr.detectChanges();
+        },
+        error: err => {
+          console.error("SQL Database connection polling error (final):", err);
+          const fallbackError = "Connection failed";
+          const errMsg = (err.error && err.error.error) ? err.error.error : (err.message || fallbackError);
+          this.connectionStatus = errMsg;
           this.connected = false;
           this.errorNotificationService.addError({
             code: "E1401",
             message: this.errorNotificationService.getMessage("E1401")
           });
+          this.cdr.detectChanges();
         }
-        this.cdr.detectChanges();
-      },
-      error: err => {
-        console.error("SQL Database connection polling error (final):", err);
-        const fallbackError = "Connection failed";
-        const errMsg = (err.error && err.error.error) ? err.error.error : (err.message || fallbackError);
-        this.connectionStatus = errMsg;
-        this.connected = false;
-        this.errorNotificationService.addError({
-          code: "E1401",
-          message: this.errorNotificationService.getMessage("E1401")
-        });
-        this.cdr.detectChanges();
-      }
-    });
+      });
+    }
   }
-}
 }

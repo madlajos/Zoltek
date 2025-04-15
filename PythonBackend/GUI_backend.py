@@ -51,6 +51,8 @@ latest_frames = {
     'side': None
 }
 
+backend_ready = False
+
 if not hasattr(globals, 'measurement_data'):
     globals.measurement_data = []  # This will store all the dot_contours arrays.
 if not hasattr(globals, 'result_counts'):
@@ -1398,9 +1400,20 @@ def check_db_connection():
             "code": ErrorCode.SQL_DB_ERROR,
             "popup": True
         }), 500
-
+        
+        
+@app.route('/api/ready', methods=['GET'])
+def backend_ready_endpoint():
+    # Return true only when backend_ready is True.
+    return jsonify({"ready": backend_ready})
     
 ### Internal Helper Functions ### 
+def initialize_backend():
+    global backend_ready
+    # ... your initialization logic (load settings, init cameras/turntable, etc.) ...
+    backend_ready = True
+
+
 def get_base_path():
     # In frozen mode, sys.executable gives the path of the exe;
     # os.path.dirname(sys.executable) returns its folder.
@@ -1595,5 +1608,7 @@ if __name__ == '__main__':
     load_settings()
     initialize_cameras()
     initialize_serial_devices()
+    
+    initialize_backend()
 
     app.run(debug=False, use_reloader=False)

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, interval, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { map, switchMap, tap } from 'rxjs/operators';
+import { map, switchMap, tap, catchError  } from 'rxjs/operators';
 
 //Older interface to store MeasurementResults, which are displayed on the control panel
 export interface MeasurementResult {
@@ -253,6 +253,30 @@ export class SharedService {
       })
     ).subscribe({
       error: err => console.error("Error in analyzeOuterSlice:", err)
+    });
+  }
+
+
+  pollBackendReady(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const pollingSub = interval(500).pipe(
+        switchMap(() =>
+          this.http.get<{ ready: boolean }>(`${this.BASE_URL}/ready`)
+            .pipe(
+              catchError(error => {
+                console.error("Error polling backend readiness:", error);
+                // Return a default that indicates not ready.
+                return of({ ready: false });
+              })
+            )
+        )
+      ).subscribe(response => {
+        console.log("Polled backend readiness:", response);
+        if (response && response.ready) {
+          pollingSub.unsubscribe();
+          resolve();
+        }
+      });
     });
   }
 }

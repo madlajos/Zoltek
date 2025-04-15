@@ -29,7 +29,7 @@
   font-size: 16px; /* Adjust text size as needed */
   margin-right: 10px;
   margin-top: 10px;
-  height: 560px;
+  height: 540px;
   border-radius: 5px 5px 5px 5px;
 }
 
@@ -82,13 +82,13 @@
 
 .control-panel-container {
   width: 600px;      /* Ensures it doesn't shrink too much */
-  height: 90vh;
+  height: 92vh;
 }
 
 .results-table-container {
   margin-left: 28px;
   width: 814px;      /* Optional: Adjust max width */
-  height: 90vh;
+  height: 92vh;
 }
 
 .logout-button {
@@ -103,4 +103,9 @@
 .error {
   color: red;
   font-size: 14px;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: 1px solid white !important;
+  box-shadow: none !important;
 }
