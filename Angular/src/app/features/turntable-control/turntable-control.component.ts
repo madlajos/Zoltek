@@ -28,17 +28,10 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private errorNotificationService: ErrorNotificationService,
     private sharedService: SharedService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
-    // Delay the start of polling by 5 seconds,
-    // giving the backend time to become ready.
-    this.sharedService.pollBackendReady().then(() => {
-      console.log("Backend is ready. Starting turntable control polling...");
-
-      // Start connection polling now that backend is ready.
-      this.startConnectionPolling();
-    });
+    this.startConnectionPolling();
   }
 
   ngOnDestroy(): void {

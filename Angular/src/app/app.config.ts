@@ -27,6 +27,7 @@ export function initializeErrorMapping(errorNotificationService: ErrorNotificati
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideHttpClient(),
     provideRouter(routes, withComponentInputBinding()),
     provideAnimations(),
     provideHttpClient(withInterceptors([popupInterceptor])),

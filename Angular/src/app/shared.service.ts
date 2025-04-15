@@ -255,28 +255,4 @@ export class SharedService {
       error: err => console.error("Error in analyzeOuterSlice:", err)
     });
   }
-
-
-  pollBackendReady(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      const pollingSub = interval(500).pipe(
-        switchMap(() =>
-          this.http.get<{ ready: boolean }>(`${this.BASE_URL}/ready`)
-            .pipe(
-              catchError(error => {
-                console.error("Error polling backend readiness:", error);
-                // Return a default that indicates not ready.
-                return of({ ready: false });
-              })
-            )
-        )
-      ).subscribe(response => {
-        console.log("Polled backend readiness:", response);
-        if (response && response.ready) {
-          pollingSub.unsubscribe();
-          resolve();
-        }
-      });
-    });
-  }
 }
