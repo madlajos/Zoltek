@@ -132,7 +132,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
     setTimeout(() => {
       this.getRelayState();
-    }, 10000);
+    }, 3000);
   }
 
   ngOnDestroy(): void {

@@ -313,6 +313,7 @@ def home_turntable():
 
         app.logger.info("Rotation completed successfully.")
         
+        time.sleep(0.5)
         
         # Step 4: Grab side image quickly and release the camera
         with globals.grab_locks['side']:

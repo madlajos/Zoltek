@@ -121,7 +121,6 @@ def home_check(image):
     Input: Side camera image
     Output: Applied angle correction
     """
-
     last_valid_image = image.copy()
     template_name = 'TempOSlice.jpg'
 
@@ -146,82 +145,60 @@ def home_check(image):
         save_image(last_valid_image, 'E23')
         return None, emsg
 
-    try:
-        # Step 1: Get all white pixel coordinates (row, col) = (y, x)
-        white_pixels = np.column_stack(np.where(polygon_region > 100))
+    crop_offset_y = top_left2[1]
 
-        if white_pixels.shape[0] < 3:
-            emsg = "E2601"
-            return None, emsg
+    # Get top and bottom of non-white content (in local/cropped coordinates)
+    non_white_rows = np.where(np.any(polygon_region > 100, axis=1))[0]
+    top_row = non_white_rows[0] + crop_offset_y
+    bottom_row = non_white_rows[-1] + crop_offset_y
 
-        # Step 2: Extract top-most, bottom-most, and left-most white pixels
-        top_most = white_pixels[np.argmin(white_pixels[:, 0])]  # smallest y
-        bottom_most = white_pixels[np.argmax(white_pixels[:, 0])]  # largest y
-        left_most = white_pixels[np.argmin(white_pixels[:, 1])]  # smallest x
+    print(top_row)
+    print(bottom_row)
 
-        # Step 3: Convert to (x, y) format
-        x1, y1 = top_most[1], top_most[0]
-        x2, y2 = bottom_most[1], bottom_most[0]
-        x3, y3 = left_most[1], left_most[0]
+    # Dead zone check: if vertical difference ≤ 5 pixels, skip correction
+    top_margin = top_row
+    bottom_margin = image.shape[0] - bottom_row
+    print(top_margin)
+    print(bottom_margin)
 
-        # Step 4: Circle fitting using 3-point geometry
-        temp = x2 * 2 + y2 * 2
-        bc = (x1 * 2 + y1 * 2 - temp) / 2.0
-        cd = (temp - x3 * 2 - y3 * 2) / 2.0
-        det = (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2)
+    if abs(top_margin-bottom_margin)< 5:
+        print("Top and bottom within 5 pixels of image edges. No correction needed.")
+        return 0.0, None
 
-        if abs(det) < 1e-10:
-            emsg = "2602"
-            return None, emsg
+    non_white_center = abs(top_margin - bottom_margin) / 2
+    imbalance = non_white_center
+    print(imbalance)
+    rows_per_degree = 100
+    optimal_angle = imbalance / rows_per_degree
+    if top_margin>bottom_margin:
+        optimal_angle=-optimal_angle
 
-        cx = (bc * (y2 - y3) - cd * (y1 - y2)) / det
-        cy = ((x1 - x2) * cd - (x2 - x3) * bc) / det
-        radius = np.sqrt((cx - x1) * 2 + (cy - y1) * 2)
-        center = (int(round(cx)), int(round(cy)))
-        rows_per_degree = radius * np.sin(np.radians(1.0))
-        print('RPD ' + str(rows_per_degree))
 
-        # Optional: visualization code can go here
 
-        # Apply crop offset
-        crop_offset_y = top_left2[1]
+    print(f"Estimated rotation angle: {optimal_angle:.4f} degrees")
 
-        # Step 5: Get top and bottom of non-white content
-        non_white_rows = np.where(np.any(polygon_region > 100, axis=1))[0]
-        if len(non_white_rows) == 0:
-            emsg = "2603"
-            return None, emsg
+    # Assume you're rotating 'image'
+    (h, w) = image.shape[:2]
 
-        top_row = non_white_rows[0] + crop_offset_y
-        bottom_row = non_white_rows[-1] + crop_offset_y
-        print(top_row)
-        print(bottom_row)
+    # ✅ Make sure you compute the center from the full image
+    center = (w / 2, h / 2)
 
-        top_margin = top_row
-        bottom_margin = image.shape[0] - bottom_row
-        print(top_margin)
-        print(bottom_margin)
+    # ✅ Generate the rotation matrix using correct center
+    rotation_matrix = cv2.getRotationMatrix2D(center, optimal_angle, 1.0)
 
-        if abs(top_margin - bottom_margin) < 5:
-            print('No correction needed')
-            return 0.0, None
+    # ✅ Apply the warpAffine using same size (w, h)
+    rotated_image = cv2.warpAffine(
+        image, rotation_matrix, (w, h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REPLICATE
+    )
 
-        non_white_center = abs(top_margin - bottom_margin) / 2
-        imbalance = non_white_center
-        print(imbalance)
 
-        optimal_angle = imbalance / rows_per_degree
-        if bottom_margin < top_margin:
-            optimal_angle = -optimal_angle
+    # Show resized image for preview
+    rotated_preview = cv2.resize(rotated_image, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_AREA)
 
-        print(f"Estimated rotation angle: {optimal_angle:.4f} degrees")
+    return optimal_angle, None
 
-        return optimal_angle, None
-
-    except Exception as e:
-        emsg = "2604"
-        print(emsg)
-        return None, emsg
 
 #PROCESS CENTER CAMERA - CIRCLE
 
