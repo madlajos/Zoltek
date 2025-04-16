@@ -22,8 +22,6 @@ interface SQLServerSettings {
   styleUrls: ['./sql-database.component.css']
 })
 
-
-
 export class SQLDatabaseComponent implements OnInit, OnDestroy {
   private readonly BASE_URL = 'http://localhost:5000/api';
 
@@ -48,34 +46,21 @@ export class SQLDatabaseComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Start a unified polling subscription for SQL settings.
-    this.sqlSettingsPollingSub = interval(500).pipe(
-      switchMap(() =>
-        this.http.get<{ sql_server: SQLServerSettings } | {}>(`${this.BASE_URL}/get-other-settings?category=sql_server`)
-          .pipe(
-            timeout(3000),
-            catchError(err => {
-              console.error("Error polling SQL settings:", err);
-              return of({}); // return an empty object so polling continues
-            })
-          )
-      )
-    ).subscribe(response => {
-      if (response && ('sql_server' in response) && response.sql_server && response.sql_server.server && response.sql_server.server.trim() !== "") {
-        // Update the local model.
-        this.server = response.sql_server.server;
-        this.db_name = response.sql_server.db_name;
-        this.username = response.sql_server.username;
-        this.password = response.sql_server.password;
-        console.log("Polled and loaded SQL settings:", response.sql_server);
-        // Stop polling now that we have valid settings.
-        this.sqlSettingsPollingSub?.unsubscribe();
-        // Trigger change detection so the interface updates.
-        this.cdr.detectChanges();
-      } else {
-        console.log("SQL settings not yet valid.");
-      }
-    });
+    // Load SQL settings from backend.
+     this.http.get<{ sql_server: any }>(`${this.BASE_URL}/get-other-settings?category=sql_server`)
+       .subscribe({
+         next: response => {
+           if (response && response.sql_server) {
+             this.server = response.sql_server.server;
+             this.db_name = response.sql_server.db_name;
+             this.username = response.sql_server.username;
+             this.password = response.sql_server.password;
+           }
+         },
+         error: err => {
+           console.error("Failed to load SQL Server settings:", err);
+         }
+       });
     
 
     // Immediately try to connect to the database.

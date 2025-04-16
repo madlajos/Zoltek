@@ -1,13 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="hu">
 <head>
   <meta charset="utf-8">
   <title>Nozzle Scanner</title>
   <base href="./">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    /* Splash overlay styles */
+    #splash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #2e2e2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #ffffff;
+      font-size: 1.5rem;
+      z-index: 9999;
+    }
+  </style>
 </head>
 <body>
+  <div id="splash-overlay">Betöltés...</div>
   <app-root></app-root>
 </body>
 </html>

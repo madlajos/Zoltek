@@ -1,4 +1,3 @@
-// src/app/services/backend-ready.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { interval, of } from 'rxjs';
@@ -6,7 +5,7 @@ import { switchMap, catchError } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class BackendReadyService {
-  // Adjust your BASE_URL if needed.
+
   private readonly BASE_URL = 'http://localhost:5000/api';
 
   constructor(private http: HttpClient) { }

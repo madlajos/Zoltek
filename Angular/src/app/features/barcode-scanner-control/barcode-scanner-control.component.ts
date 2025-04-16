@@ -27,9 +27,7 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    setTimeout(() => {
       this.startConnectionPolling();
-    }, 5000);
   }
 
   ngOnDestroy(): void {

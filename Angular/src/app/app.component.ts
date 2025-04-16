@@ -1,4 +1,4 @@
-import { Component, ViewChild, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ViewChild, ChangeDetectorRef, OnInit, AfterViewInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Lightbox } from 'ngx-lightbox';
 import { MatSidenav } from '@angular/material/sidenav';
@@ -20,6 +20,7 @@ import { ErrorPopupListComponent } from './components/error-popup-list/error-pop
 import { BarcodeScannerControlComponent } from './features/barcode-scanner-control/barcode-scanner-control.component';
 import { LoginPopupComponent } from './components/login-popup/login-popup.component';
 import { SQLDatabaseComponent } from './components/sql-database/sql-database.component';
+import { BackendReadyService } from './services/backend-ready.service'; // Adjust the path as needed
 
 @Component({
   selector: 'app-root',
@@ -47,7 +48,8 @@ import { SQLDatabaseComponent } from './components/sql-database/sql-database.com
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, AfterViewInit {
+  backendReady = false;
   title = 'Untitled';  
   @ViewChild('sidenav') sidenav!: MatSidenav;
 
@@ -55,10 +57,36 @@ export class AppComponent implements OnInit {
   isLoginPopupVisible = false;
   loginError = '';
 
-  constructor(private http: HttpClient, private lightbox: Lightbox, private cdRef: ChangeDetectorRef) {}
+  constructor(
+    private http: HttpClient,
+    private backendReadyService: BackendReadyService,
+    private lightbox: Lightbox,
+    private cdRef: ChangeDetectorRef,
+  ) {}
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+    // Wait for the backend readiness check.
+    try {
+      await this.backendReadyService.waitForBackendReady();
+      console.log("Backend is ready.");
+      this.backendReady = true;
+      this.cdRef.detectChanges();
+    } catch (error) {
+      console.error("Error waiting for backend readiness:", error);
+      
+      this.backendReady = true;
+    }
     this.isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+  }
+
+  ngAfterViewInit(): void {
+    // Remove the splash overlay once the view is initialized.
+    const overlay = document.getElementById('splash-overlay');
+    if (overlay) {
+      overlay.style.transition = 'opacity 0.5s ease-out';
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 500);
+    }
   }
 
   toggleSettingsPanel(): void {
@@ -74,7 +102,7 @@ export class AppComponent implements OnInit {
   }
 
   onLoginSuccess(credentials: { username: string; password: string }): void {
-    // Here you could use the credentials if needed.
+    // You might process credentials if necessary.
     this.isAuthenticated = true;
     sessionStorage.setItem('isAuthenticated', 'true');
     this.sidenav.open();

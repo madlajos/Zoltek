@@ -172,4 +172,3 @@ def fill_second_two_thirds(image, template,best_angle, padding_ratio=0.25):
         return None, None, "E2018"
 
     return masked_image, result, None
-

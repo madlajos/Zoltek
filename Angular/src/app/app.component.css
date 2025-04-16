@@ -109,3 +109,8 @@ input:focus, textarea:focus, select:focus {
   outline: 1px solid white !important;
   box-shadow: none !important;
 }
+
+button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}

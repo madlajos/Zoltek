@@ -83,44 +83,18 @@ export class CameraControlComponent implements OnInit, OnDestroy {
     // First, delay the initial loading of camera settings.
     // (This can be adjusted if needed.)
     if (!this.settingsLoaded) {
-      setTimeout(() => {
         this.loadCameraSettings('main');
         this.loadCameraSettings('side');
         this.settingsLoaded = true;
-      }, 5000);
     }
   
-    // Unified polling: poll the main camera settings every 500 ms until the width is nonzero.
-    this.unifiedPollingSub = interval(500).pipe(
-      switchMap(() =>
-        this.http.get<CameraSettings>(`${this.BASE_URL}/get-camera-settings?type=main`)
-          .pipe(
-            catchError(error => {
-              console.error('Error polling main camera settings:', error);
-              // Return a default object so the polling keeps going.
-              return of({ Width: 0, Height: 0, OffsetX: 0, OffsetY: 0, ExposureTime: 0, Gain: 0, Gamma: 0, FrameRate: 0 });
-            })
-          )
-      )
-    ).subscribe(settings => {
-      console.log(`[Unified Polling] Main camera Width = ${settings.Width}`);
-      // Check if the main camera settings are valid (e.g., Width is not 0)
-      if (settings && settings.Width !== 0) {
-        // Once valid, update all groups.
-        this.loadCameraSettings('main');
-        this.loadCameraSettings('side');
-        this.loadOtherSettings();
+    // Initial checks
+    this.checkCameraStatus('main');
+    this.checkCameraStatus('side');
   
-        // Start checking camera status and connection polling now that the backend is up.
-        this.checkCameraStatus('main');
-        this.checkCameraStatus('side');
-        this.startConnectionPolling('main');
-        this.startConnectionPolling('side');
-  
-        // Unsubscribe from unified polling so these calls are no longer repeated.
-        this.unifiedPollingSub.unsubscribe();
-      }
-    });
+    // Periodically check both connection and stream status
+    this.startConnectionPolling('main');
+    this.startConnectionPolling('side');
   
     // Set the shared save directory.
     this.sharedService.setSaveDirectory(this.saveDirectory);
@@ -142,36 +116,36 @@ export class CameraControlComponent implements OnInit, OnDestroy {
       console.log(`Main Streaming: ${this.isMainStreaming}, Side Streaming: ${this.isSideStreaming}`);
     });
   
-    // Delay the GET calls for other settings (size limits, save settings) as well.
-    setTimeout(() => {
-      this.http.get<{ size_limits: SizeLimits }>(`${this.BASE_URL}/get-other-settings?category=size_limits`)
-        .subscribe({
-          next: response => {
-            if (response && response.size_limits) {
-              this.sizeLimits = response.size_limits;
-              this.settingsUpdatesService.updateSizeLimits(this.sizeLimits);
-              console.log("Loaded size limits from backend:", this.sizeLimits);
-            }
-          },
-          error: error => {
-            console.error("Error loading size limits from backend:", error);
+    // Modified GET call to expect a SizeLimits object.
+    this.http.get<{ size_limits: SizeLimits }>(`${this.BASE_URL}/get-other-settings?category=size_limits`)
+      .subscribe({
+        next: response => {
+          if (response && response.size_limits) {
+            this.sizeLimits = response.size_limits;
+            // Publish the loaded settings to the shared service.
+            this.settingsUpdatesService.updateSizeLimits(this.sizeLimits);
+            console.log("Loaded size limits from backend:", this.sizeLimits);
           }
-        });
-  
+        },
+        error: error => {
+          console.error("Error loading size limits from backend:", error);
+        }
+      });
+
       this.http.get<{ save_settings: SaveSettings }>(`${this.BASE_URL}/get-other-settings?category=save_settings`)
-        .subscribe({
-          next: response => {
-            if (response && response.save_settings) {
-              this.saveSettings = response.save_settings;
-              this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
-              console.log("Loaded Save Settings from backend:");
-            }
-          },
-          error: error => {
-            console.error("Error loading Save Settings from backend:", error);
+      .subscribe({
+        next: response => {
+          if (response && response.save_settings) {
+            this.saveSettings = response.save_settings;
+            // Publish the loaded settings to the shared service.
+            this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
+            console.log("Loaded Save Settings from backend:");
           }
-        });
-    }, 5000);
+        },
+        error: error => {
+          console.error("Error loading Save Settings from backend:", error);
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -220,18 +194,9 @@ export class CameraControlComponent implements OnInit, OnDestroy {
   }
 
   checkCameraStatus(cameraType: 'main' | 'side'): void {
-    this.http.get<{ connected: boolean; streaming?: boolean }>(`${this.BASE_URL}/status/camera?type=${cameraType}`)
-      .pipe(
-        // Fail if no response within 3000ms
-        timeout(3000),
-        // On error, catch it and return a default disconnected response.
-        catchError(err => {
-          console.error(`Error checking ${cameraType} camera status:`, err);
-          return of({ connected: false, streaming: false });
-        })
-      )
+    this.http.get(`${this.BASE_URL}/status/camera?type=${cameraType}`)
       .subscribe({
-        next: (response) => {
+        next: (response: any) => {
           if (response.connected) {
             this.sharedService.setCameraConnectionStatus(cameraType, true);
             // Remove any existing error for this camera.
@@ -240,7 +205,7 @@ export class CameraControlComponent implements OnInit, OnDestroy {
             // Stop any reconnection polling and resume normal polling.
             this.stopReconnectionPolling(cameraType);
             this.startConnectionPolling(cameraType);
-            // If streaming is not active, start streaming.
+            // If streaming is reported false or local flag is false, start streaming.
             if (cameraType === 'main' && !this.isMainStreaming) {
               console.log("Main camera connected but not streaming. Starting stream...");
               this.startVideoStream('main');
@@ -249,7 +214,7 @@ export class CameraControlComponent implements OnInit, OnDestroy {
               this.startVideoStream('side');
             }
           } else {
-            // Camera not connected, update both connection and stream status.
+            // Camera not connected: update both connection and streaming status.
             this.sharedService.setCameraConnectionStatus(cameraType, false);
             this.sharedService.setCameraStreamStatus(cameraType, false);
             this.stopConnectionPolling(cameraType);
@@ -258,8 +223,8 @@ export class CameraControlComponent implements OnInit, OnDestroy {
           console.log(`${cameraType.toUpperCase()} status - Connected: ${response.connected}, Streaming: ${response.streaming}`);
         },
         error: (err) => {
-          // This error block should rarely fire because catchError handles timeouts.
-          console.error(`Unexpected error checking ${cameraType} camera status:`, err);
+          console.error(`Error checking ${cameraType} camera status:`, err);
+          // On error, assume both connection and streaming are lost.
           this.sharedService.setCameraConnectionStatus(cameraType, false);
           this.sharedService.setCameraStreamStatus(cameraType, false);
           this.stopConnectionPolling(cameraType);
@@ -268,9 +233,6 @@ export class CameraControlComponent implements OnInit, OnDestroy {
       });
   }
 
-  
-  
-  
   startConnectionPolling(cameraType: 'main' | 'side'): void {
     if (cameraType === 'main' && !this.connectionPollingMain) {
       this.connectionPollingMain = interval(5000).subscribe(() => {

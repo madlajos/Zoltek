@@ -125,5 +125,3 @@ def start_temp_match(templateL, templateS, image, scale_percent):
     except Exception as e:
  #       logger.error("E2012")
         return None, None, None, "E2012"
-
-

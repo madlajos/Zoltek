@@ -23,8 +23,8 @@ async function waitForBackendReady(): Promise<void> {
     } catch (err) {
       console.warn('Backend not ready yet:', err);
     }
-    // Wait 1 second before polling again.
-    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
 

@@ -121,6 +121,3 @@ def img_ok_check(image, error_prefix='E00', downscale_factor=0.1, grid_size=(32,
     except Exception as e:
         #logger.error(f"{error_prefix}10")
         return None, f"{error_prefix}10"
-
-
-
