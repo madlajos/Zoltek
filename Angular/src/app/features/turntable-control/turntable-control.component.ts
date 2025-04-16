@@ -42,53 +42,45 @@ export class TurntableControlComponent implements OnInit, OnDestroy {
   // Start polling for turntable status every 5 seconds
   startConnectionPolling(): void {
     if (!this.connectionPolling) {
-      this.connectionPolling = interval(5000).pipe(
-        switchMap(() =>
-          this.http.get<{ connected: boolean }>(`${this.BASE_URL}/status/serial/turntable`)
-            .pipe(
-              // Retry up to 3 times with a 2-second delay between attempts
-              retryWhen(errors =>
-                errors.pipe(
-                  delay(2000),
-                  take(3)
-                )
-              ),
-              // Timeout each request at 3 seconds
-              timeout(3000),
-              // If still failing, catch the error and return a default value
-              catchError(err => {
-                console.warn("Turntable connection polling error after retries/timeout:", err);
-                // Return an object indicating that the turntable is disconnected
-                return of({ connected: false });
-              })
-            )
+      this.connectionPolling = interval(5000)
+        .pipe(
+          switchMap(() =>
+            this.http.get<{ connected: boolean }>(`${this.BASE_URL}/status/serial/turntable`)
+              .pipe(
+                timeout(5000),
+                catchError(err => {
+                  console.warn('Turntable connection polling timed out or failed.', err);
+                  return of({ connected: false }); // fallback to disconnected
+                })
+              )
+          )
         )
-      ).subscribe({
-        next: (response) => {
-          const wasConnected = this.isConnected;
-          this.isConnected = response.connected;
-          if (!this.isConnected && !this.reconnectionPolling) {
-            console.warn("Turntable disconnected – starting reconnection polling.");
-            this.errorNotificationService.addError({
-              code: "E1201",
-              message: this.errorNotificationService.getMessage("E1201")
-            });
-            this.stopConnectionPolling();
-            this.startReconnectionPolling();
-          } else if (this.isConnected && !wasConnected) {
-            console.info("Turntable reconnected.");
-            this.errorNotificationService.removeError("E1201");
-            this.stopReconnectionPolling();
-            // Restart connection polling to maintain the 5-second interval
-            this.startConnectionPolling();
+        .subscribe({
+          next: (response) => {
+            const wasConnected = this.isConnected;
+            this.isConnected = response.connected;
+  
+            if (!this.isConnected && !this.reconnectionPolling) {
+              console.warn("Turntable disconnected – starting reconnection polling.");
+              this.errorNotificationService.addError({
+                code: "E1201",
+                message: this.errorNotificationService.getMessage("E1201")
+              });
+              this.stopConnectionPolling();
+              this.startReconnectionPolling();
+            } else if (this.isConnected && !wasConnected) {
+              console.info("Turntable reconnected.");
+              this.errorNotificationService.removeError("E1201");
+              this.stopReconnectionPolling();
+              this.startConnectionPolling();
+            }
+          },
+          error: (error) => {
+            // This is now mostly a safety net
+            console.error('Unexpected polling error!', error);
+            this.isConnected = false;
           }
-        },
-        error: (error) => {
-          // This error block rarely triggers because catchError handles retry/timeouts
-          console.error("Unexpected error in connection polling:", error);
-          this.isConnected = false;
-        }
-      });
+        });
     }
   }
 

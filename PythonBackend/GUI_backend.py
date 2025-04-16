@@ -13,13 +13,16 @@ import sys
 import pyodbc
 import csv
 from datetime import datetime
+import subprocess
+import json
+
 
 from image_processing import imageprocessing_main
 
 import threading
 from settings_manager import load_settings, save_settings, get_settings
 import numpy as np
-from statistics_processor import calculate_statistics, save_annotated_image
+from statistics_processor import calculate_statistics, save_annotated_image, save_dot_results_to_csv
 
 from logger_config import setup_logger, CameraError, SerialError  # Import custom exceptions if defined in logger_config.py
 setup_logger()  # This sets up the root logger with our desired configuration.
@@ -767,7 +770,7 @@ def start_video_stream():
     """
     try:
         camera_type = request.args.get('type')
-        scale_factor = float(request.args.get('scale', 0.25))
+        scale_factor = float(request.args.get('scale', 0.1))
 
         if not camera_type or camera_type not in globals.cameras:
             app.logger.error(f"Invalid or missing camera type: {camera_type}")
@@ -818,7 +821,7 @@ def stop_video_stream():
         app.logger.exception(f"Unexpected exception while stopping {camera_type} stream.")
         return jsonify({"error": str(e)}), 500
 
-def generate_frames(camera_type, scale_factor=0.25):
+def generate_frames(camera_type, scale_factor=0.1):
     app.logger.info(f"Generating frames for {camera_type} with scale factor {scale_factor}")
     camera = globals.cameras.get(camera_type)
     if not camera:
@@ -1016,7 +1019,8 @@ def analyze_outer_slice():
 def save_raw_image_endpoint():
     try:
         # Use the new function that runs in its own process.
-        folder = select_folder_in_process()
+        folder = select_folder_external()
+
         if not folder:
             app.logger.info("User cancelled folder selection. Aborting raw image save operation.")
             # Return a 200 response indicating cancellation, so no error pops up.
@@ -1106,7 +1110,11 @@ def save_annotated_image_endpoint():
         # Update the counter for the next call.
         globals.last_saved_count = len(globals.dot_results)
         
-        save_path = save_annotated_image(globals.latest_image, new_dots, label)
+        save_path = save_annotated_image(
+            globals.latest_image,
+            new_dots,
+            os.path.join(get_base_path(), label)
+        )
         return jsonify({"message": "Annotated image saved", "image_path": save_path}), 200
     except Exception as e:
         app.logger.exception("Error saving annotated image: " + str(e))
@@ -1119,32 +1127,15 @@ def save_annotated_image_endpoint():
 @app.route('/api/save_results_to_csv', methods=['POST'])
 def save_results_to_csv_endpoint():
     try:
-        # Retrieve spinneret_id from the request payload if provided,
-        # otherwise use a default value.
         data = request.get_json() or {}
         spinneret_id = data.get("spinneret_id", "unknown")
         
-        # Use the current date formatted as YYYYMMDD.
-        measurement_date = datetime.now().strftime("%Y%m%d%H%M%S")
+        # Call your new function
+        filename = save_dot_results_to_csv(globals.dot_results, spinneret_id)
         
-        # Define the output directory and ensure it exists.
-        output_dir = os.path.join(get_base_path(), "csv_results")
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Construct the filename.
-        filename = os.path.join(output_dir, f"{spinneret_id}_{measurement_date}.csv")
-        
-        # Open the file and write globals.measurement_data into it.
-        # Assuming globals.measurement_data is a list of lists:
-        # [dot_id, x, y, col, area]
-        with open(filename, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            # Write header row.
-            writer.writerow(["Oszlop", "Terület", "Osztály"])
-            # Write each measurement row.
-            for row in globals.dot_results:
-                writer.writerow([row[3], row[4], row[5]])
-        
+        if filename is None:
+            raise Exception("CSV saving returned None")
+
         app.logger.info(f"Measurement results saved to CSV: {filename}")
         return jsonify({"message": "CSV saved successfully", "filename": filename}), 200
 
@@ -1155,7 +1146,6 @@ def save_results_to_csv_endpoint():
             "code": ErrorCode.GENERIC,
             "popup": True
         }), 500
-
 
 
 ### Statistics-related functions ###
@@ -1409,30 +1399,32 @@ def health_check():
     
 ### Internal Helper Functions ### 
 def get_base_path():
-    # In frozen mode, sys.executable gives the path of the exe;
-    # os.path.dirname(sys.executable) returns its folder.
+    """
+    Ensures all output folders like 'Results/csv_results' and 'Results/annotated_images'
+    are saved next to the main NozzleScanner.exe (not inside the resources folder).
+    """
     if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(__file__)
+        # If frozen, sys.executable points to .../resources/GUI_backend.exe
+        return os.path.join(os.path.dirname(os.path.dirname(sys.executable)), 'Results')
+    else:
+        # In dev mode, simulate the same directory structure
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Results'))
 
 
-def folder_dialog_target(q: Queue):
-    """Target function to run the Tkinter folder dialog."""
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window.
-    folder = filedialog.askdirectory(title="Képmentés mappája")
-    root.destroy()
-    q.put(folder)
-
-def select_folder_in_process() -> str:
-    """Runs the folder selection in a separate process and returns the selected folder."""
-    q = Queue()
-    # Use the top-level function 'folder_dialog_target' as the target.
-    p = Process(target=folder_dialog_target, args=(q,))
-    p.start()
-    p.join()  # Wait for the process to finish.
-    return q.get()
-
+def select_folder_external() -> str:
+    try:
+        result = subprocess.run(
+            ['python', 'select_folder_dialog.py'], 
+            capture_output=True, 
+            text=True,
+            timeout=15  # seconds
+        )
+        output = json.loads(result.stdout.strip())
+        return output['folder']
+    except Exception as e:
+        print("Folder selection failed:", e)
+        return ""
+    
 def attempt_frame_grab(camera, camera_type):
     # Attempt to retrieve the image result.
     grab_result = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
@@ -1524,7 +1516,7 @@ def connect_camera_internal(camera_type):
 
 
 
-def start_camera_stream_internal(camera_type, scale_factor=0.25):
+def start_camera_stream_internal(camera_type, scale_factor=0.1):
     app.logger.info(f"Starting {camera_type} camera stream internally with scale factor {scale_factor}")
     try:
         if camera_type not in globals.cameras or globals.cameras[camera_type] is None or not globals.cameras[camera_type].IsOpen():

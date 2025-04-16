@@ -9,11 +9,16 @@ from settings_manager import get_settings
 from datetime import datetime
 
 def get_base_path():
-    # In frozen mode, sys.executable gives the path of the exe;
-    # os.path.dirname(sys.executable) returns its folder.
+    """
+    Ensures all output folders like 'Results/csv_results' and 'Results/annotated_images'
+    are saved next to the main NozzleScanner.exe (not inside the resources folder).
+    """
     if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(__file__)
+        # If frozen, sys.executable points to .../resources/GUI_backend.exe
+        return os.path.join(os.path.dirname(os.path.dirname(sys.executable)), 'Results')
+    else:
+        # In dev mode, simulate the same directory structure
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Results'))
 
 def calculate_statistics(dot_list, expected_counts=None):
     """
@@ -113,6 +118,7 @@ def calculate_statistics(dot_list, expected_counts=None):
             "result_counts": final_counts,
             "classified_dots": classified_with_id
         }
+        
 
     except Exception as e:
         return {"error": str(e)}
@@ -161,3 +167,40 @@ def save_annotated_image(image, classified_dots, output_dir=None):
     cv2.imwrite(filename, annotated_img)
     print(f"Annotated image saved: {filename}")
     return filename
+
+def save_dot_results_to_csv(dot_results, spinneret_id="unknown", output_dir=None):
+    """
+    Saves dot classification results to a CSV file.
+
+    Args:
+        dot_results (list): List of dot data: [dot_id, x, y, col, area, class]
+        spinneret_id (str): Identifier to include in the filename.
+        output_dir (str): Optional directory to save the file.
+
+    Returns:
+        str: The full path to the saved CSV file.
+    """
+    from datetime import datetime
+    import os
+    import csv
+
+    if output_dir is None:
+        output_dir = os.path.join(get_base_path(), "csv_results")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate timestamp and filename
+    measurement_date = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = os.path.join(output_dir, f"{spinneret_id}_{measurement_date}.csv")
+
+    try:
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Oszlop", "Terület", "Osztály"])
+            for row in dot_results:
+                writer.writerow([row[3], row[4], row[5]])
+        print(f"CSV saved: {filename}")
+        return filename
+    except Exception as e:
+        print(f"Failed to save CSV: {e}")
+        return None

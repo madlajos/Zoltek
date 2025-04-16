@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TurntableControlComponent } from '../turntable-control/turntable-control.component';
-import { Observable, Subject, throwError, map, of } from 'rxjs';
+import { Observable, Subject, throwError, map, of, delay } from 'rxjs';
 import { catchError, switchMap, tap, takeUntil, finalize } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -323,6 +323,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     
     return init$.pipe(
       switchMap(() => this.waitForTurntableDone()),
+      switchMap(() => of(null).pipe(delay(200))),
       switchMap(() => this.runAnalysis(cycleMode)),
       // Optionally, update overall statistics & UI after the analysis chain.
       switchMap(() => this.http.post(`${this.BASE_URL}/calculate-statistics?mode=${cycleMode}`, {})),

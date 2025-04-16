@@ -13,7 +13,7 @@ export class BarcodeService {
 
   constructor(private http: HttpClient) {
     // Start polling every 3 seconds.
-    timer(0, 3000).pipe(
+    timer(0, 1000).pipe(
       switchMap(() => this.http.get<{ barcode: string }>(`${this.BASE_URL}/get-barcode`))
     ).subscribe(response => {
       // Only emit a new barcode if it's different from the current one.
