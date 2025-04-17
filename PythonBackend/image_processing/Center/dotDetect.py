@@ -17,7 +17,7 @@ def center_detect_small_dots_and_contours(masked_region, drawtf):
 
         # ✅ **2️⃣ Apply Thresholding (Error-Proofed)**
         try:
-            _, thresh = cv2.threshold(masked_region, 100, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(masked_region, 50, 255, cv2.THRESH_BINARY)
         except cv2.error as e:
            # logger.error("E2117")
             return None, "E2117"

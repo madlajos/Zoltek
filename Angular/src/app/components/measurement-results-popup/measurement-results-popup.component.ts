@@ -35,7 +35,8 @@ export class MeasurementResultsPopupComponent {
     const time = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
     const cloggedCount = Number(this.results[0]) || 0;
     // If the clogged count is within the limit, we mark it as "✔", otherwise "❌"
-    const resultString = (cloggedCount <= this.ngLimit) ? "✔" : "❌";
+    const resultString = (cloggedCount <= this.ngLimit) ? '\u2714\uFE0E' : '\u2716\uFE0E';
+    
     return {
       date,
       time,

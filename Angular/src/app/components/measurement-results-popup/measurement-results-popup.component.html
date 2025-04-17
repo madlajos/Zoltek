@@ -1,7 +1,12 @@
 <div class="center-popup-overlay">
     <div class="center-popup-content">
       <h2>A mérés eredménye:</h2>
-      <h1>{{ measurementRecord.result }}</h1>
+      <h1
+        class="result-icon"
+        [class.success]="measurementRecord.result.startsWith('✔')"
+        [class.failure]="measurementRecord.result.startsWith('✖')">
+        {{ measurementRecord.result }}
+      </h1>
       <table class="results-table-popup">
         <thead>
           <tr>

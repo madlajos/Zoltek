@@ -12,6 +12,15 @@ import { SettingsUpdatesService } from '../../services/settings-updates.service'
 import { BarcodeService } from '../../services/barcode.service';
 
 
+declare global {
+  interface Window {
+    electronAPI?: {
+      selectFolder: () => Promise<string>;
+    };
+  }
+}
+
+
 @Component({
   standalone: true,
   selector: 'app-control-panel',
@@ -198,17 +207,26 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   }
   
   // Function to save raw image using the selected folder.
-  saveRawImage(): void {
-    // When the button is pressed, the backend handles folder selection.
-    this.http.post(`${this.BASE_URL}/save_raw_image`, {})
-      .subscribe({
-        next: (response: any) => {
-          console.log("Raw images saved successfully:", response);
-        },
-        error: (error: any) => {
-          console.error("Error saving raw images:", error);
-        }
-      });
+  async saveRawImage(): Promise<void> {
+    // 1) ask Electron to open a folder‐picker
+    const folder = await (window as any).electronAPI.selectFolder();
+    if (!folder) {
+      console.log('User cancelled folder selection');
+      return;
+    }
+
+    // 2) POST it to the Flask endpoint
+    this.http.post(
+      `${this.BASE_URL}/save_raw_image`,
+      { target_folder: folder }    // <-- send the path here
+    ).subscribe({
+      next: (response: any) => {
+        console.log('Raw images saved successfully:', response);
+      },
+      error: (error: any) => {
+        console.error('Error saving raw images:', error);
+      }
+    });
   }
 
   // Rotate Up/Down Functions (unchanged)

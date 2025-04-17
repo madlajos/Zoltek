@@ -2,7 +2,7 @@
     background-color: #333;
     color: #fff;
     width: 100%;
-    height: 50%;
+    height: 46vh;
     padding: 15px;
     border-radius: 10px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -79,4 +79,12 @@
 /* Ensure table header text is also centered */
 .results-table th {
     font-weight: bold;
+}
+
+
+.results-table-container .results-table .tick {
+  color: #2aaa2e;
+}
+.results-table-container .results-table .cross {
+  color: #F44336;
 }

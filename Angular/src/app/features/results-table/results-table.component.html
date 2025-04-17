@@ -26,7 +26,13 @@
             <td>{{ result.clogged }}</td>
             <td>{{ result.partiallyClogged }}</td>
             <td>{{ result.clean }}</td>
-            <td>{{ result.result }}</td>
+            <td 
+              [ngClass]="{
+                'tick':   result.result.includes('✔'),
+                'cross':  result.result.includes('✖')
+              }">
+              {{ result.result }}
+            </td>
           </tr>
         </tbody>
       </table>

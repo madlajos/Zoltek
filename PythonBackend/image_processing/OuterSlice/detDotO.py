@@ -90,105 +90,6 @@ def find_first_column(dot_centers, x_threshold=0):
      #   logger.logger('E2323')
         return None, None, 'E2323'
 
-
-
-# def detect_small_dots_and_contours(masked_region, x_threshold=40):
-#     """
-#     Detects small dots and extracts their contour areas efficiently.
-#     Optimized for speed while maintaining logical consistency.
-#     """
-#
-#     # **Step 1: Apply Fixed Binary Threshold**
-#     if len(masked_region.shape) == 3:
-#         gray = cv2.cvtColor(masked_region, cv2.COLOR_BGR2GRAY)  # Convert if needed
-#     else:
-#         gray = masked_region
-#
-#     _, thresh = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY)  # Fixed threshold
-#
-#     # **Step 2: Find Contours Efficiently**
-#     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#
-#     if not contours:
-#         print("No contours found.")
-#         return np.array([]), masked_region, {}, -1
-#
-#     # **Step 3: Extract Dot Centers & Areas in Parallel**
-#     moments = [cv2.moments(cnt) for cnt in contours]
-#     areas = np.array([M["m00"] for M in moments])
-#
-#     valid_mask = areas > 1  # Filter out noise
-#     if not np.any(valid_mask):
-#         print("No valid dots found.")
-#         return np.array([]), masked_region, {}, -1
-#
-#     centers = np.array([(
-#         int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
-#     ) if M["m00"] != 0 else (0, 0) for M in moments], dtype=np.int32)
-#
-#     dot_centers = np.column_stack((centers[valid_mask], areas[valid_mask]))  # X, Y, Area
-#
-#     # **Step 4: Detect Columns Efficiently**
-#     columns = []
-#     column_labels = {}
-#     column_x_positions = []
-#
-#     while dot_centers.shape[0] > 0:
-#         first_column, remaining_dots = find_first_column(dot_centers, x_threshold)
-#
-#         if first_column.size == 0:
-#             break  # No valid columns found
-#
-#         col_idx = len(columns)
-#         column_x_positions.append(np.min(first_column[:, 0]))  # Faster than min()
-#
-#         for dot in first_column:
-#             column_labels[tuple(dot[:2])] = col_idx
-#
-#         columns.append(first_column)
-#         dot_centers = remaining_dots
-#
-#     # **Step 5: Sort Columns from Right to Left**
-#     sorted_indices = np.argsort(column_x_positions)[::-1]
-#     sorted_columns = [columns[i] for i in sorted_indices]
-#
-#     column_remap = {old_idx: new_idx for new_idx, old_idx in enumerate(sorted_indices)}
-#     new_column_labels = {dot: column_remap[col_idx] for dot, col_idx in column_labels.items()}
-#
-#     # **Step 6: Preserve Output Order**
-#     num_columns = len(columns)
-#     print(f"Total columns detected: {num_columns}")
-#     all_columns = 77
-#     starting_column = num_columns - all_columns
-#     valid_column_indices2 = set(range(starting_column, num_columns))
-#
-#     data = []
-#
-#     # **Step 7: Assign Column Numbers & Preserve Print Order**
-#     starting_label = 53
-#     for new_col_idx, (col_idx, column_array) in enumerate(
-#             [(idx, sorted_columns[idx]) for idx in valid_column_indices2]
-#     ):
-#         new_label = starting_label + new_col_idx
-#         for row in column_array:
-#             x, y, area = row
-#             data.append((x, y, new_label, area))  # Store x, y, new column label, and area
-#
-#     # **Step 8: Print Data (MUST STAY UNCHANGED)**
-#     for i, dot in enumerate(data):
-#         print(f"Dot {i + 1}: X = {dot[0]}, Y = {dot[1]}, Column = {dot[2]}, Area = {dot[3]}")
-#
-#     return data, masked_region, sorted_columns, -1
-#
-
-
-
-
-
-
-
-
-
 def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
     try:
         # Apply threshold to find dots
@@ -249,15 +150,11 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
             else:
                 dot_centers = np.array([])
 
-
-
         # **Step 2: Sort Columns from Left to Right**
 
         # **Sort Columns from Right to Left**
         sorted_column_indices = np.argsort(column_x_positions)[::-1]  # Reverse the order
         sorted_columns = [columns[i] for i in sorted_column_indices]  # Reorder columns
-
-
 
         # Create a mapping from old indices to new sorted indices
         column_remap = {old_idx: new_idx for new_idx, old_idx in enumerate(sorted_column_indices)}
@@ -271,17 +168,12 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
         # **Step 6: Annotate All Detected Columns (with Sorted Indices)**
         annotated_dots = cv2.cvtColor(cv2.resize(masked_region, None, fx=1, fy=1, interpolation=cv2.INTER_AREA),
                                       cv2.COLOR_GRAY2BGR)
-
-
-
         data = []
 
         for col_idx, column_array in enumerate(sorted_columns):  # Loop over each column array in the list
             for row in column_array:  # Loop over each row within that column array
                 x, y, area = row  # Unpack the row
                 data.append((x, y, col_idx, area))  # Store x, y, col_idx (column index), and area
-
-
 
         best_match=1
         # Create an annotated image

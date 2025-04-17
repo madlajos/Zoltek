@@ -29,7 +29,7 @@
   font-size: 16px; /* Adjust text size as needed */
   margin-right: 10px;
   margin-top: 10px;
-  height: 520px;
+  height: 50vh;
   border-radius: 5px 5px 5px 5px;
 }
 
@@ -78,17 +78,16 @@
   gap: 15px;              /* Adds spacing between elements */
   margin-left: 10px;
   margin-top: 10px;
+  overflow: hidden;
 }
 
 .control-panel-container {
-  width: 600px;      /* Ensures it doesn't shrink too much */
-  height: 92vh;
+  width: 600px;
 }
 
 .results-table-container {
   margin-left: 28px;
-  width: 814px;      /* Optional: Adjust max width */
-  height: 92vh;
+  width: 814px; 
 }
 
 .logout-button {
@@ -114,3 +113,4 @@ button:focus {
   outline: none !important;
   box-shadow: none !important;
 }
+

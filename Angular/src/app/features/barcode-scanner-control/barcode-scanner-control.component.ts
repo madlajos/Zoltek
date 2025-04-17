@@ -36,7 +36,9 @@ export class BarcodeScannerControlComponent implements OnInit, OnDestroy {
   }
 
   startConnectionPolling(): void {
-    this.checkBarcodeStatus();
+    this.connectionPolling = interval(5000).subscribe(() => {
+      this.checkBarcodeStatus();
+    });
   }
 
   stopConnectionPolling(): void {

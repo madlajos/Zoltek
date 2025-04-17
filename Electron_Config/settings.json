@@ -8,7 +8,7 @@
             "ExposureTime": 20000.0,
             "Gain": 0.0,
             "Gamma": 1.0,
-            "FrameRate": 10.0
+            "FrameRate": 20.0
         },
         "side": {
             "Width": 4200,
@@ -18,17 +18,17 @@
             "ExposureTime": 20000.0,
             "Gain": 0.0,
             "Gamma": 1,
-            "FrameRate": 10.0
+            "FrameRate": 20.0
         }
     },
     "size_limits": {
         "class1": 3,
         "class2": 60,
-        "ng_limit": 1
+        "ng_limit": 15
     },
     "save_settings": {
-        "save_csv": false,
-        "save_images": false
+        "save_csv": true,
+        "save_images": true
     },
     "sql_server": {
         "server": "ZHUVM-MSSQL",

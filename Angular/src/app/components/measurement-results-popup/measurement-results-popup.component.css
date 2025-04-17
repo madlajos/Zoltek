@@ -55,7 +55,10 @@
     background-color: var(--hover-active-blue);
   }
   
-  .center-popup-content h1 {
-    font-size: 2rem;
-    font-family: 'Segoe UI Emoji', 'Segoe UI Symbol', 'Arial Unicode MS', sans-serif;
+  .result-icon.success {
+    color: #2aaa2e; /* green */
+  }
+  
+  .result-icon.failure {
+    color: #F44336; /* red */
   }

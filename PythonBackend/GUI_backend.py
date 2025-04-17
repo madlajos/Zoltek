@@ -1013,66 +1013,47 @@ def analyze_outer_slice():
         camera_type='side',
         label='outer_slice',
     )
-    
-    
+        
 @app.route('/api/save_raw_image', methods=['POST'])
 def save_raw_image_endpoint():
-    try:
-        # Use the new function that runs in its own process.
-        folder = select_folder_external()
+    data = request.get_json() or {}
+    target_folder = data.get("target_folder", "")
+    if not target_folder:
+        return jsonify({"message": "Cancelled"}), 200
 
-        if not folder:
-            app.logger.info("User cancelled folder selection. Aborting raw image save operation.")
-            # Return a 200 response indicating cancellation, so no error pops up.
-            return jsonify({"message": "Folder selection cancelled. No images saved."}), 200
+    os.makedirs(target_folder, exist_ok=True)
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
 
-        target_folder = folder
-        if not os.path.exists(target_folder):
-            os.makedirs(target_folder)
-
-        # Generate a timestamp string.
-        now = datetime.now().strftime("%Y%m%d%H%M%S")
-
-        # Grab main camera image.
-        main_image, error_response, status_code = grab_camera_image('main')
-        if main_image is None:
-            app.logger.error("Grab result is None for camera main")
-            return jsonify({
-                "error": ERROR_MESSAGES.get(ErrorCode.MAIN_CAMERA_DISCONNECTED, "Main camera disconnected"),
-                "code": ErrorCode.MAIN_CAMERA_DISCONNECTED,
-                "popup": True
-            }), 400
-
-        # Grab side camera image.
-        side_image, error_response_side, status_code_side = grab_camera_image('side')
-        if side_image is None:
-            app.logger.error("Grab result is None for camera side")
-            return jsonify({
-                "error": ERROR_MESSAGES.get(ErrorCode.SIDE_CAMERA_DISCONNECTED, "Side camera disconnected"),
-                "code": ErrorCode.SIDE_CAMERA_DISCONNECTED,
-                "popup": True
-            }), 400
-
-        center_filename = os.path.join(target_folder, f"{now}_center.jpg")
-        side_filename = os.path.join(target_folder, f"{now}_side.jpg")
-
-        cv2.imwrite(center_filename, main_image)
-        cv2.imwrite(side_filename, side_image)
-
-        app.logger.info("Raw images saved successfully: %s, %s", center_filename, side_filename)
+    main_image, *_ = grab_camera_image('main')
+    if main_image is None:
+        app.logger.error("Grab result is None for camera main")
         return jsonify({
-            "message": "Raw images saved successfully",
-            "center_filename": center_filename,
-            "side_filename": side_filename
-        }), 200
-
-    except Exception as e:
-        app.logger.exception("Error saving raw image: " + str(e))
-        return jsonify({
-            "error": ERROR_MESSAGES.get(ErrorCode.GENERIC),
-            "code": ErrorCode.GENERIC,
+            "error": ERROR_MESSAGES.get(ErrorCode.MAIN_CAMERA_DISCONNECTED, "Main camera disconnected"),
+            "code": ErrorCode.MAIN_CAMERA_DISCONNECTED,
             "popup": True
-        }), 500
+        }), 400
+    side_image, *_ = grab_camera_image('side')
+    if side_image is None:
+        app.logger.error("Grab result is None for camera side")
+        return jsonify({
+            "error": ERROR_MESSAGES.get(ErrorCode.SIDE_CAMERA_DISCONNECTED, "Side camera disconnected"),
+            "code": ErrorCode.SIDE_CAMERA_DISCONNECTED,
+            "popup": True
+        }), 400
+
+    center_fn = os.path.join(target_folder, f"{now}_center.jpg")
+    side_fn   = os.path.join(target_folder, f"{now}_side.jpg")
+    cv2.imwrite(center_fn, main_image)
+    cv2.imwrite(side_fn, side_image)
+
+    return jsonify({
+      "message": "Raw images saved",
+      "center": center_fn,
+      "side": side_fn
+    }), 200
+
+
+
 
 @app.route('/api/calculate-statistics', methods=['GET', 'POST'])
 def calculate_statistics_endpoint():

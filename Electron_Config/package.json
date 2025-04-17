@@ -1,0 +1,50 @@
+{
+  "name": "nozzlescanner-electron",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "main": "main.js",
+  "build": {
+    "appId": "com.qdev.nozzlescanner",
+    "productName": "NozzleScanner",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "app/**/*",
+      "main.js",
+      "preload.js",
+      "GUI_backend.exe"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "GUI_backend.exe"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "app/assets/favicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true
+    }
+  }
+}
