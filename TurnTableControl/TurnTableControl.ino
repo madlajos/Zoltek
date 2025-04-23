@@ -1,6 +1,6 @@
 // Pin Definitions (same as original, plus relay)
-#define STEP_PIN 0   // PUL+ connected to Arduino Pin 9
-#define DIR_PIN 1    // DIR+ connected to Arduino Pin 8
+#define STEP_PIN 1   // PUL+ connected to Arduino Pin 9
+#define DIR_PIN 0    // DIR+ connected to Arduino Pin 8
 #define ENA_PIN 0    // ENA+ connected to Arduino Pin 7 (optional)
 #define RELAY_PIN 4  // Relay control pin
 
