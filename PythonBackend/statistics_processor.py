@@ -7,6 +7,7 @@ import globals
 from collections import defaultdict
 from settings_manager import get_settings
 from datetime import datetime
+import csv
 
 def get_base_path():
     """
@@ -180,9 +181,6 @@ def save_dot_results_to_csv(dot_results, spinneret_id="unknown", output_dir=None
     Returns:
         str: The full path to the saved CSV file.
     """
-    from datetime import datetime
-    import os
-    import csv
 
     if output_dir is None:
         output_dir = os.path.join(get_base_path(), "csv_results")

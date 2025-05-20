@@ -330,9 +330,10 @@ input::-webkit-inner-spin-button {
 
 /* Company Logo */
 .company-logo {
-  margin-bottom: 0px;
-  margin-top: 6px;
-  width: 100%;
+  margin-bottom: 20px;
+  margin-top:6px;
+  width: 90%;
+  height: auto;
   margin-left: 10px;
 }
 

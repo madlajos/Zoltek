@@ -1076,31 +1076,45 @@ def calculate_statistics_endpoint():
             "popup": True
         }), 500
         
+@app.route('/api/start-annotated-save', methods=['POST'])
+def start_annotated_save():
+    data = request.get_json() or {}
+    spinneret_id = data.get("spinneret_id") or "unknown"
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    folder_name = f"{spinneret_id}_{timestamp}"
+    base = os.path.join(get_base_path(), "annotated_images")
+    run_dir = os.path.join(base, folder_name)
+    os.makedirs(run_dir, exist_ok=True)
+
+    # store in a module-level global
+    globals.annotated_folder = run_dir
+    globals.last_saved_count = 0   # reset counter for this run
+
+    app.logger.info(f"Created new annotated folder: {run_dir}")
+    return jsonify({"folder": folder_name}), 200        
+        
 @app.route('/api/save-annotated-image', methods=['POST'])
 def save_annotated_image_endpoint():
     try:
-        data = request.get_json()
-        label = data.get('label', 'annotated_images')
-        
-        if not hasattr(globals, 'last_saved_count'):
-            globals.last_saved_count = 0
-
-        # Get only the new dots added since the last annotated image was saved.
+        # pull in new dots since last time
         new_dots = globals.dot_results[globals.last_saved_count:]
-        
-        # Update the counter for the next call.
         globals.last_saved_count = len(globals.dot_results)
-        
+
+        target_dir = getattr(globals, "annotated_folder",
+                             os.path.join(get_base_path(), "annotated_images"))
         save_path = save_annotated_image(
             globals.latest_image,
             new_dots,
-            os.path.join(get_base_path(), label)
+            target_dir
         )
+
+        app.logger.info(f"Annotated image saved to: {save_path}")
         return jsonify({"message": "Annotated image saved", "image_path": save_path}), 200
+
     except Exception as e:
         app.logger.exception("Error saving annotated image: " + str(e))
         return jsonify({
-            "error": "Failed to save annotated image",
+            "error": ERROR_MESSAGES.get(ErrorCode.GENERIC),
             "code": ErrorCode.GENERIC,
             "popup": True
         }), 500

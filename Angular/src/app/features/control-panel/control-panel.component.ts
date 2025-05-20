@@ -237,6 +237,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     );
   }
 
+  
   homeTurntable(): void {
     if (this.turntableControl) {
       this.turntableControl.homeTurntable();
@@ -278,6 +279,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     this.nozzleId = "";
     this.nozzleBarcode = "";
     this.barcodeService.clearBarcode();
+    this.nozzleBarcode = "";
     this.toggleRelay();
     
     console.log("Results cleared, progress bar reset, and barcode fields cleared.");
@@ -300,29 +302,50 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     });
   }
 
-  
+  private prepareAnnotatedFolder(): Observable<any> {
+    const spinneretId = this.nozzleBarcode || this.nozzleId;
+    return this.http.post(`${this.BASE_URL}/start-annotated-save`, {
+      spinneret_id: spinneretId
+    });
+  }
+
   startMeasurement(): void {
-    console.log("Starting measurement cycle...");
+    console.log("Starting measurement cycle…");
   
-    // Reset backend results first.
+    // 1) Reset backend results immediately
     this.resetBackendResults();
   
-    if (!this.relayState) {
-      // Call the working toggleRelay() that returns void.
-      this.toggleRelay();
+    // 2) Build an Observable that, if saving images, first calls start-annotated-save,
+    //    otherwise simply emits `null`.
+    const prep$ = this.save_images
+      ? this.prepareAnnotatedFolder().pipe(
+          tap(() => console.log("Annotated‐images folder ready")),
+        )
+      : of(null);
   
-      // Wait a short period for the relay toggle to complete, then start the cycle.
-      setTimeout(() => {
-        this.executeCycle('full').subscribe({
-          error: (err: any) => console.error("Cycle startup error:", err)
-        });
-      }, 500);
-    } else {
-      this.executeCycle('full').subscribe({
-        error: (err: any) => console.error("Cycle startup error:", err)
-      });
-    }
+    // 3) Once that prep step completes (or immediately if save_images===false),
+    //    kick off the real measurement chain
+    prep$.pipe(
+      switchMap(() => {
+        // This is exactly your “kickoff” logic:
+        // — toggle relay if needed, then fire executeCycle('full')
+        if (!this.relayState) {
+          this.toggleRelay();
+          // wait for relay to change
+          return of(null).pipe(
+            delay(500),
+            switchMap(() => this.executeCycle("full"))
+          );
+        } else {
+          return this.executeCycle("full");
+        }
+      })
+    ).subscribe({
+      next: () => {/* nothing */},
+      error: err => console.error("Cycle startup error:", err)
+    });
   }
+  
 
   private executeCycle(cycleMode: 'full' | 'slices'): Observable<any> {
     let init$: Observable<any>;
@@ -490,22 +513,18 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   }
 
   saveResultsToCsv(): void {
-    // Use the available spinneret id (from nozzleId or nozzleBarcode)
     const spinneretId = this.nozzleBarcode || this.nozzleId;
     if (!spinneretId) {
       console.error("Cannot save CSV: No spinneret ID provided.");
       return;
     }
-    // Prepare the payload. The endpoint will use the current date on the server to name the CSV.
     const payload = {
       spinneret_id: spinneretId
-      // You can add other parameters if needed.
     };
   
     this.http.post(`${this.BASE_URL}/save_results_to_csv`, payload).subscribe({
       next: (resp: any) => {
         console.log("CSV saved successfully:", resp);
-        // Optionally update the UI with resp.filename, etc.
       },
       error: (err: any) => {
         console.error("CSV saving failed:", err);
