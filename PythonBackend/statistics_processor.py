@@ -80,7 +80,8 @@ def calculate_statistics(dot_list, expected_counts=None):
         for c in range(1, 11):
             if c in columns:
                 combined_areas += [d[4] for d in columns[c]]
-                column_reference[c] = np.max(combined_areas)
+        if combined_areas:
+            column_reference[1:10] = np.max(combined_areas)
         for c in range(11, 128):
             if c in columns:
                 column_reference[c] = np.max([d[4] for d in columns[c]])
