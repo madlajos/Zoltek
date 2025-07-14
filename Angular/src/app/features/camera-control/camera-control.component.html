@@ -40,6 +40,28 @@
           </td>
         </tr>
         <tr>
+          <td colspan="2" class="csv-dir-cell">
+            <div class="csv-input-wrapper">
+              <!-- Small browse button first -->
+              <button
+                type="button"
+                (click)="openFolderBrowser()"
+                [disabled]="measurementActive"
+                class="csv-dir-btn">
+                <mat-icon>folder_open</mat-icon>
+              </button>
+
+              <!-- Path textbox second -->
+              <input
+                type="text"
+                class="styled-input dir-display"
+                [(ngModel)]="saveSettings['csv_dir']"
+                [disabled]="measurementActive"
+                readonly />
+            </div>
+          </td>
+        </tr>
+        <tr>
           <td>Save Analysed Images</td>
           <td>
             <input type="checkbox" [(ngModel)]="saveSettings['save_images']" (change)="applySaveSetting('save_images')"

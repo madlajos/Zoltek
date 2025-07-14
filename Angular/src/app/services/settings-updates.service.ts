@@ -10,6 +10,7 @@ export interface SizeLimits {
 export interface SaveSettings {
   save_csv: boolean;
   save_images: boolean;
+  csv_dir: string;
 }
 
 export interface CameraSettings {
@@ -49,7 +50,8 @@ export class SettingsUpdatesService {
 
   private saveSettingsSubject = new BehaviorSubject<SaveSettings>({
     save_csv: false,
-    save_images: false
+    save_images: false,
+    csv_dir: ""
   });
 
   private mainCameraSettingsSubject = new BehaviorSubject<CameraSettings>(DEFAULT_CAMERA_SETTINGS);

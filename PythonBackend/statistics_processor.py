@@ -186,9 +186,14 @@ def save_dot_results_to_csv(dot_results, spinneret_id="unknown", output_dir=None
         str: The full path to the saved CSV file.
     """
 
+    # If no output_dir specified, use the folder from settings or default.
     if output_dir is None:
-        output_dir = os.path.join(get_base_path(), "csv_results")
-
+        settings = get_settings()
+        custom_dir = settings.get("save_settings", {}).get("csv_dir")  # New field from settings
+        if custom_dir:
+            output_dir = custom_dir
+        else:
+            output_dir = os.path.join(get_base_path(), "csv_results")
     os.makedirs(output_dir, exist_ok=True)
 
     # Generate timestamp and filename

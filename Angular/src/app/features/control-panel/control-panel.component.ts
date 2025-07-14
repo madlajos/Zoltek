@@ -38,6 +38,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   ng_limit: number = 0;
   save_csv: boolean = false;
   save_images: boolean = false;
+  csv_dir: string = "";
 
   isMainConnected: boolean = false;
   isSideConnected: boolean = false;
@@ -135,6 +136,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     this.settingsUpdatesService.saveSettings$.subscribe(settings => {
       this.save_csv = settings['save_csv'];
       this.save_images = settings['save_images'];
+      this.csv_dir = settings['csv_dir'];
       console.log("saveSettings updated via shared service:", this.save_csv, this.save_images);
       this.cdr.detectChanges();
     });

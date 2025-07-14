@@ -1391,6 +1391,14 @@ def check_db_connection():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"ready": True}), 200
+
+@app.route('/api/select-folder', methods=['GET'])
+def select_folder():
+    folder = select_folder_external()  # opens a Tkinter folder dialog
+    if folder is None:
+        folder = ""
+    return jsonify({"folder": folder})
+
     
 ### Internal Helper Functions ### 
 def get_base_path():

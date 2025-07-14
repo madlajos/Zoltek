@@ -133,6 +133,7 @@ td button:hover {
   border-radius: 4px;
 }
 
+
 /* ─────────────────────────────────── */
 /* Divider between User & Developer Settings */
 /* ─────────────────────────────────── */
@@ -165,3 +166,35 @@ td button:hover {
 .measurement-button:hover {
   background-color: #0056b3;
 }
+
+
+.user-settings-table input.dir-display {
+  width: 100%;   /* or 100% if you prefer */
+  text-align: left;
+}
+
+/* Flex row keeps button + input on same line */
+.csv-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;                 /* space between button & textbox */
+}
+
+/* Shrink the button only here */
+.csv-dir-btn {
+  padding: 2px 6px;         /* smaller than generic td button */
+  font-size: 11px;
+  max-width: 200px;          /* icon still visible but tight */
+  flex: none;               /* don’t grow/shrink */
+}
+
+/* Let the textbox take ALL remaining space */
+.csv-input-wrapper input.dir-display {
+  flex: 1 1 0;              /* grow, may shrink */
+  min-width: 0;             /* prevent flex overflow */
+  width: auto;              /* override table’s 30% rule */
+  text-align: left;
+}
+
+/* Optional: left-align the whole cell (removes centre rule) */
+.csv-dir-cell { text-align: left; }

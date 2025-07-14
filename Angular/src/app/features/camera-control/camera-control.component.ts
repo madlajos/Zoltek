@@ -49,7 +49,8 @@ export class CameraControlComponent implements OnInit, OnDestroy {
 
   saveSettings: SaveSettings = {
     save_csv: false,
-    save_images: false
+    save_images: false,
+    csv_dir: ""
   };
   
   connectionPollingMain: Subscription | undefined;
@@ -137,7 +138,7 @@ export class CameraControlComponent implements OnInit, OnDestroy {
         next: response => {
           if (response && response.save_settings) {
             this.saveSettings = response.save_settings;
-            // Publish the loaded settings to the shared service.
+            if (!this.saveSettings.csv_dir) this.saveSettings.csv_dir = "";
             this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
             console.log("Loaded Save Settings from backend:");
           }
@@ -451,27 +452,92 @@ export class CameraControlComponent implements OnInit, OnDestroy {
     });
   }
 
-  applySaveSetting(settingName: 'save_csv' | 'save_images'): void {
-    let value = Boolean(this.saveSettings[settingName]); // convert to number explicitly
-    console.log(`Applying save setting: ${settingName}to ${value}`);
+  applySaveSetting<K extends keyof SaveSettings>(settingName: K): void {
+  // 1. Determine the outgoing value type
+  let outgoingValue: SaveSettings[K];
 
-    this.http.post(`${this.BASE_URL}/update-other-settings`, {
+  // If it's a boolean field, cast to Boolean so we never send "undefined"/"null"
+  if (typeof this.saveSettings[settingName] === 'boolean') {
+    outgoingValue = Boolean(this.saveSettings[settingName]) as SaveSettings[K];
+  } else {
+    // string (csv_dir) → send as-is
+    outgoingValue = this.saveSettings[settingName];
+  }
+
+  console.log(`Applying save setting: ${settingName} →`, outgoingValue);
+
+  // 2. Persist to backend
+  this.http.post<{ updated_value: SaveSettings[K] }>(
+    `${this.BASE_URL}/update-other-settings`,
+    {
       category: 'save_settings',
       setting_name: settingName,
-      setting_value: value
-    }).subscribe({
-      next: (response: any) => {
-        console.log(`Save settings applied successfully:`, response);
-        // Update the local value with the response.
-        this.saveSettings[settingName] = Boolean(response.updated_value);
-        this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
+      setting_value: outgoingValue
+    }
+  ).subscribe({
+    next: resp => {
+      // 3. Mirror backend-confirmed value locally
+      this.saveSettings[settingName] = resp.updated_value;
 
+      // Broadcast the fresh copy so other components stay up-to-date
+      this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
+      console.log('Save setting applied:', settingName, '→', resp.updated_value);
+    },
+    error: err => console.error(`Error applying ${settingName}:`, err)
+  });
+}
+
+    async openFolderBrowser(): Promise<void> {
+    // If running in Electron (the preload script exposes an API)
+    if (window.electronAPI?.selectFolder) {
+      try {
+        const folder = await window.electronAPI.selectFolder();
+        if (!folder) {
+          console.log('User cancelled folder selection');
+          return;
+        }
+        this.updateCsvDirectory(folder);
+      } catch (err) {
+        console.error('Error selecting folder via Electron:', err);
+      }
+    } else {
+      // Fallback for non-Electron: call backend to open a Tkinter dialog
+      this.http.get<{ folder: string }>(`${this.BASE_URL}/select-folder`).subscribe({
+        next: resp => {
+          if (resp && resp.folder) {
+            this.updateCsvDirectory(resp.folder);
+          } else {
+            console.log('User cancelled folder selection (Tkinter dialog)');
+          }
+        },
+        error: err => {
+          console.error('Error during folder selection (backend):', err);
+        }
+      });
+    }
+  }
+
+  updateCsvDirectory(folderPath: string): void {
+    // 1. Update the local model and UI
+    this.saveSettings.csv_dir = folderPath;
+    // 2. Persist the new setting to backend (settings.json)
+    this.http.post(`${this.BASE_URL}/update-other-settings`, {
+      category: 'save_settings',
+      setting_name: 'csv_dir',
+      setting_value: folderPath
+    }).subscribe({
+      next: (res: any) => {
+        console.log('CSV directory updated in settings:', res);
+        // Update shared service if needed so other components know about the change
+        this.settingsUpdatesService.updateSaveSettings(this.saveSettings);
       },
-      error: error => {
-        console.error(`Error save setting: ${settingName}:`, error);
+      error: err => {
+        console.error('Failed to update CSV directory setting:', err);
+        // Optionally, revert this.saveSettings.csv_dir if save failed
       }
     });
   }
+
 
   handleKeyDown(event: KeyboardEvent, setting: string, cameraType: 'main' | 'side'): void {
     if (event.key === 'Enter') {
