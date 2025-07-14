@@ -427,12 +427,12 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     console.log("Measurement cycle completed.");
     this.measurementActive = false;
     this.sharedService.setMeasurementActive(false);
-  
     if (this.save_csv) {
       this.saveResultsToCsv();
     }
   
     this.showResultsPopup();
+    this.stopMeasurement();
   }
 
   toggleRelay(): void {
@@ -507,7 +507,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
   onPopupClosed(): void {
     // Reset the measurement cycle.
-    this.stopMeasurement();
+    // this.stopMeasurement();
     // Hide the popup.
     this.isResultsPopupVisible = false;
   }
