@@ -29,7 +29,7 @@
     "save_settings": {
         "save_csv": false,
         "save_images": false,
-        "csv_dir": "C:/"
+        "csv_dir": ""
     },
     "sql_server": {
         "server": "ZHUVM-MSSQL",

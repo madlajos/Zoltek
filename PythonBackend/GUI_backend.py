@@ -1399,6 +1399,33 @@ def select_folder():
         folder = ""
     return jsonify({"folder": folder})
 
+
+@app.route('/api/lookup-nozzle', methods=['GET'])
+def lookup_nozzle():
+    """Return SpinneretID for a given barcode, or null if not found."""
+    barcode = request.args.get('barcode')
+    if not barcode:
+        return jsonify({"error": "barcode query param is required"}), 400
+    try:
+        conn = get_db_connection()            # uses settings.json
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT SpinneretID FROM NozzleIDs WHERE SpinneretBarcode = ?",
+            (barcode,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        nozzle_id = row[0] if row else None
+        # optional: app.logger.info(f"{datetime.datetime.now()} lookup {barcode} → {nozzle_id}")
+        return jsonify({"spinneret_id": nozzle_id}), 200
+    except Exception as e:
+        app.logger.exception(f"DB lookup failed for barcode {barcode}: {e}")
+        return jsonify({
+            "error": "Database lookup failed",
+            "code": ErrorCode.SQL_DB_ERROR,
+            "popup": False
+        }), 500
+
     
 ### Internal Helper Functions ### 
 def get_base_path():

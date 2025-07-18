@@ -75,17 +75,43 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit(): void {
-    this.barcodeService.barcode$.subscribe(newBarcode => {
-      // If a measurement is active, ignore new barcodes.
-      if (this.measurementActive) {
-        return;
-      }
-      if (newBarcode) {
-        console.log("New barcode from service:", newBarcode);
-        this.nozzleBarcode = newBarcode;
-        this.cdr.detectChanges();
-      }
-    });
+  this.barcodeService.barcode$.subscribe(scannedBarcode => {
+    if (this.measurementActive) {
+      return;                              // ignore scans mid-measurement
+    }
+
+    if (scannedBarcode) {
+      console.log('New barcode:', scannedBarcode);
+
+      this.nozzleBarcode = scannedBarcode;
+      this.nozzleId = '';                  // ← CLEAR any previous ID immediately
+      this.cdr.detectChanges();            // refresh UI right away
+
+      this.http
+        .get<{ spinneret_id: string | null }>(
+          `${this.BASE_URL}/lookup-nozzle`,
+          { params: { barcode: scannedBarcode } }
+        )
+        .subscribe({
+          next: resp => {
+            if (resp.spinneret_id) {
+              this.nozzleId = resp.spinneret_id;   // found → fill in
+              console.log(`Filled nozzleId: ${resp.spinneret_id}`);
+            } else {
+              // no match → leave blank
+              console.warn(`No ID mapping for ${scannedBarcode}`);
+            }
+            this.cdr.detectChanges();
+          },
+          error: err => {
+            console.error('Lookup failed:', err);
+            // ID remains blank; user can type it manually
+            this.cdr.detectChanges();
+          }
+        });
+    }
+  });
+
 
     this.sharedService.cameraConnectionStatus$.subscribe(status => {
       this.isMainConnected = status.main;
