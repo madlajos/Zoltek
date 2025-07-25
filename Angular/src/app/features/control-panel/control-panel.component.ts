@@ -294,6 +294,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       this.sharedService.setMeasurementActive(false);
       console.log("Measurement cycle stopping...");
       this.stopMeasurement();
+      this.toggleRelay();
     }
   }
 
@@ -308,7 +309,6 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     this.nozzleBarcode = "";
     this.barcodeService.clearBarcode();
     this.nozzleBarcode = "";
-    this.toggleRelay();
     
     console.log("Results cleared, progress bar reset, and barcode fields cleared.");
   
@@ -402,6 +402,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       catchError((err: any) => {
         console.error("Measurement cycle error:", err);
         this.stopMeasurement();
+        this.toggleRelay();
         this.measurementActive = false;
         this.sharedService.setMeasurementActive(false);
         
@@ -458,9 +459,8 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
     if (this.save_csv) {
       this.saveResultsToCsv();
     }
-  
+    this.toggleRelay();
     this.showResultsPopup();
-    this.stopMeasurement();
   }
 
   toggleRelay(): void {
@@ -535,7 +535,7 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
   onPopupClosed(): void {
     // Reset the measurement cycle.
-    // this.stopMeasurement();
+    this.stopMeasurement();
     // Hide the popup.
     this.isResultsPopupVisible = false;
   }
