@@ -76,36 +76,43 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
   this.barcodeService.barcode$.subscribe(scannedBarcode => {
-    if (this.measurementActive) {
-      return;                              // ignore scans mid-measurement
+    // Ignore any scans while a measurement is running OR while the results popup is on-screen
+    if (this.measurementActive || this.isResultsPopupVisible) {
+      return;
     }
 
     if (scannedBarcode) {
       console.log('New barcode:', scannedBarcode);
 
-      this.nozzleBarcode = scannedBarcode;
-      this.nozzleId = '';                  // ← CLEAR any previous ID immediately
-      this.cdr.detectChanges();            // refresh UI right away
+      // Remember which barcode this lookup belongs to
+      const requestToken = scannedBarcode;
+
+      this.nozzleBarcode = requestToken;
+      this.nozzleId = '';               // clear any previous ID
+      this.cdr.detectChanges();         // update UI immediately
 
       this.http
         .get<{ spinneret_id: string | null }>(
           `${this.BASE_URL}/lookup-nozzle`,
-          { params: { barcode: scannedBarcode } }
+          { params: { barcode: requestToken } }
         )
         .subscribe({
           next: resp => {
+            // Discard late/stale responses that no longer match the current barcode
+            if (this.nozzleBarcode !== requestToken) {
+              return;
+            }
+
             if (resp.spinneret_id) {
-              this.nozzleId = resp.spinneret_id;   // found → fill in
+              this.nozzleId = resp.spinneret_id;
               console.log(`Filled nozzleId: ${resp.spinneret_id}`);
             } else {
-              // no match → leave blank
-              console.warn(`No ID mapping for ${scannedBarcode}`);
+              console.warn(`No ID mapping for ${requestToken}`);
             }
             this.cdr.detectChanges();
           },
           error: err => {
             console.error('Lookup failed:', err);
-            // ID remains blank; user can type it manually
             this.cdr.detectChanges();
           }
         });
