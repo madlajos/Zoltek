@@ -240,6 +240,10 @@ def process_center(image):
         save_image(last_valid_image, 'E21')
         return None, emsg
 
+    a = 360 - len(dot_contours)
+    if a < 0:
+        return None, 'E2199'
+    
     print('Center: '+ str(len(dot_contours)) + ' dots found!\n' + str(360-len(dot_contours)) + ' dots missing.')
 
     return dot_contours, None
@@ -288,7 +292,9 @@ def process_inner_slice(image):
     dot_contours, annotated_dots, emsg = islice_detect_small_dots_and_contours(polygon_region, DRAW_INNER_DOTS,
                                                                offset=(polygon_offset[0],
                                                                        polygon_offset[1]))
-
+    if emsg is not None:
+        save_image(last_valid_image, 'E22')
+        return None, emsg
     print('InnerSlice: '+ str(len(dot_contours)) + ' dots found!\n' + str(510-len(dot_contours)) + ' dots missing.')
 
     return dot_contours, None

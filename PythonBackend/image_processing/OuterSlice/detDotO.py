@@ -9,11 +9,16 @@ from GeneralProc.logger import logger
 
 
 def eval_poly(coeffs, x):
-    """Evaluate polynomial given its coefficients using Horner's method."""
-    result = np.zeros_like(x)
-    for c in coeffs:
-        result = result * x + c
-    return result
+    if np.isscalar(x):
+        result = 0.0
+        for c in coeffs:
+            result = result * x + c
+        return result
+    else:
+        result = np.zeros(x.shape, dtype=np.float64)
+        for c in coeffs:
+            result = result * x + c
+        return result
 def fast_median(arr):
     n = len(arr)
     k = n // 2
@@ -50,7 +55,7 @@ def generate_gradient_colors(n):
 
 
 def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=25, direction_mode='both',
-                             max_x_deviation=25, y_step=80):
+                             max_x_deviation=25, y_step=10):
     column = []
     original_dots = dots.copy()
 
@@ -76,21 +81,25 @@ def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=25, direction_mo
 
             if direction == -1:
                 mask = (y_relative < 0) & (y_diff <= y_thresh) & (x_diff <= x_thresh)
-            elif direction == 1:
+            else:  # direction == 1
                 mask = (y_relative > 0) & (y_diff <= y_thresh) & (x_diff <= x_thresh)
 
             candidates = local_dots[mask]
-            candidates = [p for p in candidates if not np.array_equal(p, current_dot)]
 
-            if not candidates:
+            if len(candidates) == 0:
                 break
 
-            y_candidates = np.array([p[1] for p in candidates])
+            # Optimalizált kiválasztás
+            y_candidates = candidates[:, 1]
             y_diffs = np.abs(y_candidates - current_dot[1])
-            next_dot = candidates[np.argmin(y_diffs)]
+            best_idx = np.argmin(y_diffs)
+            next_dot = candidates[best_idx]
             local_column.append(next_dot)
 
-            local_dots = np.array([p for p in local_dots if not np.array_equal(p, next_dot)])
+            # Vektoros eltávolítás a local_dots-ból
+            keep_mask = ~np.all(local_dots == next_dot, axis=1)
+            local_dots = local_dots[keep_mask]
+
             current_dot = next_dot
 
         # 🔄 Ha legalább 1 pont → függőleges egyenes mentén továbbkeresés (fix x)
@@ -138,9 +147,10 @@ def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=25, direction_mo
 
 
 
+
 def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_step_y=40, delay=500, show_debug=True):
     try:
-      #  debug_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+       # debug_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
         sorted_dots = dot_centers[np.lexsort((dot_centers[:, 0], dot_centers[:, 1]))]
         remaining_dots = sorted_dots.copy()
 
@@ -190,11 +200,13 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
                     break
 
                 coeffs, min_y, max_y = fit_and_check(temp_first, temp_last, temp_leftmost)
+
                 rounded_coeffs = tuple(np.round(coeffs, 2))
                 unique_poly_coeffs.add(rounded_coeffs)
 
                 if attempt == 1:
                     deviation = get_curve_deviation(coeffs, (min_y, max_y), num_points=3)
+
                     if deviation < 6:
                         final_selected_column = [temp_first, temp_last]
                         used_dots.extend(final_selected_column)
@@ -234,16 +246,18 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
             if coeffs is not None:
                 deviation = get_curve_deviation(coeffs, (min_y, max_y))
 
-                if deviation is not None and deviation > 200:
+                if deviation is not None and deviation > 1000:
+
                     return None, None, "2399"
+
 
                 if deviation > 19 and temp_leftmost is not None:
                     final_selected_column = [temp_leftmost]
                     used_dots = [temp_leftmost]
                     y_thresh=1000
                     extra = collect_column_from_seed(temp_leftmost, temp_remaining, y_thresh)
-                    final_selected_column += extra
-                    used_dots += extra
+                    final_selected_column = extra
+                    used_dots = extra
                     coeffs = None
                     seed_column_used = True
                     skip_first_last_append = True  # ⛔ Ne rakjunk vissza first/last pontokat
@@ -279,8 +293,8 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
 
                     # Első gyűjtés (középről)
                     extra = collect_column_from_seed(temp_leftmost, filtered_temp_remaining, y_thresh)
-                    final_selected_column += extra
-                    used_dots += extra
+                    final_selected_column = extra
+                    used_dots = extra
                     if len(final_selected_column) >= 3:
                         y_vals = np.array([p[1] for p in final_selected_column])
                         x_vals = np.array([p[0] for p in final_selected_column])
@@ -340,13 +354,28 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
                             used_dots.append(closest)
                             column_set.add(closest_t)
 
+           # print(temp_first, temp_last, temp_leftmost)
             if not seed_column_used and not skip_first_last_append:
                 for dot in [temp_first, temp_last]:
+                  #  print(temp_first,temp_last, temp_leftmost)
                     if not any(np.array_equal(dot, sc) for sc in final_selected_column):
                         final_selected_column.append(dot)
                     if not any(np.array_equal(dot, sc) for sc in used_dots):
                         used_dots.append(dot)
-        # === 🔍 DEBUG VIZUALIZÁCIÓ ===
+
+        # # 🔍 Görbeillesztés a végleges pontokra – csak ha seed-ből épült az oszlop
+        # if seed_column_used and len(final_selected_column) >= 10:
+        #     y_vals = np.array([p[1] for p in final_selected_column])
+        #     x_vals = np.array([p[0] for p in final_selected_column])
+        #     coeffs = np.polyfit(y_vals, x_vals, deg=2)
+        #
+        #     for dot in remaining_dots:
+        #         y = dot[1]
+        #         x_pred = eval_poly(coeffs, y)
+        #         if abs(dot[0] - x_pred) < 10:
+        #             if not any(np.array_equal(dot, d) for d in final_selected_column):
+        # #                 final_selected_column.append(dot)
+        # # # === 🔍 DEBUG VIZUALIZÁCIÓ ===
         # if show_debug:
         #     window_name = "Column Debug View"
         #     if not hasattr(find_first_column_with_visual, "_window_initialized"):
@@ -361,22 +390,15 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
         #         for y in range(min_y, max_y + 1, 5):
         #             x = int(eval_poly(coeffs, y))
         #             cv2.circle(debug_img, (x, y), 1, (255, 255, 0), -1)
-
-            # # === VONALAK: y_thresh_bot és y_thresh_top ===
-            # y_thresh_bot = int(0.8 * max_y + 0.2 * min_y)
-            # y_thresh_top = int(0.2 * max_y + 0.8 * min_y)
-            # height, width = debug_img.shape[:2]
-            #
-            # cv2.line(debug_img, (0, y_thresh_bot), (width, y_thresh_bot), (0, 255, 0), 1)
-            # cv2.line(debug_img, (0, y_thresh_top), (width, y_thresh_top), (255, 0, 0), 1)
-
-            # # Info szöveg
-            # cv2.putText(debug_img, f"Detected column points: {len(final_selected_column)}", (10, 25),
-            #             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
-            #
-            # resized = cv2.resize(debug_img, None, fx=0.3, fy=0.3)
-            # cv2.imshow(window_name, resized)
-            # cv2.waitKey(delay)
+        #
+        #
+        #     # Info szöveg
+        #     cv2.putText(debug_img, f"Detected column points: {len(final_selected_column)}", (10, 25),
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+        #
+        #     resized = cv2.resize(debug_img, None, fx=0.3, fy=0.3)
+        #     cv2.imshow(window_name, resized)
+        #     cv2.waitKey(0)
 
         # === 🧹 Maradék pontok szűrése ===
         if remaining_dots.shape[1] == 3:
@@ -393,7 +415,7 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
         structured_used = np.array(used_dots).view(dtype).squeeze()
         mask = ~np.isin(structured_remaining, structured_used)
         remaining_dots = remaining_dots[mask]
-
+      #  print(len(final_selected_column))
         return np.array(final_selected_column), remaining_dots, None
 
     except Exception as e:
@@ -405,14 +427,14 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
 def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
     try:
         if masked_region is None or masked_region.size == 0:
-            return None, "E2321"
+            return None, None, None, None, "E2321"
 
         _, thresh = cv2.threshold(cv2.resize(masked_region, None, fx=1, fy=1, interpolation=cv2.INTER_AREA),
                                   50, 255, cv2.THRESH_BINARY)
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
-            return None, "E2322"
+            return None, None, None, None, "E2322"
 
         dot_areas = np.array([cv2.contourArea(cnt) for cnt in contours])
         valid_contours = dot_areas > 1
@@ -420,8 +442,75 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
         centers = np.array([cv2.minEnclosingCircle(cnt)[0] for cnt in contours], dtype=np.int32)
         dot_centers = np.column_stack((centers[valid_contours], dot_areas[valid_contours]))
 
+        # --- Dinamikus vonalillesztés pöttyök alapján ---
+
+        # 1. Képméret és koordináták
+        height, width = thresh.shape
+        x = dot_centers[:, 0]
+        y = dot_centers[:, 1]
+
+        # 2. Legbaloldalibb és legjobboldalibb pötty alapján sávmeghatározás
+        x_min = np.min(x)
+        x_max = np.max(x)
+
+        left_start = x_min + 0.10 * (x_max - x_min)
+        left_end   = x_min + 0.20 * (x_max - x_min)
+        mid_start  = x_min + 0.35 * (x_max - x_min)
+        mid_end    = x_min + 0.45 * (x_max - x_min)
+
+        left_band = (x >= left_start) & (x <= left_end)
+        mid_band  = (x >= mid_start) & (x <= mid_end)
+
+        left = dot_centers[left_band]
+        mid  = dot_centers[mid_band]
+
+        if len(left) == 0 or len(mid) == 0:
+            return None, None, None, None, "E2323"
+
+        # 3. Robusztus referenciapontok
+        top_left = np.array([np.median(left[:, 0]), np.min(left[:, 1])])
+        bottom_left = np.array([np.median(left[:, 0]), np.max(left[:, 1])])
+        top_mid = np.array([np.median(mid[:, 0]), np.min(mid[:, 1])])
+        bottom_mid = np.array([np.median(mid[:, 0]), np.max(mid[:, 1])])
+
+        # 4. Egyenesek definíciója
+        def line_y(x, p1, p2):
+            m = (p2[1] - p1[1]) / (p2[0] - p1[0] + 1e-9)
+            b = p1[1] - m * p1[0]
+            return m * x + b
+
+        # 5. Maszkolás pixel szinten
+        tolerance = 100
+        mask = np.ones_like(masked_region, dtype=np.uint8) * 255
+        for xi in range(width):
+            y_top = int(line_y(xi, top_left, top_mid) - tolerance)
+            y_bottom = int(line_y(xi, bottom_left, bottom_mid) + tolerance)
+
+            if y_top > 0:
+                mask[:y_top, xi] = 0
+            if y_bottom < height:
+                mask[y_bottom:, xi] = 0
+
+        # 6. Maszk alkalmazása
+        masked_region = cv2.bitwise_and(masked_region, masked_region, mask=mask)
+
+
+        # 7. Új küszöbölés és kontúrkeresés
+        _, thresh = cv2.threshold(masked_region, 50, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if not contours:
+            return None, None, None, None, "E2324"
+
+        dot_areas = np.array([cv2.contourArea(cnt) for cnt in contours])
+        valid_contours = dot_areas > 1
+
+        centers = np.array([cv2.minEnclosingCircle(cnt)[0] for cnt in contours], dtype=np.int32)
+        dot_centers = np.column_stack((centers[valid_contours], dot_areas[valid_contours]))
+
+
         if len(dot_centers) < 2:
-            return None, "E2323"
+            return None, None, None, None, "E2325"
 
         columns = []
         column_labels = {}
@@ -429,12 +518,30 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
 
         max_columns = 77
         column_index = 0
-
+        expected_counts = [
+            40, 40, 40, 40, 39, 39, 39, 38, 38, 38, 38,
+            37, 37, 37, 36, 36, 36, 35, 35, 35, 35,
+            34, 34, 34, 33, 33, 33, 32, 32, 32, 32,
+            31, 31, 31, 30, 30, 30, 30, 29, 29, 29,
+            28, 28, 28, 27, 27, 27, 27, 26, 26, 26,
+            25, 25, 25, 24, 24, 24, 24, 23, 23, 23,
+            22, 22, 22, 21, 21, 21, 21, 20, 20, 20,
+            19, 19, 19, 18, 18, 18
+        ]
         while len(dot_centers) > 0 and len(columns) < max_columns:
             first_column, remaining_dots, emsg = find_first_column_with_visual(dot_centers, masked_region)
+           # print(len(first_column))
+            if column_index < 10 and len(first_column) > 0:
+                sorted_col = sorted(first_column, key=lambda dot: dot[1])  # Y szerint rendezzük
 
-            if first_column is None:
-                break
+                top_y = sorted_col[0][1]
+                bottom_y = sorted_col[-1][1]
+                margin = 10
+
+                if top_y < margin or (height - bottom_y) < margin:
+                    return None, None, None, None, "E2326"
+            if first_column is None or len(first_column) == 0:
+                return None, None, None, None, "E2327"
 
             for dot in first_column:
                 column_labels[tuple(dot)] = column_index
@@ -480,6 +587,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
             else:
                 shift_map[i + 1] = shift
             i += 1
+        # Ellenőrzés: expected_counts alapján validáld az oszlopokat a shift után
 
         annotated_dots = cv2.cvtColor(cv2.resize(masked_region, None, fx=1, fy=1, interpolation=cv2.INTER_AREA),
                                       cv2.COLOR_GRAY2BGR)
@@ -491,13 +599,53 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
         if num_missing_total > 0 and len(columns) > num_missing_total:
             columns = columns[:-num_missing_total]
 
+        # Extra logikák, ha pont 2248, de mégis gyanús
+        if len(columns)+num_missing_total != 77 :
+            #print("Suspicious column count:", len(columns))
+            return None, None, None, None, "E2328"
+        # --- VALIDÁCIÓ az expected_counts alapján, immár a missing column kezelés UTÁN ---
+        for i, col in enumerate(columns):
+            expected = expected_counts[i] if i < len(expected_counts) else expected_counts[-1]
+          #  print(len(col) - expected)
+            if (len(col) - expected) > 0:
+                return None, None, None, None, "E2328"
+
+        min_streak_length = 10
+        min_repeats_for_dominant = 10
+
+        # 1. Missing listába gyűjtés
+        missing_list = []
+        for i, col in enumerate(columns):
+            expected = expected_counts[i] if i < len(expected_counts) else expected_counts[-1]
+            actual = len(col)
+            missing_list.append(expected - actual)
+
+        # 2. Szakaszokra bontás (ahol missing != 0)
+        start = None
+        for i, m in enumerate(missing_list + [0]):  # extra 0 a végén, hogy lezárjuk a streaket
+            if m != 0:
+                if start is None:
+                    start = i
+            else:
+                if start is not None:
+                    streak = missing_list[start:i]
+                    if len(streak) >= min_streak_length:
+                        # Számoljuk, melyik érték szerepel legtöbbször
+                        from collections import Counter
+                        counts = Counter(streak)
+                        most_common_val, freq = counts.most_common(1)[0]
+
+                        if freq >= min_repeats_for_dominant:
+                           # print(
+                            #    f"[E2327] Suspicious missing streak from col {start} to {i - 1} → {most_common_val} occurred {freq}×")
+                            return None, None, None, None, "E2329"
+                    start = None
+
+
+
         best_match = 1
         starting_label = 127
         data = []
-        # Teljes data tömb: (x, y) duplikáció-ellenőrzés
-        seen_coords = set()
-        duplicates = set()
-
 
 
         for col_idx, column_array in enumerate(columns):
@@ -519,7 +667,33 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
             # Display dot area near the dot
             cv2.putText(annotated_dots_sorted, f"{int(area)}", (int(x) + 10, int(y) - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1) # Új vizualizáció: fekete háttéren, ismétlődő pontok kiemelve
+
+
+
+        # 1. Megszámoljuk, hányszor szerepel egy (x, y) pozíció
+
+        # point_counts = {}
+        # for x, y, *_ in data:
+        #     key = (int(x), int(y))
+        #     point_counts[key] = point_counts.get(key, 0) + 1
+        #
+        # # 2. Rajzolás: méret az area alapján, szín a duplikáció alapján
+        # debug_img2 = np.zeros((height, width, 3), dtype=np.uint8)
+        #
+        # for x, y, col_label, area in data:
+        #     pt = (int(x), int(y))
+        #     radius = max(2, int(np.sqrt(area / np.pi)))  # legalább 2 pixel, de arányos az area-val
+        #
+        #     if point_counts[pt] > 1:
+        #         color = (0, 0, 255)  # piros: többször szerepel
+        #     else:
+        #         color = (0, 255, 0)  # zöld: egyedi
+        #
+        #     cv2.circle(debug_img2, pt, radius, color, -1)
+        # cv2.imshow('debug', cv2.resize(debug_img2, None, fy=0.3, fx=0.3, interpolation=cv2.INTER_AREA))
+        #
+        # cv2.waitKey(0)
 
         if drawtf:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -527,8 +701,11 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
             results_dir = os.path.join(os.getcwd(), "Results")
             os.makedirs(results_dir, exist_ok=True)
             cv2.imwrite(os.path.join(results_dir, filename), annotated_dots_sorted)
-      #  print(data)
+
+        a = 2248 - len(data)
+        if a < 0:
+            return None, None, None, None, "E2330"
         return data, annotated_dots, columns, best_match, None
 
     except Exception as e:
-        return None, None, None, None, "E2327"
+        return None, None, None, None, "E2331"

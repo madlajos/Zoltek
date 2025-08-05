@@ -56,7 +56,7 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
             h, w = original_mask.shape
 
             # Define scale factor (you can adjust this!)
-            kernel_scale = 0.11  # 10% of mask height
+            kernel_scale = 0.20  # 10% of mask height
 
             # Calculate kernel dimensions
             kernel_height = max(1, int(h * kernel_scale))
@@ -108,53 +108,3 @@ def template_match_with_polygon(cropped_image, template, scale_factor=0.1):
         except Exception as e:
          #   logger.error("E2320")
             return None, None, None, "E2320"  # General unknown error
-
-
-
-
-
-# def template_match_with_polygon(cropped_image, template, scale_factor=0.005):
-#     if template is None:
-#         raise FileNotFoundError(f"Template not found at {template}")
-#
-#     # ✅ **Step 1: Downscale Images for Faster Matching**
-#     small_cropped = cv2.resize(cropped_image, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
-#     small_template = cv2.resize(template, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
-#
-#     # ✅ **Step 2: Run Template Matching on Smaller Images**
-#     result = cv2.matchTemplate(small_cropped, small_template, cv2.TM_CCOEFF_NORMED)
-#     _, max_val, _, max_loc = cv2.minMaxLoc(result)
-#
-#     best_top_left = (int(max_loc[0] / scale_factor), int(max_loc[1] / scale_factor))  # Upscale match location
-#
-#     # ✅ **Step 3: Extract Matched Region from Original Image (Not Downscaled)**
-#     best_template_height, best_template_width = template.shape
-#     top_left = best_top_left
-#     bottom_right = (top_left[0] + best_template_width, top_left[1] + best_template_height)
-#     matched_region = cropped_image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-#
-#     # ✅ **Step 4: Create Binary Mask**
-#     original_mask = np.zeros_like(template, dtype=np.uint8)
-#     original_mask[template > 10] = 1  # Threshold the mask, NOT the image
-#
-#     # ✅ **Step 5: Expand the Mask by 15 Pixels**
-#     kernel = np.ones((220, 220), np.uint8)
-#     expanded_mask = cv2.dilate(original_mask, kernel, iterations=1)
-#
-#     # ✅ Resize mask to match `matched_region`
-#     expanded_mask_resized = cv2.resize(expanded_mask, (matched_region.shape[1], matched_region.shape[0]),
-#                                        interpolation=cv2.INTER_NEAREST)
-#
-#     # ✅ Ensure the mask is binary (0 or 255) for OpenCV compatibility
-#     expanded_mask_resized = (expanded_mask_resized > 0).astype(np.uint8) * 255
-#
-#     # ✅ Apply resized mask to `matched_region`
-#     masked_polygon_region = cv2.bitwise_and(matched_region, matched_region, mask=expanded_mask_resized)
-#
-#     # ✅ **Annotate the matched polygon on the cropped image**
-#     annotated_image = cv2.cvtColor(cropped_image, cv2.COLOR_GRAY2BGR)
-#     cv2.rectangle(annotated_image, top_left, bottom_right, (0, 255, 0), 2)
-#     cv2.putText(annotated_image, f"Scale: {scale_factor:.2f}", (top_left[0], top_left[1] - 10),
-#                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-#
-#     return masked_polygon_region, annotated_image, expanded_mask_resized
