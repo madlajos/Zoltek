@@ -54,6 +54,9 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   
   private measurementStop$ = new Subject<void>();
 
+  private lookupCancel$ = new Subject<void>();
+
+
   @ViewChild(TurntableControlComponent) turntableControl!: TurntableControlComponent;
 
   get progressPercentage(): number {
@@ -78,7 +81,10 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   this.barcodeService.barcode$.subscribe(scannedBarcode => {
     // Ignore any scans while a measurement is running OR while the results popup is on-screen
     if (this.measurementActive || this.isResultsPopupVisible) {
-      return;
+        if (scannedBarcode) {
+          this.barcodeService.clearBarcode();   // flush stray scan
+        }
+        return;
     }
 
     if (scannedBarcode) {
@@ -92,10 +98,9 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();         // update UI immediately
 
       this.http
-        .get<{ spinneret_id: string | null }>(
-          `${this.BASE_URL}/lookup-nozzle`,
-          { params: { barcode: requestToken } }
-        )
+        .get<{ spinneret_id: string | null }>(`${this.BASE_URL}/lookup-nozzle`,
+              { params: { barcode: requestToken } })
+        .pipe(takeUntil(this.lookupCancel$))
         .subscribe({
           next: resp => {
             // Discard late/stale responses that no longer match the current barcode
@@ -308,7 +313,9 @@ export class ControlPanelComponent implements OnInit, OnDestroy {
   stopMeasurement(): void {
     this.measurementActive = false;
     this.currentMeasurement = 0;
-    
+    this.lookupCancel$.next();
+    this.lookupCancel$ = new Subject<void>();
+
     // Reset results while keeping original labels.
     this.results = this.results.map(res => ({ ...res, value: 0 }));
     

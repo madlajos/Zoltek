@@ -295,7 +295,6 @@ def islice_detect_small_dots_and_contours(masked_region, drawtf, offset):
         for i, col in enumerate(columns):
             if 0 <= i < len(expected_counts):  # csak az 1–50. oszlopra (index szerint 0–49)
                 expected = expected_counts[i]
-                print(len(col) - expected)
                 if (len(col) - expected) > 0:
                     return None, None, "E2230"
 
