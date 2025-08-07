@@ -702,6 +702,7 @@ def detect_small_dots_and_contours(masked_region, drawtf, x_threshold=40):
             os.makedirs(results_dir, exist_ok=True)
             cv2.imwrite(os.path.join(results_dir, filename), annotated_dots_sorted)
 
+        data = data[::-1]
         a = 2248 - len(data)
         if a < 0:
             return None, None, None, None, "E2330"

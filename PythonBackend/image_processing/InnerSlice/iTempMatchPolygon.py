@@ -67,7 +67,7 @@ def islice_template_match_with_polygon(cropped_image, template, start_x=0, start
         try:
             # Dynamically size the kernel based on mask height
             h, w = original_mask.shape
-            kernel_scale = 0.1  # 10% of mask height
+            kernel_scale = 0.2  # 20% of mask height
             kernel_height = max(1, int(h * kernel_scale))
             kernel_width = max(1, int(h * kernel_scale * 0.5))  # narrower width
 

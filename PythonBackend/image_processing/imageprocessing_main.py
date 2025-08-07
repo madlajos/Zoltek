@@ -278,10 +278,12 @@ def process_inner_slice(image):
         save_image(last_valid_image, 'E22')
         return None, emsg
 
-    cropped_image,emsg = crop_second_two_thirds(image)
+    cropped_image, emsg = crop_second_two_thirds(image)
     if emsg is not None:
         save_image(last_valid_image, 'E22')
         return None, emsg
+    # cv2.imshow('croped',cv2.resize(cropped_image, None, fx=0.2, fy=0.2,  interpolation=cv2.INTER_AREA))
+    # cv2.waitKey(0)
 
     polygon_region, polygon_offset, emsg = islice_template_match_with_polygon(cropped_image, template)
     if emsg is not None:
@@ -289,13 +291,12 @@ def process_inner_slice(image):
         return None, emsg
 
     # Step 3: Detect small dots in the polygon region, Draw (True or False)
-    dot_contours, annotated_dots, emsg = islice_detect_small_dots_and_contours(polygon_region, DRAW_INNER_DOTS,
-                                                               offset=(polygon_offset[0],
-                                                                       polygon_offset[1]))
+    dot_contours, annotated_dots, emsg = islice_detect_small_dots_and_contours(polygon_region, DRAW_INNER_DOTS)
+
     if emsg is not None:
         save_image(last_valid_image, 'E22')
         return None, emsg
-    print('InnerSlice: '+ str(len(dot_contours)) + ' dots found!\n' + str(510-len(dot_contours)) + ' dots missing.')
+    print('InnerSlice: ' + str(len(dot_contours)) + ' dots found!\n' + str(510 - len(dot_contours)) + ' dots missing.')
 
     return dot_contours, None
 
