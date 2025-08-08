@@ -260,8 +260,10 @@ def process_inner_slice(image):
     """
     template_name = 'TempISlice.jpg'
 
-    last_valid_image = image.copy()
 
+    # Filenames and constant values:
+    template_nameC = 'TempCenter.jpg'
+    last_valid_image = image.copy()
     image, emsg = imgin_check(image, 'E22')
     if emsg is not None:
         save_image(last_valid_image, 'E22')
@@ -277,7 +279,16 @@ def process_inner_slice(image):
     if emsg is not None:
         save_image(last_valid_image, 'E22')
         return None, emsg
-
+    #     # Validate template image
+    templateC, emsg = load_template(template_nameC, 'E22')
+    if emsg is not None:
+       save_image(last_valid_image, 'E22')
+       return None, emsg
+      #  Match and extract the template region
+    matched_region, emsg = center_template_match_and_extract(templateC, image)
+    if emsg is not None:
+       save_image(last_valid_image, 'E22')
+       return None, emsg
     cropped_image, emsg = crop_second_two_thirds(image)
     if emsg is not None:
         save_image(last_valid_image, 'E22')
@@ -300,10 +311,7 @@ def process_inner_slice(image):
 
     return dot_contours, None
 
-
 #PROCESS SIDE CAMERA - OUTER SLICE
-
-
 def start_side_slice(image):
     """
     Input: Side camera image - grayscale

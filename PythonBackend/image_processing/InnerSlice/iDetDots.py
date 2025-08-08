@@ -574,6 +574,22 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
         column_x_positions = column_x_positions [-50:]
       #  print(len(column_x_positions))
         columns=columns[::-1]
+
+
+       # print(len(columns[0]))
+       # print(len(columns[49]))
+        # --- Ellenőrzések az első oszlopra ---
+        image_width = masked_region.shape[1]
+        right_edge_threshold = 10  # px
+
+        # 1) Túl sok pötty az első oszlopban
+        if len(columns[0]) > 3:
+            return None, None, 'E2291'
+      #  print((image_width - column_x_positions[49]))
+        # 2) Túl közel a jobb széléhez
+        if (image_width - column_x_positions[49]) < right_edge_threshold:
+           # print('OK')
+            return None, None, 'E2292'
         num_missing_total=0
         # ⬇️ Ellenőrzés: túl sok pötty a 3. oszlopban? (és shift valószínű)
         try:
@@ -581,28 +597,37 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
             actual_3rd = len(columns[2])
 
             if actual_3rd > expected_3rd:
-               # print("📌 Feltételezés: az első oszlop hiányzik, mert a 3. oszlopban túl sok pötty van.")
+                # print("📌 Feltételezés: az első oszlop hiányzik, mert a 3. oszlopban túl sok pötty van.")
 
-                # Becsült oszloptáv, ha van legalább 2 ismert pozíciónk
+                image_width = masked_region.shape[1]  # teljes kép szélessége
+                right_edge_threshold = 30  # px, ennyinél közelebb a jobb szélhez → hiba
+
+                # 🛑 Ellenőrzés: a 2. oszlop közel van a jobb széléhez?
+                second_col_x = column_x_positions[1]
+
+                if (image_width - second_col_x) < right_edge_threshold:
+                   # print('tul közeli pötty')
+                    return None, None, 'E2290'  # túl közel van → hiba
+
+                # Becsült oszloptáv
                 if len(column_x_positions) >= 2:
                     estimated_unit = column_x_positions[1] - column_x_positions[0]
                 else:
-                    estimated_unit = 20  # fallback érték
+                    estimated_unit = 20  # fallback
 
                 # ➕ Üres oszlop beszúrása az elejére
                 columns.insert(0, [])
                 column_x_positions.insert(0, column_x_positions[0] - estimated_unit)
 
-                # 🔻 Levágás a végéről, hogy 50 oszlop maradjon
+                # 🔻 Levágás a végéről, hogy pontosan 50 maradjon
                 if len(columns) > 50:
                     columns.pop()
                     column_x_positions.pop()
-                  #  print("📌 Levágtuk az utolsó oszlopot, hogy pontosan 50 maradjon.")
-                num_missing_total=1
-                #print("📌 Üres oszlop beszúrva az elejére.")
-        except IndexError:
-            return None, None, '2280'#print("⚠️ Nem lehetett ellenőrizni a 3. oszlopot (túl kevés oszlop)")
 
+                num_missing_total = 1
+
+        except IndexError:
+            return None, None, '2280'
 
         shift_map = {0: 0}
         shift = 0
@@ -691,7 +716,7 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
             missing_list2 = expected-actual
           #  print(missing_list2)
             missing_list.append(missing_list2)
-           # print(f"i={i + 1}, act={actual}, exp={expected}")
+            # print(f"i={i + 1}, act={actual}, exp={expected}")
 
             if actual > expected:
                 if i in (2, 3):  # ezeknél megengedett a torlódás
@@ -830,26 +855,13 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
         a = 510 - len(data)
         data = data[::-1]
         # print(len(data))
-        #print(data)
+       # print(data)
         if a < 0:
 
             return None, None, "E2230"
-
 
 
         return data, annotated_dots, None
 
      except Exception as e:
         return None, None,  "E2231"
-
-
-
-
-
-
-
-
-
-
-
-
