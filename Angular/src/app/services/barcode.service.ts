@@ -25,8 +25,16 @@ export class BarcodeService {
 
   // Optional: Clear the current barcode (and optionally inform the backend).
   clearBarcode(): void {
-    this.barcodeSubject.next('');
-    // Optionally clear the backend value.
-    this.http.post(`${this.BASE_URL}/clear-barcode`, {}).subscribe();
+    this.http.post(`${this.BASE_URL}/clear-barcode`, {}).subscribe({
+      next: () => {
+        // Backend is definitely cleared; now update the stream
+        this.barcodeSubject.next('');
+      },
+      error: (err) => {
+        console.error('clear-barcode failed:', err);
+        // Still clear the subject so the UI resets even if backend failed
+        this.barcodeSubject.next('');
+      }
+    });
   }
 }
