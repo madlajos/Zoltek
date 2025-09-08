@@ -19,6 +19,7 @@ def eval_poly(coeffs, x):
         for c in coeffs:
             result = result * x + c
         return result
+
 def fast_median(arr):
     n = len(arr)
     k = n // 2
@@ -54,8 +55,9 @@ def generate_gradient_colors(n):
 
 
 
-def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=30, direction_mode='both',
+def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=15, direction_mode='both',
                              max_x_deviation=25, y_step=10):
+    #print('SEED DOT', seed_dot)
     column = []
     original_dots = dots.copy()
 
@@ -91,9 +93,21 @@ def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=30, direction_mo
 
             # Optimalizált kiválasztás
             y_candidates = candidates[:, 1]
-            y_diffs = np.abs(y_candidates - current_dot[1])
-            best_idx = np.argmin(y_diffs)
-            next_dot = candidates[best_idx]
+            y_deltas = candidates[:, 1] - current_dot[1]
+
+            if direction == 1:
+                valid_mask = (y_deltas > 0) & (y_deltas <= y_thresh)
+            else:
+                valid_mask = (y_deltas < 0) & (np.abs(y_deltas) <= y_thresh)
+
+            valid_candidates = candidates[valid_mask]
+
+            if len(valid_candidates) == 0:
+                break
+
+            # Válaszd a legkisebb abszolút y lépést
+            best_idx = np.argmin(np.abs(valid_candidates[:, 1] - current_dot[1]))
+            next_dot = valid_candidates[best_idx]
             local_column.append(next_dot)
 
             # Vektoros eltávolítás a local_dots-ból
@@ -112,7 +126,7 @@ def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=30, direction_mo
 
             steps_without_hit = 0
             max_steps = 5
-            while steps_without_hit < 150 and len(extension_points) < max_steps:
+            while steps_without_hit < 100 and len(extension_points) < max_steps:
                 y_pos += direction * y_step
 
                 x_all = original_dots[:, 0]
@@ -150,19 +164,19 @@ def collect_column_from_seed(seed_dot, dots, y_thresh, x_thresh=30, direction_mo
 
 def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_step_y=20, delay=500, show_debug=True):
     try:
-      #  debug_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        debug_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
         sorted_dots = dot_centers[np.lexsort((dot_centers[:, 0], dot_centers[:, 1]))]
         remaining_dots = sorted_dots.copy()
 
         first_dot = remaining_dots[0]
         x0 = first_dot[0]
-        same_col_mask = np.abs(remaining_dots[:, 0] - x0) <= 70
+        same_col_mask = np.abs(remaining_dots[:, 0] - x0) <= 25
         same_col_dots = remaining_dots[same_col_mask]
-        last_dot = same_col_dots[np.argmax(same_col_dots[:, 1])] if len(same_col_dots) > 0 else None
+        last_dot = same_col_dots[np.argmax(same_col_dots[:, 1])] if len(same_col_dots) >= 0 else None
 
         left_candidates = remaining_dots[remaining_dots[:, 0] < x0]
         leftmost_dot = left_candidates[np.argmin(left_candidates[:, 0])] if len(left_candidates) > 0 else None
-
+       # print('FIRST', first_dot, leftmost_dot, last_dot)
         if leftmost_dot is not None:
             if tuple(leftmost_dot) in [tuple(first_dot), tuple(last_dot) if last_dot is not None else ()]:
                 leftmost_dot = None
@@ -183,6 +197,7 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
         unique_poly_coeffs = set()
 
         if last_dot is not None and first_dot is not None:
+          #  print('last dot and first dot is not none')
             temp_remaining = remaining_dots.copy()
             temp_first = first_dot
             temp_last = last_dot
@@ -194,10 +209,11 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
                 attempt += 1
 
                 if leftmost_dot is None:
+                   # print('leftmost_dot is not none')
                     # 🔁 Próbáljuk meg a first_dot-ból seed alapján építeni az oszlopot
                     y_thresh = 100  # vagy 1000, ha kevés pont van
                     extra = collect_column_from_seed(first_dot, remaining_dots, y_thresh=y_thresh)
-                    if len(extra) >= 2:
+                    if len(extra) >= 3:
                         final_selected_column = extra
                         used_dots = extra
                         coeffs = None
@@ -207,20 +223,10 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
                         used_dots.extend(final_selected_column)
                         coeffs = None
                     break
-
                 coeffs, min_y, max_y = fit_and_check(temp_first, temp_last, temp_leftmost)
 
                 rounded_coeffs = tuple(np.round(coeffs, 2))
                 unique_poly_coeffs.add(rounded_coeffs)
-
-                if attempt == 1:
-                    deviation = get_curve_deviation(coeffs, (min_y, max_y), num_points=3)
-
-                    # if deviation < 6:
-                    #     final_selected_column = [temp_first, temp_last]
-                    #     used_dots.extend(final_selected_column)
-                    #     coeffs = None
-                    #     break
 
                 if not check_curve_quality(coeffs, (min_y, max_y)):
                     break
@@ -232,12 +238,14 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
                 y_thresh_bot = 0.8 * max_y + 0.2 * min_y
                 bottom_mask = (y_all > y_thresh_bot) & (x_all < x_pred_all - 10) & (np.abs(x_all - x_pred_all) < 100)
                 bottom_candidates = temp_remaining[bottom_mask]
+                #print('BOTT CAND', bottom_candidates)
                 if len(bottom_candidates) > 0:
                     temp_last = bottom_candidates[np.argmax(bottom_candidates[:, 1])]
 
                 y_thresh_top = 0.2 * max_y + 0.8 * min_y
                 top_mask = (y_all < y_thresh_top) & (x_all < x_pred_all - 10) & (np.abs(x_all - x_pred_all) < 100)
                 top_candidates = temp_remaining[top_mask]
+                #print('TOP CAN', top_candidates)
                 if len(top_candidates) > 0:
                     temp_first = top_candidates[np.argmin(top_candidates[:, 1])]
 
@@ -254,16 +262,16 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
             skip_first_last_append = False
             if coeffs is not None:
                 deviation = get_curve_deviation(coeffs, (min_y, max_y))
-                #print(deviation)
-                if deviation is not None and deviation > 300:
+               # print('DEV', deviation)
+                if deviation is not None and deviation > 5000:
 
                     return None, None, "2299"
 
 
-                if deviation > 19 and temp_leftmost is not None:
-                    final_selected_column = [temp_leftmost]
-                    used_dots = [temp_leftmost]
+                if (deviation > 14 and temp_leftmost is not None) or deviation<0.99:
+                   # print('DEV<10 and temp_left not None')
                     y_thresh=1000
+                   # print('TEMP_REM', len(temp_remaining))
                     extra = collect_column_from_seed(temp_leftmost, temp_remaining, y_thresh)
                     final_selected_column = extra
                     used_dots = extra
@@ -273,29 +281,33 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
 
                 # 💡 Ha a first és last X-ben túl messze → inkább seedből indulunk
                 x_dist_first_last = abs(temp_first[0] - temp_last[0])
-                x_dist_thresh = 10  # vagy lazább: 30–40, ha ívesek az oszlopok
-                # print(x_dist_first_last)
+                x_dist_thresh = 5  # vagy lazább: 30–40, ha ívesek az oszlopok
+              #  print('X_DIST', x_dist_first_last)
                 # print(coeffs)
-               # print(deviation)
-                if x_dist_first_last >= x_dist_thresh and deviation < 19:
 
+                if x_dist_first_last >= x_dist_thresh or x_dist_first_last<=1:
+                   # print('X_DIST and deviation')
                     if deviation<10:
                         y_thresh=1000
                     else:
-                        y_thresh=100
-                    # --- 🔒 Szűrés: csak a görbe bal oldalán levő pontokat hagyjuk meg ---
-                    # --- 🔒 Szűrés: csak a görbe bal oldalán levő pontokat hagyjuk meg ---
-                    x_margin = 10  # vagy finomhangolható, pl. 5
-                    y_vals_curve = temp_remaining[:, 1]
-                    x_vals_curve = eval_poly(coeffs, y_vals_curve)
-                    keep_mask = temp_remaining[:, 0] <= (x_vals_curve + x_margin)
-                    filtered_temp_remaining = temp_remaining[keep_mask]
+                        y_thresh=1000
 
-                    # 🚫 Kizárjuk a temp_first és temp_last pontokat (de majd visszatehetjük, ha közeliek y-ban)
-                    filtered_temp_remaining = np.array([
-                        p for p in filtered_temp_remaining
-                        if not (np.array_equal(p, temp_first) or np.array_equal(p, temp_last))
-                    ])
+                    # --- 🔒 Szűrés: csak a görbe bal oldalán levő pontokat hagyjuk meg ---
+                    # --- 🔒 Szűrés: csak a görbe bal oldalán levő pontokat hagyjuk meg ---
+                    x_margin = 50  # vagy finomhangolható, pl. 5
+                    y_vals_curve = temp_remaining[:, 1]
+                    #print('Y_vals_curve', y_vals_curve)
+                    #x_vals_curve = eval_poly(coeffs, y_vals_curve)
+
+                    #print('OK3')
+                    #keep_mask = temp_remaining[:, 0] <= (x_vals_curve + x_margin)
+                    filtered_temp_remaining = temp_remaining#[keep_mask]
+                   # print('FILTERED REM', filtered_temp_remaining)
+                   # 🚫 Kizárjuk a temp_first és temp_last pontokat (de majd visszatehetjük, ha közeliek y-ban)
+                   #  filtered_temp_remaining = np.array([
+                   #      p for p in filtered_temp_remaining
+                   #      if not (np.array_equal(p, temp_first) or np.array_equal(p, temp_last))
+                   #  ])
 
                     final_selected_column = [temp_leftmost]
                     used_dots = [temp_leftmost]
@@ -309,7 +321,7 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
                         x_vals = np.array([p[0] for p in final_selected_column])
                         coeffs = np.polyfit(y_vals, x_vals, deg=2)
 
-                        threshold_distance = 15  # x-távolság
+                        threshold_distance = 20  # x-távolság
                         max_y_deviation = 300  # y-távolság a legtetejéhez/aljához képest
 
                         y_min_column = np.min(y_vals)
@@ -425,12 +437,13 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
         structured_used = np.array(used_dots).view(dtype).squeeze()
         mask = ~np.isin(structured_remaining, structured_used)
         remaining_dots = remaining_dots[mask]
-      #  print(len(final_selected_column))
+
         return np.array(final_selected_column), remaining_dots, None
 
     except Exception as e:
 
         return None, None, "E2223"
+
 
 
 
@@ -553,7 +566,6 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
             first_column, remaining_dots, emsg = find_first_column_with_visual(dot_centers, masked_region)
             if first_column is None or len(first_column) == 0:
                 return None, None, "E2227"
-            #print(len(first_column))
             for dot in first_column:
                 column_labels[tuple(dot)] = column_index
 
@@ -572,7 +584,6 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
 
         columns = columns[-50:]
         column_x_positions = column_x_positions [-50:]
-      #  print(len(column_x_positions))
         columns=columns[::-1]
 
 
@@ -585,10 +596,10 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
         # 1) Túl sok pötty az első oszlopban
         if len(columns[0]) > 3:
             return None, None, 'E2291'
-      #  print((image_width - column_x_positions[49]))
+        #print((image_width - column_x_positions[49]))
         # 2) Túl közel a jobb széléhez
         if (image_width - column_x_positions[49]) < right_edge_threshold:
-           # print('OK')
+            #print('OK5')
             return None, None, 'E2292'
         num_missing_total=0
         # ⬇️ Ellenőrzés: túl sok pötty a 3. oszlopban? (és shift valószínű)
@@ -597,7 +608,7 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
             actual_3rd = len(columns[2])
 
             if actual_3rd > expected_3rd:
-                # print("📌 Feltételezés: az első oszlop hiányzik, mert a 3. oszlopban túl sok pötty van.")
+                #print("📌 Feltételezés: az első oszlop hiányzik, mert a 3. oszlopban túl sok pötty van.")
 
                 image_width = masked_region.shape[1]  # teljes kép szélessége
                 right_edge_threshold = 30  # px, ennyinél közelebb a jobb szélhez → hiba
@@ -606,7 +617,7 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
                 second_col_x = column_x_positions[1]
 
                 if (image_width - second_col_x) < right_edge_threshold:
-                   # print('tul közeli pötty')
+                 #   print('tul közeli pötty')
                     return None, None, 'E2290'  # túl közel van → hiba
 
                 # Becsült oszloptáv
@@ -632,6 +643,9 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
         shift_map = {0: 0}
         shift = 0
 
+        # minimum oszloptáv amit még érvényesnek tekintünk (pl. képpontban)
+        MIN_VALID_GAP = 15
+
         i = 0
         while i < len(column_x_positions) - 2:
             x0 = column_x_positions[i]
@@ -646,7 +660,13 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
                 continue  # oszlopok ugyanott? kihagyjuk
 
             ratio = max(left_gap, right_gap) / min(left_gap, right_gap)
-            if ratio > 1.5:
+
+            # Ha túl kicsi a kisebbik gap, lehet hogy összevont oszlop volt -> kihagyjuk
+            if min(left_gap, right_gap) < MIN_VALID_GAP:
+
+                return None, None, 'E2240'
+            ratio = max(left_gap, right_gap) / min(left_gap, right_gap)
+            if ratio > 2.5:
                 # Hiányzó oszlop a nagyobbik gap oldalán van
                 big_gap = max(left_gap, right_gap)
                 small_gap = min(left_gap, right_gap)
@@ -720,10 +740,10 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
 
             if actual > expected:
                 if i in (2, 3):  # ezeknél megengedett a torlódás
-                   # print(f"⚠️ Túl sok pötty az oszlopban {i + 1}, de ez engedélyezett: {actual} > {expected}")
+                    #print(f"⚠️ Túl sok pötty az oszlopban {i + 1}, de ez engedélyezett: {actual} > {expected}")
                     return None, None, "E22EO"
                 else:
-                  #  print(f"❗ Túl sok pötty az oszlopban {i + 1}: {actual} > {expected}")
+                    #print(f"❗ Túl sok pötty az oszlopban {i + 1}: {actual} > {expected}")
                     return None, None, "E2228"
        # print(missing_list)
         # # --- VALIDÁCIÓ az expected_counts alapján, immár a missing column kezelés UTÁN ---
@@ -849,7 +869,16 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
         #     print(len(col) - expected)
         #     if (len(col) - expected) > 0:
         #         return None, None, "E2328"
+        # Offset (bal-felső sarok az eredeti képen)
 
+
+        # # Eredeti kép megjelölése
+        # for x, y, label, area in adjusted_dot_data:
+        #     cv2.circle(full_image, (int(x), int(y)), 4, (0, 255, 0), -1)
+        #     cv2.putText(full_image, str(label), (int(x) + 6, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        #
+        # cv2.imshow("Dots on full image", cv2.resize(full_image, None, fx=0.2, fy=0.2))
+        # cv2.waitKey(0)
 
 
         a = 510 - len(data)
@@ -860,7 +889,7 @@ def islice_detect_small_dots_and_contours (masked_region, drawtf=True):
 
             return None, None, "E2230"
 
-
+        #print(adjusted_dot_data)
         return data, annotated_dots, None
 
      except Exception as e:

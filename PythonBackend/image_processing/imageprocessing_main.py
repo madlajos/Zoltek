@@ -307,8 +307,15 @@ def process_inner_slice(image):
     if emsg is not None:
         save_image(last_valid_image, 'E22')
         return None, emsg
+    
+    offset_x, offset_y = polygon_offset
+    # Visszaskálázott pöttykoordináták az eredeti képbe
+    dot_contours = [
+        (x + offset_x, y + offset_y, label, area)
+        for x, y, label, area in dot_contours
+    ]
+    
     print('InnerSlice: ' + str(len(dot_contours)) + ' dots found!\n' + str(510 - len(dot_contours)) + ' dots missing.')
-
     return dot_contours, None
 
 #PROCESS SIDE CAMERA - OUTER SLICE
@@ -350,7 +357,7 @@ def start_side_slice(image):
     print('OuterSlice: '+ str(len(dot_contours)) + ' dots found!\n' + str(2248-len(dot_contours)) + ' dots missing.')
     # Shift dot coordinates from polygon region to original image space
     shifted_dot_contours = [
-        (x + top_left[0], y + top_left[1], col, area)
+        (x + top_left[0]+25, y + top_left[1], col, area)
         for (x, y, col, area) in dot_contours]
 
     return shifted_dot_contours, None
