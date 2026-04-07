@@ -5,7 +5,7 @@ a = Analysis(
     ['GUI_backend.py'],
     pathex=[],
     binaries=[],
-    datas=[('settings.json', '.'), ('error_messages.json', '.')],
+    datas=[('error_messages.json', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

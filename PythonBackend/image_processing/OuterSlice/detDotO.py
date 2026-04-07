@@ -357,11 +357,22 @@ def find_first_column_with_visual(dot_centers, image, tolerance_x=5, initial_ste
            # print(temp_first, temp_last, temp_leftmost)
             if not seed_column_used and not skip_first_last_append:
                 for dot in [temp_first, temp_last]:
-                  #  print(temp_first,temp_last, temp_leftmost)
                     if not any(np.array_equal(dot, sc) for sc in final_selected_column):
                         final_selected_column.append(dot)
                     if not any(np.array_equal(dot, sc) for sc in used_dots):
                         used_dots.append(dot)
+
+                    # Duplikált pontok kiszűrése
+                    seen = set()
+                    unique_column = []
+                    for dot in final_selected_column:
+                        xy = (int(dot[0]), int(dot[1]))
+                        if xy not in seen:
+                            unique_column.append(dot)
+                            seen.add(xy)
+                        else:
+                            print(f"Duplikált pont eltávolítva: {xy}")
+                    final_selected_column = unique_column
 
         # # 🔍 Görbeillesztés a végleges pontokra – csak ha seed-ből épült az oszlop
         # if seed_column_used and len(final_selected_column) >= 10:
