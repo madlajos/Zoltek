@@ -1,0 +1,10 @@
+flask
+flask-cors
+opencv-python
+pypylon
+pyodbc
+numpy
+pyserial
+requests
+pyinstaller
+matplotlib
